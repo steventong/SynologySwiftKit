@@ -52,7 +52,7 @@ extension PingPong {
      pingpong test
      https://host:port/webman/pingpong.cgi?action=cors&quickconnect=true
      */
-    func pingpong(url: String) async -> Bool {
+    private func pingpong(url: String) async -> Bool {
         Logger.debug("send request: pingpong \(url)")
         let requestUrl = buildPingPongUrl(url: url)
 
@@ -74,7 +74,7 @@ extension PingPong {
     /**
      buildPingPongUrl
      */
-    func buildPingPongUrl(url: String) -> String {
+    private func buildPingPongUrl(url: String) -> String {
         return "\(url)/webman/pingpong.cgi?action=cors&quickconnect=true"
     }
 }

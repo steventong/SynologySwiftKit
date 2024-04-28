@@ -84,7 +84,7 @@ extension DeviceConnection {
     /**
      当前URL
      */
-    func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
+    private func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
         if let url = UserDefaults.standard.string(forKey: "SynologySwiftKit_DiskStation_Connection_URL") {
             let type = UserDefaults.standard.integer(forKey: "SynologySwiftKit_DiskStation_Connection_Type")
             if let typeEnum = ConnectionType(rawValue: type) {
@@ -100,7 +100,7 @@ extension DeviceConnection {
     /**
      saveCurrentConnectionUrl
      */
-    func saveCurrentConnectionUrl(type: ConnectionType?, url: String?) {
+    private func saveCurrentConnectionUrl(type: ConnectionType?, url: String?) {
         Logger.info("saveCurrentConnectionUrl, type = \(type), url = \(url)")
         UserDefaults.standard.setValue(url, forKey: "SynologySwiftKit_DiskStation_Connection_URL")
         UserDefaults.standard.setValue(type?.rawValue ?? -1, forKey: "SynologySwiftKit_DiskStation_Connection_Type")
@@ -109,7 +109,7 @@ extension DeviceConnection {
     /**
      pingpongCurrentConnection
      */
-    func pingpongCurrentConnectionUrl() async -> Bool {
+    private func pingpongCurrentConnectionUrl() async -> Bool {
         if let connection = getCurrentConnectionUrl() {
             let pingpong = PingPong()
             return await pingpong.pingpong(url: connection.url)

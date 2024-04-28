@@ -21,7 +21,10 @@ final class SynologyUserLoginTest: XCTestCase {
 
         let synologyUserLogin = SynologyUserLogin()
         let result = try await synologyUserLogin.login(server: SecretKey.quickConnectId, username: SecretKey.username, password: SecretKey.password,
-                                                       optCode: "")
+                                                       optCode: "",
+                                                       onLoginProcessUpdate: { step in
+                                                           print("当前流程 \(step)")
+                                                       })
 
         print(result)
     }
