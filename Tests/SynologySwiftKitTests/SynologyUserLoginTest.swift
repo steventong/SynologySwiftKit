@@ -24,6 +24,8 @@ final class SynologyUserLoginTest: XCTestCase {
                                                        optCode: "",
                                                        onLoginProcessUpdate: { step in
                                                            print("当前流程 \(step)")
+                                                       }, onDiskStationConnectionUpdate: { type, url in
+                                                           print("连接信息 \(type) \(url)")
                                                        })
 
         print(result)
