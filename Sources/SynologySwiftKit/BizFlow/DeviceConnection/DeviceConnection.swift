@@ -11,7 +11,7 @@ public class DeviceConnection {
     /**
      获取设备地址
      */
-    func getDeviceConnectionByQuickConnectId(quickConnectId: String) async throws -> (ConnectionType, String)? {
+    func getDeviceConnectionByQuickConnectId(quickConnectId: String) async throws -> (type: ConnectionType, url: String)? {
         // get server info by quick connect id
         let quickConnect = QuickConnect()
         let connection = try await quickConnect.getDeviceConnection(quickConnectId: quickConnectId)
@@ -72,7 +72,11 @@ public class DeviceConnection {
         // 保存可用地址
         saveCurrentConnectionUrl(type: connectionUrl?.connnectionType, url: connectionUrl?.url)
 
-        return connectionUrl
+        if let connectionUrl {
+            return (connectionUrl.connnectionType, connectionUrl.url)
+        }
+
+        return nil
     }
 }
 

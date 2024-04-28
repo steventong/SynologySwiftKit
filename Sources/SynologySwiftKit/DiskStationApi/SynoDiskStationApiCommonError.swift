@@ -7,12 +7,13 @@
 
 import Foundation
 
-enum SynoDiskStationApiError: LocalizedError {
+enum SynoDiskStationApiCommonError: LocalizedError {
     case sslConnectionFailed(String)
     case canNotFindHostError(String)
     case commonUrlError(String)
     case responseBodyEmptyError
     case requestHostNotPressentError
+    case synoDiskStationApiError(Int)
 
     var errorDescription: String {
         switch self {
@@ -26,6 +27,8 @@ enum SynoDiskStationApiError: LocalizedError {
             return "网络请求返回结果为空"
         case .requestHostNotPressentError:
             return "请求失败，请求地址格式错误"
+        case let .synoDiskStationApiError(code):
+            return "接口返回错误: \(code)"
         }
     }
 }

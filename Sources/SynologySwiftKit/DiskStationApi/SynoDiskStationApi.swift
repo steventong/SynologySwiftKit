@@ -49,8 +49,8 @@ extension SynoDiskStationApi {
             .response
 
         // error handler
-        if let afError = response.error {
-            switch afError {
+        if let error = response.error {
+            switch error {
             case let .sessionTaskFailed(error: sessionError):
                 let sessionError = sessionError as NSError
                 switch sessionError.domain {
@@ -59,24 +59,28 @@ extension SynoDiskStationApi {
                     switch sessionError.code {
                     case NSURLErrorSecureConnectionFailed:
                         // 发生了SSL错误，无法建立与该服务器的安全连接。
-                        throw SynoDiskStationApiError.sslConnectionFailed(sessionError.localizedDescription)
+                        throw SynoDiskStationApiCommonError.sslConnectionFailed(sessionError.localizedDescription)
                     case NSURLErrorCannotFindHost:
                         // 未能找到使用指定主机名的服务器。
-                        throw SynoDiskStationApiError.canNotFindHostError(sessionError.localizedDescription)
+                        throw SynoDiskStationApiCommonError.canNotFindHostError(sessionError.localizedDescription)
                     default:
                         // 没有识别出的异常
-                        throw SynoDiskStationApiError.commonUrlError(sessionError.localizedDescription)
+                        throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
                     }
                 default:
                     // 没有识别出的异常
-                    throw SynoDiskStationApiError.commonUrlError(sessionError.localizedDescription)
+                    throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
                 }
             default:
                 // 没有识别出的异常
-                throw SynoDiskStationApiError.commonUrlError(afError.localizedDescription)
+                throw SynoDiskStationApiCommonError.commonUrlError(error.localizedDescription)
             }
         }
 
+        // handle result
+        if response.value?.success == false {
+            throw SynoDiskStationApiBizError.apiBizError(response.value?.error?.code ?? -1)
+        }
         // 解析 set-cookie
 //        parseResponseCookieHeader(setCookieValue: response.response?.value(forHTTPHeaderField: "Set-Cookie"))
 
@@ -84,7 +88,7 @@ extension SynoDiskStationApi {
             return data
         }
 
-        throw SynoDiskStationApiError.responseBodyEmptyError
+        throw SynoDiskStationApiCommonError.responseBodyEmptyError
     }
 
     /**
@@ -96,7 +100,7 @@ extension SynoDiskStationApi {
             return "\(connection.url)\(apiUrl)"
         }
 
-        throw SynoDiskStationApiError.requestHostNotPressentError
+        throw SynoDiskStationApiCommonError.requestHostNotPressentError
     }
 
     /**

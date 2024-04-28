@@ -67,7 +67,7 @@ enum DiskStationApiDefine: String {
     var apiVersion: Int {
         switch self {
         case .SYNO_API_AUTH:
-            return 7
+            return 6
         default:
             return 1
         }
