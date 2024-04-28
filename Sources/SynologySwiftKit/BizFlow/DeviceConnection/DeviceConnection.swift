@@ -12,6 +12,11 @@ public class DeviceConnection {
      获取设备地址
      */
     func getDeviceConnectionByQuickConnectId(quickConnectId: String) async throws -> (type: ConnectionType, url: String)? {
+        // 非 quickConnectID 直接返回
+        guard isQuickConnectId(quickConnectId: quickConnectId) else {
+            return (ConnectionType.custom_domain, quickConnectId)
+        }
+
         // get server info by quick connect id
         let quickConnect = QuickConnect()
         let connection = try await quickConnect.getDeviceConnection(quickConnectId: quickConnectId)
@@ -81,6 +86,17 @@ public class DeviceConnection {
 }
 
 extension DeviceConnection {
+    /**
+     判断是否是 quickConnect ID
+     */
+    func isQuickConnectId(quickConnectId: String) -> Bool {
+        if quickConnectId.contains(".") {
+            return false
+        }
+
+        return true
+    }
+
     /**
      当前URL
      */
