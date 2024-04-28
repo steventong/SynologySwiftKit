@@ -14,7 +14,7 @@ public actor SynologyUserLogin {
      */
     func login(server: String, username: String, password: String, optCode: String? = nil) async throws {
         let deviceConnection = DeviceConnection()
-        let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: "steventong")
+        let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: server)
         Logger.info("connection: \(connection)")
 
         guard let connection else {

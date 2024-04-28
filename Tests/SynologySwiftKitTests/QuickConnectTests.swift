@@ -24,7 +24,7 @@ final class QuickConnectTests: XCTestCase {
         }
 
         let quickConnect = QuickConnect()
-        let result = try await quickConnect.getDeviceConnection(quickConnectId: "steventong")
+        let result = try await quickConnect.getDeviceConnection(quickConnectId: SecretKey.quickConnectId)
 
         print(result)
     }
@@ -34,7 +34,7 @@ final class QuickConnectTests: XCTestCase {
      */
     func testGetConnectionByQcIdWithCache() async throws {
         let quickConnect = QuickConnect()
-        let result = try await quickConnect.getDeviceConnection(quickConnectId: "steventong")
+        let result = try await quickConnect.getDeviceConnection(quickConnectId: SecretKey.quickConnectId)
 
         print(result)
     }

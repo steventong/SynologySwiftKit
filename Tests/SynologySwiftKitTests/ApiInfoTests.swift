@@ -14,7 +14,7 @@ final class ApiInfoTests: XCTestCase {
      */
     func testGetApiInfo() async throws {
         let deviceConnection = DeviceConnection()
-        let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: "steventong")
+        let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId)
 
         if let connection {
             Logger.info("device connection: \(connection)")
