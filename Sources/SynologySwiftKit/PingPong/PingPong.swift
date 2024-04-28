@@ -16,6 +16,29 @@ class PingPong {
     }
 
     /**
+     pingpong test
+     https://host:port/webman/pingpong.cgi?action=cors&quickconnect=true
+     */
+    func pingpong(url: String) async -> Bool {
+        Logger.debug("send request: pingpong \(url)")
+        let requestUrl = buildPingPongUrl(url: url)
+
+        do {
+            let result = try await session
+                .request(requestUrl)
+                .serializingDecodable(PingPongResult.self)
+                .value
+
+            return result.success
+        } catch {
+            print(error)
+        }
+
+        Logger.debug("send request: pingpong fail \(url)")
+        return false
+    }
+
+    /**
       pingpong url
      */
     func pingpong(urls: [ConnectionType: String]) async -> [ConnectionType: String] {
@@ -48,29 +71,6 @@ class PingPong {
 }
 
 extension PingPong {
-    /**
-     pingpong test
-     https://host:port/webman/pingpong.cgi?action=cors&quickconnect=true
-     */
-    private func pingpong(url: String) async -> Bool {
-        Logger.debug("send request: pingpong \(url)")
-        let requestUrl = buildPingPongUrl(url: url)
-
-        do {
-            let result = try await session
-                .request(requestUrl)
-                .serializingDecodable(PingPongResult.self)
-                .value
-
-            return result.success
-        } catch {
-            print(error)
-        }
-
-        Logger.debug("send request: pingpong fail \(url)")
-        return false
-    }
-
     /**
      buildPingPongUrl
      */

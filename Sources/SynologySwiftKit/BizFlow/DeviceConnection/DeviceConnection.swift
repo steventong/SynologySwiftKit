@@ -85,8 +85,8 @@ extension DeviceConnection {
      当前URL
      */
     private func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
-        if let url = UserDefaults.standard.string(forKey: "SynologySwiftKit_DiskStation_Connection_URL") {
-            let type = UserDefaults.standard.integer(forKey: "SynologySwiftKit_DiskStation_Connection_Type")
+        if let url = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName) {
+            let type = UserDefaults.standard.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             if let typeEnum = ConnectionType(rawValue: type) {
                 Logger.info("getCurrentConnectionUrl, type = \(typeEnum), url = \(url)")
                 return (typeEnum, url)
@@ -101,9 +101,17 @@ extension DeviceConnection {
      saveCurrentConnectionUrl
      */
     private func saveCurrentConnectionUrl(type: ConnectionType?, url: String?) {
-        Logger.info("saveCurrentConnectionUrl, type = \(type), url = \(url)")
-        UserDefaults.standard.setValue(url, forKey: "SynologySwiftKit_DiskStation_Connection_URL")
-        UserDefaults.standard.setValue(type?.rawValue ?? -1, forKey: "SynologySwiftKit_DiskStation_Connection_Type")
+        if let type, let url {
+            UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+            UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+
+            Logger.info("saveCurrentConnectionUrl, save type = \(type), url = \(url)")
+        } else {
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+
+            Logger.info("saveCurrentConnectionUrl, removeObject type, url")
+        }
     }
 
     /**
