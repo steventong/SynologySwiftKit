@@ -11,14 +11,14 @@ import Foundation
 public actor QuickConnect {
     let session: Session
 
-    init() {
+    public init() {
         session = AlamofireClient.shared.session()
     }
 
     /**
      查询机器连接信息
      */
-    func getDeviceConnection(quickConnectId: String) async throws -> (synologyServerUrl: String, connections: [ConnectionType: String], httpType: HttpType) {
+    public func getDeviceConnection(quickConnectId: String) async throws -> (synologyServerUrl: String, connections: [ConnectionType: String], httpType: HttpType) {
         // 通过 quick connect Id 查询机器的地址连接信息
         let synologyServerUrl = fetchSynologyServerUrlFromCache(quickConnectId: quickConnectId)
         Logger.debug("quickConnectId: \(quickConnectId), initial synologyServerUrl: \(synologyServerUrl)")
@@ -70,7 +70,7 @@ public actor QuickConnect {
     /**
      查询机器连接信息。
      */
-    func getDeviceRelayConnection(synologyServerUrl: String, quickConnectId: String, httpType: HttpType) async -> String? {
+    public func getDeviceRelayConnection(synologyServerUrl: String, quickConnectId: String, httpType: HttpType) async -> String? {
         do {
             let serverInfo = try await invokeSynologyRequestTunnel(synologyServerUrl: synologyServerUrl, quickConnectId: quickConnectId, httpType: httpType)
 

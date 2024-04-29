@@ -9,7 +9,7 @@ import Foundation
 
 extension Auth {
 
-    struct AuthResult: Decodable {
+    public struct AuthResult: Decodable {
         
         var did: String?
         

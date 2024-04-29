@@ -16,15 +16,17 @@ public actor SynologyUserLogin {
     /**
      server: quickConnectId 或者是 域名+端口号
      */
-    func login(server: String, username: String, password: String, optCode: String? = nil
-               , onLoginProcessUpdate: @escaping (SynologyUserLoginStep) -> Void
-               , onDiskStationConnectionUpdate: @escaping (ConnectionType, String) -> Void) async throws {
+    public func login(server: String, username: String, password: String, optCode: String? = nil,
+                      onLoginProcessUpdate: @escaping (SynologyUserLoginStep) -> Void,
+                      onDiskStationConnectionUpdate: @escaping (ConnectionType, String) -> Void) async throws {
+        onLoginProcessUpdate(.STEP_START)
         onLoginProcessUpdate(.FETCH_CONNECTION)
 
         let deviceConnection = DeviceConnection()
         let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: server)
 
         guard let connection else {
+            onLoginProcessUpdate(.STEP_FINISH)
             throw SynologyUserLoginError.connectionUnAvaliable
         }
 
@@ -41,6 +43,7 @@ public actor SynologyUserLogin {
         onLoginProcessUpdate(.USER_LOGIN_SUCCESS)
 
         Logger.info("authResult: \(authResult)")
+        onLoginProcessUpdate(.STEP_FINISH)
     }
 }
 

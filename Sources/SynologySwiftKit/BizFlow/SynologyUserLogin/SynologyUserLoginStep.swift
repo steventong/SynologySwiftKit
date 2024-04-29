@@ -8,8 +8,13 @@
 import Foundation
 
 public enum SynologyUserLoginStep {
+    case STEP_START
+
     case FETCH_CONNECTION
     case FETCH_CONNECTION_SUCCESS
+
     case USER_LOGIN
     case USER_LOGIN_SUCCESS
+
+    case STEP_FINISH
 }

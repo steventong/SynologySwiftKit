@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum SynoDiskStationApiBizError: LocalizedError {
+public enum SynoDiskStationApiBizError: LocalizedError {
     case apiBizError(Int)
 
     var errorDescription: String {

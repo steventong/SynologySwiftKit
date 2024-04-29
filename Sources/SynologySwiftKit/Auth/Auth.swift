@@ -8,10 +8,10 @@
 import Alamofire
 import Foundation
 
-actor Auth {
+public actor Auth {
     let session: Session
 
-    init() {
+    public init() {
         session = AlamofireClient.shared.session()
     }
 
@@ -32,7 +32,7 @@ actor Auth {
         - device_name: (Optional) To identify which device can be omitted from 2-factor authentication (OTP), pass this value will skip it.
         - device_id: (Optional) If 2-factor authentication (OTP) has omitted the same enabled device id, pass this value to skip it.
      */
-    func userLogin(server: String, username: String, password: String, optCode: String? = nil) async throws -> AuthResult {
+    public func userLogin(server: String, username: String, password: String, optCode: String? = nil) async throws -> AuthResult {
         Logger.debug("send request: userLogin, \(server), \(username)")
 
         let deviceName = getDeviceName()

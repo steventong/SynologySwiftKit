@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum ConnectionType: Int, CaseIterable {
+public enum ConnectionType: Int, CaseIterable {
     case lan = 1
     case ddns = 2
     case relay = 3
@@ -53,7 +53,7 @@ enum ConnectionType: Int, CaseIterable {
     }
 }
 
-enum HttpType {
+public enum HttpType {
     case HTTPS
     case HTTP
 

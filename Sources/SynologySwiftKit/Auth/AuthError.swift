@@ -7,7 +7,8 @@
 
 import Foundation
 
-enum AuthError: Int, LocalizedError {
+public enum AuthError: Int, LocalizedError {
+
     case noSuchAccountOrIncorrectPassword = 400
     case disabledAccount = 401
     case deniedPermission = 402
