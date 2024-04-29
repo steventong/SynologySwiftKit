@@ -9,6 +9,10 @@ import Foundation
 import OSLog
 
 public actor SynologyUserLogin {
+    // init
+    public init() {
+    }
+
     /**
      server: quickConnectId 或者是 域名+端口号
      */
