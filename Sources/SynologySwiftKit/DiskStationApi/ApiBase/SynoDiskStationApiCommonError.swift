@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum SynoDiskStationApiCommonError: LocalizedError {
+public enum SynoDiskStationApiCommonError: LocalizedError {
     case sslConnectionFailed(String)
     case canNotFindHostError(String)
     case commonUrlError(String)

@@ -34,7 +34,7 @@ extension SynoDiskStationApi {
     /**
      request
      */
-    func request<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
+    private func request<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
         let apiUrl = try apiUrl(apiUrl: url)
 
         var parameters = self.parameters
@@ -94,7 +94,7 @@ extension SynoDiskStationApi {
     /**
      api url
      */
-    func apiUrl(apiUrl: String) throws -> String {
+    private func apiUrl(apiUrl: String) throws -> String {
         let deviceConnection = DeviceConnection()
         if let connection = deviceConnection.getCurrentConnectionUrl() {
             return "\(connection.url)\(apiUrl)"
@@ -106,14 +106,14 @@ extension SynoDiskStationApi {
     /**
       api version
      */
-    func apiVersion(apiName: String, apiVersion: Int) -> Int {
+    private func apiVersion(apiName: String, apiVersion: Int) -> Int {
         return apiVersion
     }
 
     /**
      result model container
      */
-    struct DiskStationApiResult<Data: Decodable>: Decodable {
+    private struct DiskStationApiResult<Data: Decodable>: Decodable {
         var success: Bool
         var error: SynoApiAuthError?
 
@@ -123,7 +123,7 @@ extension SynoDiskStationApi {
     /**
      result model container
      */
-    struct SynoApiAuthError: Decodable {
+    private struct SynoApiAuthError: Decodable {
         var code: Int
     }
 }

@@ -7,7 +7,7 @@
 
 import Alamofire
 
-enum DiskStationApiDefine: String {
+public enum DiskStationApiDefine: String {
     /**
      api info
      */
