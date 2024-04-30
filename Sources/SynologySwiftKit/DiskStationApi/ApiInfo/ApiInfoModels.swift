@@ -7,10 +7,10 @@
 
 import Foundation
 
-struct ApiInfoNode: Decodable {
-    let path: String
-    let minVersion: Int
-    let maxVersion: Int
+public struct ApiInfoNode: Decodable {
+    public let path: String
+    public let minVersion: Int
+    public let maxVersion: Int
 
-    var requestFormat: String?
+    public var requestFormat: String?
 }

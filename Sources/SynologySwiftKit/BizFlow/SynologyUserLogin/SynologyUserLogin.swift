@@ -21,7 +21,7 @@ public actor SynologyUserLogin {
      */
     public func login(server: String, username: String, password: String, optCode: String? = nil,
                       onLoginProcessUpdate: @escaping (SynologyUserLoginStep) -> Void,
-                      onDiskStationConnectionUpdate: @escaping (ConnectionType, String) -> Void) async throws {
+                      onDiskStationConnectionUpdate: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
         onLoginProcessUpdate(.STEP_START)
 
         let isQuickConnectID = deviceConnection.isQuickConnectId(server: server)
@@ -51,6 +51,8 @@ public actor SynologyUserLogin {
 
         Logger.info("authResult: \(authResult)")
         onLoginProcessUpdate(.STEP_FINISH)
+
+        return authResult
     }
 }
 

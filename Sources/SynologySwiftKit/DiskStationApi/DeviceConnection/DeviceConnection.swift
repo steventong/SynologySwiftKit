@@ -14,7 +14,7 @@ public class DeviceConnection {
     /**
      获取设备地址
      */
-    func getDeviceConnectionByQuickConnectId(quickConnectId: String) async throws -> (type: ConnectionType, url: String)? {
+    public func getDeviceConnectionByQuickConnectId(quickConnectId: String) async throws -> (type: ConnectionType, url: String)? {
         // get server info by quick connect id
         let connection = try await quickConnect.getDeviceConnection(quickConnectId: quickConnectId)
 
@@ -85,7 +85,7 @@ extension DeviceConnection {
     /**
      判断是否是 quickConnect ID
      */
-    func isQuickConnectId(server: String) -> Bool {
+    public func isQuickConnectId(server: String) -> Bool {
         if server.contains(".") {
             return false
         }
@@ -96,7 +96,7 @@ extension DeviceConnection {
     /**
      当前URL
      */
-    func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
+    public func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
         if let url = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName) {
             let type = UserDefaults.standard.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             if let typeEnum = ConnectionType(rawValue: type) {

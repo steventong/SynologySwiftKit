@@ -11,14 +11,14 @@ import Foundation
 public actor ApiInfo {
     let session: Session
 
-    init() {
+    public init() {
         session = AlamofireClient.shared.session()
     }
 
     /**
      getApiInfo
      */
-    func getApiInfo() async throws {
+    public func getApiInfo() async throws -> [String: ApiInfoNode] {
         let api = SynoDiskStationApi(api: .SYNO_API_INFO, method: "query", parameters: [
             "query": "all",
         ])
@@ -26,5 +26,7 @@ public actor ApiInfo {
         let apiInfoList = try await api.request(resultType: [String: ApiInfoNode].self)
 
         Logger.info("apiInfo: \(apiInfoList)")
+
+        return apiInfoList
     }
 }

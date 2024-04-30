@@ -30,6 +30,24 @@ public enum ConnectionType: Int, CaseIterable {
     case custom_domain = 99
 
     /**
+     get by name
+     */
+    public static func getConnectionType(typeName: String) -> ConnectionType? {
+        switch typeName {
+        case "lan":
+            .lan
+        case "ddns":
+            .ddns
+        case "relay":
+            .relay
+        case "custom_domain":
+            .custom_domain
+        default:
+            nil
+        }
+    }
+
+    /**
      name
      */
     public var name: String {

@@ -88,7 +88,11 @@ public actor QuickConnect {
 }
 
 extension QuickConnect {
-    func fetchSynologyServerUrlFromCache(quickConnectId: String) -> String {
+    public func buildServerUrlFromHost(host: String) -> String {
+        return "https://\(host)/Serv.php"
+    }
+
+    private func fetchSynologyServerUrlFromCache(quickConnectId: String) -> String {
         let key = buildSynologyServerUrlUserDefaultsKey(quickConnectId: quickConnectId)
 
         if let synologyServerUrl = UserDefaults.standard.string(forKey: key) {
@@ -99,24 +103,20 @@ extension QuickConnect {
         return "global.quickconnect.to"
     }
 
-    func saveSynologyServerToCache(quickConnectId: String, synologyServerUrl: String) {
+    private func saveSynologyServerToCache(quickConnectId: String, synologyServerUrl: String) {
         let key = buildSynologyServerUrlUserDefaultsKey(quickConnectId: quickConnectId)
         UserDefaults.standard.setValue(synologyServerUrl, forKey: key)
         Logger.debug("persist user-defaults: \(key)=\(synologyServerUrl)")
     }
 
-    func buildSynologyServerUrlUserDefaultsKey(quickConnectId: String) -> String {
+    private func buildSynologyServerUrlUserDefaultsKey(quickConnectId: String) -> String {
         return "SynologySwiftKit_SynologyServer_\(quickConnectId)"
-    }
-
-    func buildServerUrlFromHost(host: String) -> String {
-        return "https://\(host)/Serv.php"
     }
 
     /**
      发起 get_server_info 请求
      */
-    func invokeSynologyGetServerInfo(synologyServerUrl: String, quickConnectId: String) async throws -> [ServerInfo] {
+    private func invokeSynologyGetServerInfo(synologyServerUrl: String, quickConnectId: String) async throws -> [ServerInfo] {
         Logger.debug("send request: invokeSynologyGetServerInfo, \(synologyServerUrl)")
 
         // https 优先
@@ -137,7 +137,7 @@ extension QuickConnect {
     /**
      并发多个 get_server_info 请求
      */
-    func invokeSynologyGetServerInfoOnMultiServers(synologyServerUrls: [String], quickConnectId: String) async throws -> (synologyServerUrl: String, serverInfo: ServerInfo, httpType: HttpType)? {
+    private func invokeSynologyGetServerInfoOnMultiServers(synologyServerUrls: [String], quickConnectId: String) async throws -> (synologyServerUrl: String, serverInfo: ServerInfo, httpType: HttpType)? {
         Logger.debug("send request: invokeSynologyGetServerInfoOnMultiServers, \(synologyServerUrls)")
         return await withTaskGroup(of: (synologyServerUrl: String, serverInfo: ServerInfo, httpType: HttpType)?.self, returning: (synologyServerUrl: String, serverInfo: ServerInfo, httpType: HttpType)?.self, body: { taskGroup in
 
@@ -178,7 +178,7 @@ extension QuickConnect {
     /**
      请求synology 服务端接口，
      */
-    func invokeSynologyRequestTunnel(synologyServerUrl: String, quickConnectId: String, httpType: HttpType) async throws -> ServerInfo {
+    private func invokeSynologyRequestTunnel(synologyServerUrl: String, quickConnectId: String, httpType: HttpType) async throws -> ServerInfo {
         Logger.debug("send request: invokeSynologyRequestTunnel \(synologyServerUrl)")
 
         let dsm_portal_id = httpType == .HTTPS ? "dsm_portal_https" : "dsm_portal"
@@ -194,7 +194,7 @@ extension QuickConnect {
     /**
      解析地址
      */
-    func parseConnections(serverInfo: ServerInfo, httpType: HttpType, targetType: [ConnectionType]) -> [ConnectionType: String] {
+    private func parseConnections(serverInfo: ServerInfo, httpType: HttpType, targetType: [ConnectionType]) -> [ConnectionType: String] {
         var connections: [ConnectionType: String] = [:]
 
         // 解析 lan 格式地址
