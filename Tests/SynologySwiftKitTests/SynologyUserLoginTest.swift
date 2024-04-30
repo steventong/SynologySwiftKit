@@ -20,14 +20,12 @@ final class SynologyUserLoginTest: XCTestCase {
 //        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_NAME.keyName)
 
         let synologyUserLogin = SynologyUserLogin()
-        let result = try await synologyUserLogin.login(server: SecretKey.quickConnectId, username: SecretKey.username, password: SecretKey.password,
-                                                       optCode: "",
-                                                       onLoginProcessUpdate: { step in
-                                                           print("当前流程 \(step)")
-                                                       }, onDiskStationConnectionUpdate: { type, url in
-                                                           print("连接信息 \(type) \(url)")
-                                                       })
-
-        print(result)
+        try await synologyUserLogin.login(server: SecretKey.quickConnectId, username: SecretKey.username, password: SecretKey.password,
+                                          optCode: "",
+                                          onLoginProcessUpdate: { step in
+                                              print("当前流程 \(step)")
+                                          }, onDiskStationConnectionUpdate: { type, url in
+                                              print("连接信息 \(type) \(url)")
+                                          })
     }
 }

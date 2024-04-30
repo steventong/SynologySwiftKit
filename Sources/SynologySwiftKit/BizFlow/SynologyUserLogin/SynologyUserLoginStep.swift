@@ -10,11 +10,14 @@ import Foundation
 public enum SynologyUserLoginStep {
     case STEP_START
 
-    case FETCH_CONNECTION
-    case FETCH_CONNECTION_SUCCESS
+    case QC_FETCH_CONNECTION
+    case QC_FETCH_CONNECTION_SUCCESS
 
-    case USER_LOGIN
-    case USER_LOGIN_SUCCESS
+    case QC_USER_LOGIN
+    case QC_USER_LOGIN_SUCCESS
+
+    case CUSTOM_DOMAIN_USER_LOGIN
+    case CUSTOM_DOMAIN_USER_LOGIN_SUCCESS
 
     case STEP_FINISH
 }

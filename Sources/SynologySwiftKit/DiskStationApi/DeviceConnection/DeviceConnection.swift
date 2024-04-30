@@ -8,28 +8,22 @@
 import Foundation
 
 public class DeviceConnection {
+    let quickConnect = QuickConnect()
+    let pingpong = PingPong()
+
     /**
      获取设备地址
      */
     func getDeviceConnectionByQuickConnectId(quickConnectId: String) async throws -> (type: ConnectionType, url: String)? {
-        // 非 quickConnectID 直接返回
-        guard isQuickConnectId(quickConnectId: quickConnectId) else {
-            return (ConnectionType.custom_domain, quickConnectId)
-        }
-
         // get server info by quick connect id
-        let quickConnect = QuickConnect()
         let connection = try await quickConnect.getDeviceConnection(quickConnectId: quickConnectId)
-
-        // pingpong
-        let pingpong = PingPong()
 
         // 测试获取连接信息
         let connectionUrl = await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: (connnectionType: ConnectionType, url: String)?.self, body: { taskGroup in
             // 子任务：pingpong 获取到的地址, 测试可达性
             taskGroup.addTask {
                 Logger.debug("getDeviceConnectionByQuickConnectionId, add task1, pingpong task")
-                let avaliablePingpong = await pingpong.pingpong(urls: connection.connections)
+                let avaliablePingpong = await self.pingpong.pingpong(urls: connection.connections)
                 if !avaliablePingpong.isEmpty {
                     // 优先返回的顺序
                     for connectionType in ConnectionType.ordered {
@@ -48,8 +42,8 @@ public class DeviceConnection {
                 // 如果不包含 relay，发出 requestTunnel, synology relay server
                 if !connection.connections.keys.contains(.relay) {
                     Logger.debug("relay connection is not present, send request_tunnel request, synologyServerUrl = \(connection.synologyServerUrl)")
-                    let synologyServerRequestUrl = await quickConnect.buildServerUrlFromHost(host: connection.synologyServerUrl)
-                    if let relayUrl = await quickConnect.getDeviceRelayConnection(synologyServerUrl: synologyServerRequestUrl, quickConnectId: quickConnectId, httpType: connection.httpType) {
+                    let synologyServerRequestUrl = await self.quickConnect.buildServerUrlFromHost(host: connection.synologyServerUrl)
+                    if let relayUrl = await self.quickConnect.getDeviceRelayConnection(synologyServerUrl: synologyServerRequestUrl, quickConnectId: quickConnectId, httpType: connection.httpType) {
                         Logger.debug("send request_tunnel request, relayUrl: \(relayUrl)")
                         return (ConnectionType.relay, relayUrl)
                     }
@@ -65,6 +59,8 @@ public class DeviceConnection {
                     finalConnections[result.connnectionType] = result.url
                 }
             }
+
+            // 按顺序查找优先连接
             for connectionType in ConnectionType.ordered {
                 if let url = finalConnections[connectionType] {
                     return (connectionType, url)
@@ -89,8 +85,8 @@ extension DeviceConnection {
     /**
      判断是否是 quickConnect ID
      */
-    func isQuickConnectId(quickConnectId: String) -> Bool {
-        if quickConnectId.contains(".") {
+    func isQuickConnectId(server: String) -> Bool {
+        if server.contains(".") {
             return false
         }
 

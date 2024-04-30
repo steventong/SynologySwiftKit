@@ -9,6 +9,9 @@ import Foundation
 import OSLog
 
 public actor SynologyUserLogin {
+    let deviceConnection = DeviceConnection()
+    let auth = Auth()
+
     // init
     public init() {
     }
@@ -20,10 +23,9 @@ public actor SynologyUserLogin {
                       onLoginProcessUpdate: @escaping (SynologyUserLoginStep) -> Void,
                       onDiskStationConnectionUpdate: @escaping (ConnectionType, String) -> Void) async throws {
         onLoginProcessUpdate(.STEP_START)
-        onLoginProcessUpdate(.FETCH_CONNECTION)
 
-        let deviceConnection = DeviceConnection()
-        let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: server)
+        let isQuickConnectID = deviceConnection.isQuickConnectId(server: server)
+        let connection = try await fetchConnectionUrl(server: server, onLoginProcessUpdate: onLoginProcessUpdate)
 
         guard let connection else {
             onLoginProcessUpdate(.STEP_FINISH)
@@ -31,16 +33,21 @@ public actor SynologyUserLogin {
         }
 
         onDiskStationConnectionUpdate(connection.type, connection.url)
-        onLoginProcessUpdate(.FETCH_CONNECTION_SUCCESS)
-
         Logger.info("connection: \(connection)")
 
-        onLoginProcessUpdate(.USER_LOGIN)
+        if isQuickConnectID {
+            onLoginProcessUpdate(.QC_USER_LOGIN)
+        } else {
+            onLoginProcessUpdate(.CUSTOM_DOMAIN_USER_LOGIN)
+        }
 
-        let auth = Auth()
         let authResult = try await auth.userLogin(server: connection.url, username: username, password: password, optCode: optCode)
 
-        onLoginProcessUpdate(.USER_LOGIN_SUCCESS)
+        if isQuickConnectID {
+            onLoginProcessUpdate(.QC_USER_LOGIN_SUCCESS)
+        } else {
+            onLoginProcessUpdate(.CUSTOM_DOMAIN_USER_LOGIN_SUCCESS)
+        }
 
         Logger.info("authResult: \(authResult)")
         onLoginProcessUpdate(.STEP_FINISH)
@@ -48,4 +55,19 @@ public actor SynologyUserLogin {
 }
 
 extension SynologyUserLogin {
+    /**
+     fetchConnectionUrl
+     */
+    func fetchConnectionUrl(server: String, onLoginProcessUpdate: @escaping (SynologyUserLoginStep) -> Void) async throws -> (type: ConnectionType, url: String)? {
+        let isQuickConnectID = deviceConnection.isQuickConnectId(server: server)
+        if isQuickConnectID {
+            onLoginProcessUpdate(.QC_FETCH_CONNECTION)
+            let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: server)
+
+            onLoginProcessUpdate(.QC_FETCH_CONNECTION_SUCCESS)
+            return connection
+        }
+
+        return (ConnectionType.custom_domain, server)
+    }
 }

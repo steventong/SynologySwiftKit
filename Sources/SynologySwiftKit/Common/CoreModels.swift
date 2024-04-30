@@ -32,7 +32,7 @@ public enum ConnectionType: Int, CaseIterable {
     /**
      name
      */
-    var name: String {
+    public var name: String {
         switch self {
         case .lan:
             "lan"
@@ -57,7 +57,7 @@ public enum HttpType {
     case HTTPS
     case HTTP
 
-    var httpScheme: String {
+    public var httpScheme: String {
         switch self {
         case .HTTPS:
             "https://"
