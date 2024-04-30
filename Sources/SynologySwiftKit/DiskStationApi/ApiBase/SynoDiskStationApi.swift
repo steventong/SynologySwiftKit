@@ -28,13 +28,11 @@ struct SynoDiskStationApi {
         self.parameters = parameters
         url = api.apiUrl
     }
-}
 
-extension SynoDiskStationApi {
     /**
      request
      */
-    private func request<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
+    public func request<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
         let apiUrl = try apiUrl(apiUrl: url)
 
         var parameters = self.parameters
@@ -90,7 +88,9 @@ extension SynoDiskStationApi {
 
         throw SynoDiskStationApiCommonError.responseBodyEmptyError
     }
+}
 
+extension SynoDiskStationApi {
     /**
      api url
      */
