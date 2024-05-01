@@ -28,11 +28,11 @@ extension QuickConnect {
 
     struct ServerInfo: Decodable {
         // common
-//        let command: String
-//        let version: Int
+        let command: String
+        let version: Int
         let errno: Int
         let suberrno: Int?
-//        let errinfo: String?
+        let errinfo: String?
 
         //  "errno": 4,  "suberrno": 3
         let sites: [String]?

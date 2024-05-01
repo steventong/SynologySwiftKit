@@ -44,7 +44,7 @@ public class CheckDeviceConnection {
             return nil
         }
 
-        // qc
+        // fetch server connection by qc
         do {
             return try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
         } catch {

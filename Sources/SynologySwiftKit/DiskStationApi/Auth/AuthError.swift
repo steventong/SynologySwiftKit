@@ -7,8 +7,7 @@
 
 import Foundation
 
-public enum AuthError: Int, LocalizedError {
-
+public enum AuthError: Int, Error, LocalizedError {
     case noSuchAccountOrIncorrectPassword = 400
     case disabledAccount = 401
     case deniedPermission = 402
@@ -20,28 +19,31 @@ public enum AuthError: Int, LocalizedError {
     case expiredPassword = 409
     case passwordMustBeChanged = 410
 
-    var errorDescription: String {
+    /**
+     errorDescription
+     */
+    public var errorDescription: String? {
         switch self {
         case .noSuchAccountOrIncorrectPassword:
-            return "No such account or incorrect password."
+            return NSLocalizedString("NO_SUCH_ACCOUNT_OR_INCORRECT_PASSWORD", comment: "")
         case .disabledAccount:
-            return "Disabled account."
+            return NSLocalizedString("DISABLED_ACCOUNT", comment: "")
         case .deniedPermission:
-            return "Denied permission."
+            return NSLocalizedString("DENIED_PERMISSION", comment: "")
         case .authenticationCodeRequired:
-            return "2-factor authentication code required."
+            return NSLocalizedString("AUTHENTICATION_CODE_REQUIRED", comment: "")
         case .authenticationCodeFailed:
-            return "Failed to authenticate 2-factor authentication code."
+            return NSLocalizedString("AUTHENTICATION_CODE_FAILED", comment: "")
         case .enforceAuthenticationWithCode:
-            return "Enforce to authenticate with 2-factor authentication code."
+            return NSLocalizedString("ENFORCE_AUTHENTICATION_WITH_CODE", comment: "")
         case .blockedIPSource:
-            return "Blocked IP source."
+            return NSLocalizedString("BLOCKED_IP_SOURCE", comment: "")
         case .expiredPasswordCannotChange:
-            return "Expired password cannot change."
+            return NSLocalizedString("EXPIRED_PASSWORD_CANNOT_CHANGE", comment: "")
         case .expiredPassword:
-            return "Expired password."
+            return NSLocalizedString("EXPIRED_PASSWORD", comment: "")
         case .passwordMustBeChanged:
-            return "Password must be changed."
+            return NSLocalizedString("PASSWORD_MUST_BE_CHANGED", comment: "")
         }
     }
 }

@@ -123,6 +123,7 @@ extension QuickConnect {
             }
         }
 
+        Logger.debug("get_server_info can not find serverInfo, serverInfo: \(serverInfo)")
         return nil
     }
 
