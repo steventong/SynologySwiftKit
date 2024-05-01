@@ -13,11 +13,14 @@ public enum SynologyUserLoginStep {
     case QC_FETCH_CONNECTION
     case QC_FETCH_CONNECTION_SUCCESS
 
-    case QC_USER_LOGIN
-    case QC_USER_LOGIN_SUCCESS
-
-    case CUSTOM_DOMAIN_USER_LOGIN
-    case CUSTOM_DOMAIN_USER_LOGIN_SUCCESS
+    case USER_LOGIN(FetchConnectionType)
+    case USER_LOGIN_SUCCESS(FetchConnectionType)
 
     case STEP_FINISH
+}
+
+public enum FetchConnectionType {
+    case QUICK_CONNECT_ID
+
+    case CUSTOM_DOMAIN
 }

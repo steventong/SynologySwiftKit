@@ -32,8 +32,8 @@ public enum ConnectionType: Int, CaseIterable {
     /**
      get by name
      */
-    public static func getConnectionType(typeName: String) -> ConnectionType? {
-        switch typeName {
+    public static func getByName(name: String) -> ConnectionType? {
+        switch name {
         case "lan":
             .lan
         case "ddns":

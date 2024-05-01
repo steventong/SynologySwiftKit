@@ -16,28 +16,10 @@ extension QuickConnect {
         let stop_when_success: Bool
         let stop_when_error: Bool
 
-        init(id: String, serverID: String) {
+        init(id: String, serverID: String, command: String) {
             self.id = id
             self.serverID = serverID
-            command = "get_server_info"
-            version = 1
-            stop_when_success = false
-            stop_when_error = false
-        }
-    }
-
-    struct SynoRequestTunnelRequest: Encodable {
-        let id: String
-        let command: String
-        let serverID: String
-        let version: Int
-        let stop_when_success: Bool
-        let stop_when_error: Bool
-
-        init(id: String, serverID: String) {
-            self.id = id
-            self.serverID = serverID
-            command = "request_tunnel"
+            self.command = command
             version = 1
             stop_when_success = false
             stop_when_error = false

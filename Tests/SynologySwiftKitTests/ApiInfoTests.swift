@@ -9,12 +9,13 @@
 import XCTest
 
 final class ApiInfoTests: XCTestCase {
+    let quickConnect = QuickConnect()
+
     /**
      testGetApiInfo
      */
     func testGetApiInfo() async throws {
-        let deviceConnection = DeviceConnection()
-        let connection = try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId)
+        let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
 
         if let connection {
             Logger.info("device connection: \(connection)")

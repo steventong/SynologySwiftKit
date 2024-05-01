@@ -8,6 +8,7 @@
 import Foundation
 
 public class CheckDeviceConnection {
+    let quickConnect = QuickConnect()
     let deviceConnection = DeviceConnection()
     let pingpong = PingPong()
 
@@ -17,7 +18,7 @@ public class CheckDeviceConnection {
     /**
      check device connection status
      */
-    public func checkStatus(url: String?, urlType: ConnectionType?, server: String?) async -> (type: ConnectionType, url: String)? {
+    public func checkStatus(url: String?, urlType: ConnectionType?, server: String?, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
         // ping exist url
         if let url, let urlType {
             let ping = await pingpong.pingpong(url: url)
@@ -32,7 +33,7 @@ public class CheckDeviceConnection {
             return nil
         }
 
-        let isQuickConnectId = deviceConnection.isQuickConnectId(server: server)
+        let isQuickConnectId = await quickConnect.isQuickConnectId(server: server)
 
         // domain
         if !isQuickConnectId {
@@ -45,7 +46,7 @@ public class CheckDeviceConnection {
 
         // qc
         do {
-            return try await deviceConnection.getDeviceConnectionByQuickConnectId(quickConnectId: server)
+            return try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
         } catch {
             return nil
         }

@@ -21,10 +21,10 @@ final class SynologyUserLoginTest: XCTestCase {
 
         let synologyUserLogin = SynologyUserLogin()
         let authResult = try await synologyUserLogin.login(server: SecretKey.quickConnectId, username: SecretKey.username, password: SecretKey.password,
-                                                           optCode: "",
-                                                           onLoginProcessUpdate: { step in
+                                                           optCode: "", enableHttps: true,
+                                                           onLoginStepUpdate: { step in
                                                                print("当前流程 \(step)")
-                                                           }, onDiskStationConnectionUpdate: { type, url in
+                                                           }, onConnectionFetch: { type, url in
                                                                print("连接信息 \(type) \(url)")
                                                            })
 

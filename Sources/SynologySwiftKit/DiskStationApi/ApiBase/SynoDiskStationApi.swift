@@ -10,6 +10,8 @@ import Foundation
 
 struct SynoDiskStationApi {
     let session: Session
+    let quickConnect = QuickConnect()
+    let deviceConnection = DeviceConnection()
 
     let name: String
     let method: String
@@ -95,7 +97,6 @@ extension SynoDiskStationApi {
      api url
      */
     private func apiUrl(apiUrl: String) throws -> String {
-        let deviceConnection = DeviceConnection()
         if let connection = deviceConnection.getCurrentConnectionUrl() {
             return "\(connection.url)\(apiUrl)"
         }

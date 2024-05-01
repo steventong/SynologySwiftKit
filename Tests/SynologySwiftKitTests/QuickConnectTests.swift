@@ -15,6 +15,8 @@ import XCTest
 // https://developer.apple.com/documentation/xctest/defining_test_cases_and_test_methods
 
 final class QuickConnectTests: XCTestCase {
+    let quickConnect = QuickConnect()
+
     /**
      删除缓存后测试
      */
@@ -23,8 +25,7 @@ final class QuickConnectTests: XCTestCase {
             UserDefaults.standard.removePersistentDomain(forName: bundleIdentifier)
         }
 
-        let quickConnect = QuickConnect()
-        let result = try await quickConnect.getDeviceConnection(quickConnectId: SecretKey.quickConnectId)
+        let result = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
 
         print(result)
     }
@@ -33,9 +34,23 @@ final class QuickConnectTests: XCTestCase {
      带缓存测试
      */
     func testGetConnectionByQcIdWithCache() async throws {
-        let quickConnect = QuickConnect()
-        let result = try await quickConnect.getDeviceConnection(quickConnectId: SecretKey.quickConnectId)
+        let result = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
 
         print(result)
+    }
+
+    /**
+     不存在的qc id
+     */
+    func testGetConnectionByInvalidQC() async throws {
+        if let bundleIdentifier = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleIdentifier)
+        }
+
+        do {
+            try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: "FAKE-QUICKCONNECT-ID", enableHttps: true)
+        } catch QuickConnectError.serverInfoNotFound {
+            print("serverInfoNotFound")
+        }
     }
 }
