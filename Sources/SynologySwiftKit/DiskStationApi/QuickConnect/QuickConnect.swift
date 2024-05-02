@@ -11,7 +11,6 @@ import Foundation
 public actor QuickConnect {
     let session: Session
     let pingpong = PingPong()
-    let deviceConnection = DeviceConnection()
 
     public init() {
         session = AlamofireClient.shared.session()
@@ -66,9 +65,6 @@ public actor QuickConnect {
         })
 
         if let connectionUrl {
-            // 保存可用地址
-            deviceConnection.saveCurrentConnectionUrl(type: connectionUrl.connnectionType, url: connectionUrl.url)
-
             return (connectionUrl.connnectionType, connectionUrl.url)
         }
 

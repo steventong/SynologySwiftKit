@@ -10,6 +10,7 @@ import OSLog
 
 public actor SynologyUserLogin {
     let quickConnect = QuickConnect()
+    let deviceConnection = DeviceConnection()
     let auth = Auth()
 
     // init
@@ -60,6 +61,9 @@ extension SynologyUserLogin {
      fetchConnectionUrl 获取地址
      */
     func fetchConnectionUrl(server: String, enableHttps: Bool, onLoginStepUpdate: @escaping (SynologyUserLoginStep) -> Void) async throws -> (type: ConnectionType, url: String)? {
+        // clear previous cache
+        deviceConnection.removeCurrentConnectionUrl()
+
         let isQuickConnectID = await quickConnect.isQuickConnectId(server: server)
 
         // quickConnectId 模式下，获取设备地址
@@ -67,11 +71,15 @@ extension SynologyUserLogin {
             onLoginStepUpdate(.QC_FETCH_CONNECTION)
             // 获取设备地址
             let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
+            // 保存可用地址
+            deviceConnection.saveCurrentConnectionUrl(type: connection?.type, url: connection?.url)
 
             onLoginStepUpdate(.QC_FETCH_CONNECTION_SUCCESS)
             return connection
         }
 
+        // 保存可用地址
+        deviceConnection.saveCurrentConnectionUrl(type: ConnectionType.custom_domain, url: server)
         // 自定义域名直接返回地址
         return (ConnectionType.custom_domain, server)
     }

@@ -8,7 +8,6 @@
 import Foundation
 
 public class DeviceConnection {
-    
     public init() {
     }
 
@@ -34,15 +33,32 @@ extension DeviceConnection {
      saveCurrentConnectionUrl
      */
     func saveCurrentConnectionUrl(type: ConnectionType?, url: String?) {
-        if let type, let url {
-            UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-            UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+        DispatchQueue.main.async {
+            if let type, let url {
+                UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+                UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
 
-            Logger.info("saveCurrentConnectionUrl, save type = \(type), url = \(url)")
-        } else {
+                Logger.info("saveCurrentConnectionUrl, save type = \(type), url = \(url)")
+            } else {
+                UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+                UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+
+                Logger.info("saveCurrentConnectionUrl, removeObject type, url")
+            }
+
+            UserDefaults.standard.synchronize()
+        }
+    }
+
+    /**
+     removeCurrentConnectionUrl
+     */
+    func removeCurrentConnectionUrl() {
+        DispatchQueue.main.async {
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
 
+            UserDefaults.standard.synchronize()
             Logger.info("saveCurrentConnectionUrl, removeObject type, url")
         }
     }
