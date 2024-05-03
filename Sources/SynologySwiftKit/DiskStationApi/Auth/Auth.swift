@@ -53,7 +53,9 @@ public actor Auth {
             let authResult = try await api.request(resultType: AuthResult.self)
             return handleAuthResult(authResult: authResult)
         } catch let SynoDiskStationApiBizError.apiBizError(errorCode) {
-            throw getAuthErrorByCode(errorCode: errorCode)
+            throw AuthError.getAuthErrorByCode(errorCode: errorCode)
+        } catch let commonError as SynoDiskStationApiCommonError {
+            throw AuthError.commonNetworkError(commonError.localizedDescription)
         }
     }
 }
@@ -88,16 +90,6 @@ extension Auth {
     private func setDeviceId(deviceId: String) {
         let deviceIdKey = UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_ID.keyName
         UserDefaults.standard.setValue(deviceId, forKey: deviceIdKey)
-    }
-
-    /**
-     find error
-     */
-    private func getAuthErrorByCode(errorCode: Int) -> AuthError {
-        guard let error = AuthError(rawValue: errorCode) else {
-            return AuthError.noSuchAccountOrIncorrectPassword
-        }
-        return error
     }
 
     /**

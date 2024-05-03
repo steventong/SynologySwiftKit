@@ -7,23 +7,26 @@
 
 import Foundation
 
-public enum AuthError: Int, Error, LocalizedError {
-    case noSuchAccountOrIncorrectPassword = 400
-    case disabledAccount = 401
-    case deniedPermission = 402
-    case authenticationCodeRequired = 403
-    case authenticationCodeFailed = 404
-    case enforceAuthenticationWithCode = 406
-    case blockedIPSource = 407
-    case expiredPasswordCannotChange = 408
-    case expiredPassword = 409
-    case passwordMustBeChanged = 410
+public enum AuthError: Error, LocalizedError {
+    case commonNetworkError(String)
+    case noSuchAccountOrIncorrectPassword
+    case disabledAccount
+    case deniedPermission
+    case authenticationCodeRequired
+    case authenticationCodeFailed
+    case enforceAuthenticationWithCode
+    case blockedIPSource
+    case expiredPasswordCannotChange
+    case expiredPassword
+    case passwordMustBeChanged
 
     /**
      errorDescription
      */
     public var errorDescription: String? {
         switch self {
+        case let .commonNetworkError(msg):
+            return msg
         case .noSuchAccountOrIncorrectPassword:
             return NSLocalizedString("NO_SUCH_ACCOUNT_OR_INCORRECT_PASSWORD", comment: "")
         case .disabledAccount:
@@ -44,6 +47,36 @@ public enum AuthError: Int, Error, LocalizedError {
             return NSLocalizedString("EXPIRED_PASSWORD", comment: "")
         case .passwordMustBeChanged:
             return NSLocalizedString("PASSWORD_MUST_BE_CHANGED", comment: "")
+        }
+    }
+
+    /**
+     find error
+     */
+    public static func getAuthErrorByCode(errorCode: Int) -> AuthError {
+        switch errorCode {
+        case 400:
+            noSuchAccountOrIncorrectPassword
+        case 401:
+            disabledAccount
+        case 402:
+            deniedPermission
+        case 403:
+            authenticationCodeRequired
+        case 404:
+            authenticationCodeFailed
+        case 406:
+            enforceAuthenticationWithCode
+        case 407:
+            blockedIPSource
+        case 408:
+            expiredPasswordCannotChange
+        case 409:
+            expiredPassword
+        case 410:
+            passwordMustBeChanged
+        default:
+            commonNetworkError("unknown")
         }
     }
 }

@@ -10,7 +10,6 @@ import OSLog
 
 public actor SynologyUserLogin {
     let quickConnect = QuickConnect()
-    let deviceConnection = DeviceConnection()
     let auth = Auth()
 
     // init
@@ -36,8 +35,8 @@ public actor SynologyUserLogin {
         }
 
         // 获取地址成功
+        Logger.info("fetchConnectionUrl connection: \(connection)")
         onConnectionFetch(connection.type, connection.url)
-        Logger.info("connection: \(connection)")
 
         // 开始登录
         onLoginStepUpdate(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
@@ -61,9 +60,6 @@ extension SynologyUserLogin {
      fetchConnectionUrl 获取地址
      */
     func fetchConnectionUrl(server: String, enableHttps: Bool, onLoginStepUpdate: @escaping (SynologyUserLoginStep) -> Void) async throws -> (type: ConnectionType, url: String)? {
-        // clear previous cache
-        deviceConnection.removeCurrentConnectionUrl()
-
         let isQuickConnectID = await quickConnect.isQuickConnectId(server: server)
 
         // quickConnectId 模式下，获取设备地址
@@ -73,7 +69,7 @@ extension SynologyUserLogin {
             let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
             // 保存可用地址
             if let type = connection?.type, let url = connection?.url {
-                deviceConnection.updateCurrentConnectionUrl(type: type, url: url)
+                DeviceConnection.shared.updateCurrentConnectionUrl(type: type, url: url)
             }
 
             onLoginStepUpdate(.QC_FETCH_CONNECTION_SUCCESS)
@@ -81,7 +77,7 @@ extension SynologyUserLogin {
         }
 
         // 保存可用地址
-        deviceConnection.updateCurrentConnectionUrl(type: ConnectionType.custom_domain, url: server)
+        DeviceConnection.shared.updateCurrentConnectionUrl(type: ConnectionType.custom_domain, url: server)
         // 自定义域名直接返回地址
         return (ConnectionType.custom_domain, server)
     }

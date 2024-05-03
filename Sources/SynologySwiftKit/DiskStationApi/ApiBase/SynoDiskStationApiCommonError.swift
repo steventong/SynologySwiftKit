@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum SynoDiskStationApiCommonError: LocalizedError {
+public enum SynoDiskStationApiCommonError: Error, LocalizedError {
     case sslConnectionFailed(String)
     case canNotFindHostError(String)
     case commonUrlError(String)
@@ -15,7 +15,7 @@ public enum SynoDiskStationApiCommonError: LocalizedError {
     case requestHostNotPressentError
     case synoDiskStationApiError(Int)
 
-    var errorDescription: String {
+    public var errorDescription: String? {
         switch self {
         case let .sslConnectionFailed(msg):
             return "请求发生了SSL错误, \(msg)"

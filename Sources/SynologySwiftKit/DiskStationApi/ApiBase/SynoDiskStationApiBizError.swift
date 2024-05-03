@@ -7,10 +7,10 @@
 
 import Foundation
 
-public enum SynoDiskStationApiBizError: LocalizedError {
+public enum SynoDiskStationApiBizError: Error, LocalizedError {
     case apiBizError(Int)
 
-    var errorDescription: String {
+    public var errorDescription: String? {
         switch self {
         case let .apiBizError(errorCode):
             return "接口返回错误: \(errorCode)"
