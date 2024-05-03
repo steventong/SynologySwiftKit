@@ -18,37 +18,58 @@ public class CheckDeviceConnection {
     /**
      check device connection status
      */
-    public func checkStatus(url: String?, urlType: ConnectionType?, server: String?, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
-        // ping exist url
-        if let url, let urlType {
-            let ping = await pingpong.pingpong(url: url)
-            if ping {
-                return (urlType, url)
-            } else if urlType == .custom_domain {
-                return nil
+    public func checkConnectionStatus(fetchNewServerByQuickConnectId: Bool = false, onFinish: @escaping (_ success: Bool, _ connection: (type: ConnectionType, url: String)?) -> Void) {
+        Task {
+            // ping current connection url
+            if let connection = DeviceConnection.shared.getCurrentConnectionUrl() {
+                let connectionUrl = connection.url
+                let connectionType = connection.type
+
+                let ping = await pingpong.pingpong(url: connectionUrl)
+                if ping {
+                    // 连接可用
+                    DeviceConnection.shared.updateCurrentConnectionUrl(type: connectionType, url: connectionUrl)
+                    // 成功回调
+                    DispatchQueue.main.async {
+                        onFinish(true, (connectionType, connectionUrl))
+                    }
+                    return
+                }
+                
+                if connectionType == .custom_domain {
+                    // 域名ping一次失败，结束
+                    DispatchQueue.main.async {
+                        onFinish(false, nil)
+                    }
+                    return
+                }
             }
-        }
 
-        guard let server else {
-            return nil
-        }
-
-        let isQuickConnectId = await quickConnect.isQuickConnectId(server: server)
-
-        // domain
-        if !isQuickConnectId {
-            let ping = await pingpong.pingpong(url: server)
-            if ping {
-                return (ConnectionType.custom_domain, server)
+            // 重新获取 quick connect
+            guard fetchNewServerByQuickConnectId, let loginPreferences = DeviceConnection.shared.getLoginPreferences() else {
+                return
             }
-            return nil
-        }
 
-        // fetch server connection by qc
-        do {
-            return try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
-        } catch {
-            return nil
+            // 判断满足 quick connect id 条件
+            let isQuickConnectId = await quickConnect.isQuickConnectId(server: loginPreferences.server)
+            // fetch server connection by qc
+            do {
+                if let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: loginPreferences.server, enableHttps: loginPreferences.isEnableHttps) {
+                    // 新的连接地址信息
+                    DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+                    // 成功回调
+                    DispatchQueue.main.async {
+                        onFinish(true, connection)
+                    }
+                    return
+                }
+            } catch {
+                print(error)
+            }
+
+            DispatchQueue.main.async {
+                onFinish(false, nil)
+            }
         }
     }
 }
