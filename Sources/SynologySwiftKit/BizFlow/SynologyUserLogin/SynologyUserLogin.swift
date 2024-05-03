@@ -72,7 +72,9 @@ extension SynologyUserLogin {
             // 获取设备地址
             let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
             // 保存可用地址
-            deviceConnection.updateCurrentConnectionUrl(type: connection?.type, url: connection?.url)
+            if let type = connection?.type, let url = connection?.url {
+                deviceConnection.updateCurrentConnectionUrl(type: type, url: url)
+            }
 
             onLoginStepUpdate(.QC_FETCH_CONNECTION_SUCCESS)
             return connection

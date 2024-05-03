@@ -30,21 +30,13 @@ public class DeviceConnection {
     /**
      保存当前的URL
      */
-    public func updateCurrentConnectionUrl(type: ConnectionType?, url: String?) {
+    public func updateCurrentConnectionUrl(type: ConnectionType, url: String) {
         DispatchQueue.main.async {
-            if let type, let url {
-                UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-                UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-
-                Logger.info("saveCurrentConnectionUrl, save type = \(type), url = \(url)")
-            } else {
-                UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-                UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-
-                Logger.info("saveCurrentConnectionUrl, removeObject type, url")
-            }
+            UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+            UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
 
             UserDefaults.standard.synchronize()
+            Logger.info("saveCurrentConnectionUrl, save type = \(type), url = \(url)")
         }
     }
 }
