@@ -12,7 +12,7 @@ public class DeviceConnection {
     }
 
     /**
-     当前URL
+     获取当前URL
      */
     public func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
         if let url = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName) {
@@ -26,13 +26,11 @@ public class DeviceConnection {
         Logger.info("getCurrentConnectionUrl, url = nil")
         return nil
     }
-}
 
-extension DeviceConnection {
     /**
-     saveCurrentConnectionUrl
+     保存当前的URL
      */
-    func saveCurrentConnectionUrl(type: ConnectionType?, url: String?) {
+    public func updateCurrentConnectionUrl(type: ConnectionType?, url: String?) {
         DispatchQueue.main.async {
             if let type, let url {
                 UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
@@ -49,7 +47,9 @@ extension DeviceConnection {
             UserDefaults.standard.synchronize()
         }
     }
+}
 
+extension DeviceConnection {
     /**
      removeCurrentConnectionUrl
      */

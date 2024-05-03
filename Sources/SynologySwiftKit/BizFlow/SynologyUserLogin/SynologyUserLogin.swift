@@ -72,14 +72,14 @@ extension SynologyUserLogin {
             // 获取设备地址
             let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
             // 保存可用地址
-            deviceConnection.saveCurrentConnectionUrl(type: connection?.type, url: connection?.url)
+            deviceConnection.updateCurrentConnectionUrl(type: connection?.type, url: connection?.url)
 
             onLoginStepUpdate(.QC_FETCH_CONNECTION_SUCCESS)
             return connection
         }
 
         // 保存可用地址
-        deviceConnection.saveCurrentConnectionUrl(type: ConnectionType.custom_domain, url: server)
+        deviceConnection.updateCurrentConnectionUrl(type: ConnectionType.custom_domain, url: server)
         // 自定义域名直接返回地址
         return (ConnectionType.custom_domain, server)
     }
