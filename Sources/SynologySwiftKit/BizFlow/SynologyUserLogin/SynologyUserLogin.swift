@@ -19,7 +19,7 @@ public actor SynologyUserLogin {
     /**
      server: quickConnectId 或者是 域名+端口号
      */
-    public func login(server: String, username: String, password: String, optCode: String? = nil, enableHttps: Bool,
+    public func login(server: String, username: String, password: String, otpCode: String? = nil, enableHttps: Bool,
                       onLoginStepUpdate: @escaping (SynologyUserLoginStep) -> Void,
                       onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
         onLoginStepUpdate(.STEP_START)
@@ -49,7 +49,7 @@ public actor SynologyUserLogin {
         onLoginStepUpdate(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
 
         // 登录，如果有异常会抛出，没有异常则成功
-        let authResult = try await auth.userLogin(server: connection.url, username: username, password: password, optCode: optCode)
+        let authResult = try await auth.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
 
         // 登录成功
         Logger.info("authResult: \(authResult)")

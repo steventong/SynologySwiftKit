@@ -32,7 +32,7 @@ public actor Auth {
         - device_name: (Optional) To identify which device can be omitted from 2-factor authentication (OTP), pass this value will skip it.
         - device_id: (Optional) If 2-factor authentication (OTP) has omitted the same enabled device id, pass this value to skip it.
      */
-    public func userLogin(server: String, username: String, password: String, optCode: String? = nil) async throws -> AuthResult {
+    public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         Logger.debug("send request: userLogin, \(server), \(username)")
 
         let deviceName = getDeviceName()
@@ -42,9 +42,9 @@ public actor Auth {
             "account": username,
             "passwd": password,
             "format": "cookie",
-            "otp_code": optCode ?? "",
+            "otp_code": otpCode ?? "",
             "enable_syno_token": "no",
-            "enable_device_token": optCode != nil ? "yes" : "no",
+            "enable_device_token": otpCode != nil ? "yes" : "no",
             "device_name": deviceName,
             "device_id": deviceId ?? "",
         ])
