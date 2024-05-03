@@ -57,13 +57,14 @@ public class DeviceConnection {
      */
     public func getLoginSession() -> (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)? {
         if let session {
+            Logger.info("[DeviceConnection]getLoginSession, session is valid")
             return session
         }
 
         let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-        let sidExpireAt: Date? = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName) as? Date ?? nil
+        let sidExpireAt: Date? = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName) as? Date ?? nil
         let did = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-        let didExpireAt: Date? = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName) as? Date ?? nil
+        let didExpireAt: Date? = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName) as? Date ?? nil
 
         if let sid, let sidExpireAt {
             let session = (sid, sidExpireAt, did, didExpireAt)
@@ -71,6 +72,7 @@ public class DeviceConnection {
             return session
         }
 
+        Logger.info("[DeviceConnection]getLoginSession, session from userdefaults is invalid")
         return nil
     }
 
@@ -79,11 +81,15 @@ public class DeviceConnection {
      */
     public func updateLoginSession(sid: String, did: String?) {
         let sidExpireAt = addSecondsFromNow(seconds: ONE_WEEK_SECONDS)
+        Logger.info("update login session, sid will expire at: \(sidExpireAt)")
+
         if let did {
             let didExpireAt = addSecondsFromNow(seconds: ONE_YEAR_SECONDS)
             session = (sid, sidExpireAt, did, didExpireAt)
+            Logger.info("update login session, did is present, session: \(session)")
         } else {
             session = (sid, sidExpireAt, nil, nil)
+            Logger.info("update login session, session: \(session)")
         }
 
         guard let session else {
