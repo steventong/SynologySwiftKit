@@ -11,9 +11,14 @@ enum UserDefaultsKeys {
     case SYNOLOGY_SERVER_URL(String)
     case DISK_STATION_CONNECTION_URL
     case DISK_STATION_CONNECTION_TYPE
+
     case DISK_STATION_AUTH_DEVICE_NAME
     case DISK_STATION_AUTH_DEVICE_ID
-    case DISK_STATION_AUTH_SESSION_ID
+
+    case DISK_STATION_AUTH_SESSION_SID
+    case DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT
+    case DISK_STATION_AUTH_SESSION_DID
+    case DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT
 
     var keyName: String {
         switch self {
@@ -27,8 +32,14 @@ enum UserDefaultsKeys {
             return "SynologySwiftKit_DiskStation_Auth_DeviceName"
         case .DISK_STATION_AUTH_DEVICE_ID:
             return "SynologySwiftKit_DiskStation_Auth_DeviceID"
-        case .DISK_STATION_AUTH_SESSION_ID:
-            return "SynologySwiftKit_DiskStation_Auth_SessionID"
+        case .DISK_STATION_AUTH_SESSION_SID:
+            return "SynologySwiftKit_DiskStation_Auth_Session_SID"
+        case .DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT:
+            return "SynologySwiftKit_DiskStation_Auth_Session_SID_expireAt"
+        case .DISK_STATION_AUTH_SESSION_DID:
+            return "SynologySwiftKit_DiskStation_Auth_Session_DID"
+        case .DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT:
+            return "SynologySwiftKit_DiskStation_Auth_Session_DID_expireAt"
         }
     }
 }

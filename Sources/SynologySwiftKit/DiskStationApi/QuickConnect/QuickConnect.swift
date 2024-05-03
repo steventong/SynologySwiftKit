@@ -197,7 +197,9 @@ extension QuickConnect {
         Logger.debug("send request: command: \(command), server: \(synologyServer)")
 
         // https
-        let parameter = SynoGetServerInfoRequest(id: enableHttps ? "dsm_portal_https" : "dsm_portal", serverID: quickConnectId, command: command)
+        // dsm_portal_https dsm_portal
+        // dsm_https dsm
+        let parameter = SynoGetServerInfoRequest(id: enableHttps ? "dsm_https" : "dsm", serverID: quickConnectId, command: command)
 
         // request
         let synologyServerUrl = "https://\(synologyServer)/Serv.php"
