@@ -40,7 +40,6 @@ public actor SynologyUserLogin {
         DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
 
         // 获取地址成功
-        Logger.info("fetchConnectionUrl connection: \(connection)")
         onConnectionFetch(connection.type, connection.url)
 
         // login seever isQuickConnectID

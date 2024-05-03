@@ -21,19 +21,20 @@ public class DeviceConnection {
      */
     public func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
         if let connection {
+            Logger.info("[DeviceConnection]query Connection from context, connection = \(connection)")
             return connection
         }
 
         if let url = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName) {
             let typeRawValuw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             if let type = ConnectionType(rawValue: typeRawValuw) {
-                Logger.info("getCurrentConnectionUrl, type = \(type), url = \(url)")
                 connection = (type, url)
+                Logger.warn("[DeviceConnection]query Connection from userdefaults, connection = \(connection)")
                 return connection
             }
         }
 
-        Logger.info("getCurrentConnectionUrl, url = nil")
+        Logger.error("[DeviceConnection]query Connection fail, connection is nil")
         return nil
     }
 
@@ -42,14 +43,13 @@ public class DeviceConnection {
      */
     public func updateCurrentConnectionUrl(type: ConnectionType, url: String) {
         connection = (type, url)
+        Logger.info("[DeviceConnection]prepare update Connection to userdefaults, connection = \(connection)")
 
-        DispatchQueue.main.async {
-            UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-            UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+        UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+        UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
 
-            UserDefaults.standard.synchronize()
-            Logger.info("saveCurrentConnectionUrl, save type = \(type), url = \(url)")
-        }
+        UserDefaults.standard.synchronize()
+        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection)")
     }
 
     /**
@@ -67,7 +67,7 @@ public class DeviceConnection {
 
         if let sid, let sidExpireAt {
             let session = (sid, sidExpireAt, did, didExpireAt)
-            Logger.info("getLoginSession, session = \(session)")
+            Logger.info("[DeviceConnection]getLoginSession, session = \(session)")
             return session
         }
 
@@ -90,21 +90,19 @@ public class DeviceConnection {
             return
         }
 
-        DispatchQueue.main.async {
-            UserDefaults.standard.setValue(sid, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-            UserDefaults.standard.setValue(session.sidExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
+        UserDefaults.standard.setValue(sid, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
+        UserDefaults.standard.setValue(session.sidExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
 
-            if let did {
-                UserDefaults.standard.setValue(did, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-                UserDefaults.standard.setValue(session.didExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
-            } else {
-                UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-                UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
-            }
-
-            UserDefaults.standard.synchronize()
-            Logger.info("updateLoginSession")
+        if let did {
+            UserDefaults.standard.setValue(did, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
+            UserDefaults.standard.setValue(session.didExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
+        } else {
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
         }
+
+        UserDefaults.standard.synchronize()
+        Logger.info("[DeviceConnection]updateLoginSession userdefaults synchronize")
     }
 
     /**
@@ -123,7 +121,7 @@ public class DeviceConnection {
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
 
             UserDefaults.standard.synchronize()
-            Logger.info("removeLoginSession")
+            Logger.info("[DeviceConnection]removeLoginSession userdefaults synchronize")
         }
     }
 
@@ -133,12 +131,11 @@ public class DeviceConnection {
     public func updateLoginPreferences(server: String, isEnableHttps: Bool) {
         loginPreference = (server, isEnableHttps)
 
-        DispatchQueue.main.async {
-            UserDefaults.standard.setValue(server, forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
-            UserDefaults.standard.setValue(isEnableHttps, forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
+        UserDefaults.standard.setValue(server, forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
+        UserDefaults.standard.setValue(isEnableHttps, forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
 
-            UserDefaults.standard.synchronize()
-        }
+        UserDefaults.standard.synchronize()
+        Logger.info("[DeviceConnection]updateLoginPreferences userdefaults synchronize")
     }
 
     /**
@@ -173,7 +170,7 @@ extension DeviceConnection {
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
 
             UserDefaults.standard.synchronize()
-            Logger.info("removeCurrentConnectionUrl, removeObject type, url")
+            Logger.info("[DeviceConnection]removeCurrentConnectionUrl, removeObject type, url")
         }
     }
 
