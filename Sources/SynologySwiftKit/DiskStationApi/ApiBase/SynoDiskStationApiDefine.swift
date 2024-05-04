@@ -24,9 +24,13 @@ public enum DiskStationApiDefine: String {
     case SYNO_API_AUTH = "SYNO.API.Auth"
 
     /**
-     audio station
+     audio station - song
      */
     case SYNO_AUDIO_STATION_SONG = "SYNO.AudioStation.Song"
+    /**
+     audio station - playlist
+     */
+    case SYNO_AUDIO_STATION_PLAYLIST = "SYNO.AudioStation.Playlist"
 
     /**
      ==
@@ -44,7 +48,6 @@ public enum DiskStationApiDefine: String {
     case SYNO_AUDIO_STATION_LYRICSSEARCH = "SYNO.AudioStation.LyricsSearch"
     case SYNO_AUDIO_STATION_MEDIASERVER = "SYNO.AudioStation.MediaServer"
     case SYNO_AUDIO_STATION_PIN = "SYNO.AudioStation.Pin"
-    case SYNO_AUDIO_STATION_PLAYLIST = "SYNO.AudioStation.Playlist"
     case SYNO_AUDIO_STATION_PROXY = "SYNO.AudioStation.Proxy"
     case SYNO_AUDIO_STATION_RADIO = "SYNO.AudioStation.Radio"
     case SYNO_AUDIO_STATION_REMOTEPLAYER = "SYNO.AudioStation.RemotePlayer"
@@ -68,7 +71,11 @@ public enum DiskStationApiDefine: String {
     /**
      api version
      */
-    var apiVersion: Int {
+    func apiVersion(version: Int? = nil) -> Int {
+        if let version {
+            return version
+        }
+
         switch self {
         case .SYNO_API_AUTH:
             return 6
@@ -137,6 +144,5 @@ public enum DiskStationApiDefine: String {
         default:
             true
         }
-        return true
     }
 }

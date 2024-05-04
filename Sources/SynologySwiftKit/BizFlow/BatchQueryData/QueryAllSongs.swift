@@ -46,7 +46,7 @@ public class QueryAllSongs {
                 }
             })
 
-            Logger.debug("queryAllSongs task, all task done, total count = \(total), taskCount = \(taskCount)")
+            Logger.info("queryAllSongs task, all task done, total count = \(total), taskCount = \(taskCount)")
             onTaskFinish()
         }
     }
