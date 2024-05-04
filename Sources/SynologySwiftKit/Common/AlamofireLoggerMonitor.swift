@@ -9,7 +9,6 @@ import Alamofire
 import Foundation
 
 class AlamofireLoggerMonitor: EventMonitor {
-    
     // Event called when any type of Request is resumed.
     func requestDidResume(_ request: Request) {
         print("Resuming: \(request)")
@@ -17,6 +16,6 @@ class AlamofireLoggerMonitor: EventMonitor {
 
     // Event called whenever a DataRequest has parsed a response.
     func request<Value>(_ request: DataRequest, didParseResponse response: DataResponse<Value, AFError>) {
-        debugPrint("Finished: \(response)")
+        debugPrint("Finished: \(request)")
     }
 }

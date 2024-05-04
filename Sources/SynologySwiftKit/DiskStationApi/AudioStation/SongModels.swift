@@ -41,50 +41,62 @@ import Foundation
          "type": "file"
        }
  */
-struct Song: Decodable {
-    var id: String
-    var title: String
-    var type: String
-    var path: String
+public struct Song: Decodable, Encodable {
+    public var id: String
+    public var title: String
+    public var type: String
+    public var path: String
 
     var additional: SongAdditional?
+
+    public var audio: SongAudio? {
+        additional?.song_audio
+    }
+
+    public var rating: SongRating? {
+        additional?.song_rating
+    }
+
+    public var tag: SongTag? {
+        additional?.song_tag
+    }
 }
 
-struct SongAdditional: Decodable {
+struct SongAdditional: Decodable, Encodable {
     var song_audio: SongAudio?
     var song_rating: SongRating?
     var song_tag: SongTag?
 }
 
-struct SongAudio: Decodable {
-    var bitrate: Int
-    var channel: Int
-    var codec: String
-    var container: String
-    var duration: Double
-    var filesize: Int
-    var frequency: Int
+public struct SongAudio: Decodable, Encodable {
+    public var bitrate: Int
+    public var channel: Int
+    public var codec: String
+    public var container: String
+    public var duration: Double
+    public var filesize: Int
+    public var frequency: Int
 }
 
-struct SongRating: Decodable {
-    var rating: Int
+public struct SongRating: Decodable, Encodable {
+    public var rating: Int
 }
 
-struct SongTag: Decodable {
-    var album: String
-    var album_artist: String
-    var artist: String
-    var comment: String
-    var composer: String
-    var disc: Int
-    var genre: String
-    var track: Int
-    var year: Int
+public struct SongTag: Decodable, Encodable {
+    public var album: String
+    public var album_artist: String
+    public var artist: String
+    public var comment: String
+    public var composer: String
+    public var disc: Int
+    public var genre: String
+    public var track: Int
+    public var year: Int
 }
 
-public struct SongListResult: Decodable {
-    var offset: Int
-    var total: Int
+public struct SongListResult: Decodable, Encodable {
+    public var offset: Int
+    public var total: Int
 
-    var songs: [Song]
+    public var songs: [Song]
 }

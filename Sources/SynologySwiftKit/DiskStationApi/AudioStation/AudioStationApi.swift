@@ -7,7 +7,10 @@
 
 import Foundation
 
-class AudioStationApi {
+public class AudioStationApi {
+    public init() {
+    }
+
     /**
      query song list
      */

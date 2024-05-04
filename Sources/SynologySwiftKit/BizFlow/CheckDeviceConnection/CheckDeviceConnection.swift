@@ -18,10 +18,10 @@ public class CheckDeviceConnection {
     /**
      check device connection status
      */
-    public func checkConnectionStatus(pingCurrentConnection: Bool = false, fetchNewServerByQuickConnectId: Bool = false, onFinish: @escaping (_ success: Bool, _ connection: (type: ConnectionType, url: String)?) -> Void) {
+    public func checkConnectionStatus(fetchNewServerByQuickConnectId: Bool = false, onFinish: @escaping (_ success: Bool, _ connection: (type: ConnectionType, url: String)?) -> Void) {
         Task {
             // ping current connection url
-            if pingCurrentConnection, let connection = DeviceConnection.shared.getCurrentConnectionUrl() {
+            if let connection = DeviceConnection.shared.getCurrentConnectionUrl() {
                 let connectionUrl = connection.url
                 let connectionType = connection.type
 
