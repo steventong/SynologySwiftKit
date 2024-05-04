@@ -49,43 +49,25 @@ struct SynoDiskStationApi {
             .response
 
         // error handler
-        if let error = response.error {
-            switch error {
-            case let .sessionTaskFailed(error: sessionError):
-                let sessionError = sessionError as NSError
-                switch sessionError.domain {
-                case NSURLErrorDomain:
-                    // error code 对照 https://juejin.cn/post/6844903838059593741
-                    switch sessionError.code {
-                    case NSURLErrorSecureConnectionFailed:
-                        // 发生了SSL错误，无法建立与该服务器的安全连接。
-                        throw SynoDiskStationApiCommonError.sslConnectionFailed(sessionError.localizedDescription)
-                    case NSURLErrorCannotFindHost:
-                        // 未能找到使用指定主机名的服务器。
-                        throw SynoDiskStationApiCommonError.canNotFindHostError(sessionError.localizedDescription)
-                    default:
-                        // 没有识别出的异常
-                        throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
-                    }
-                default:
-                    // 没有识别出的异常
-                    throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
-                }
-            default:
-                // 没有识别出的异常
-                throw SynoDiskStationApiCommonError.commonUrlError(error.localizedDescription)
-            }
+        try handleApiErrors(error: response.error)
+
+        // empty result
+        guard let responseValue = response.value else {
+            throw SynoDiskStationApiCommonError.responseBodyEmptyError
         }
 
-        // handle result
-        if response.value?.success == false {
-            throw SynoDiskStationApiBizError.apiBizError(response.value?.error?.code ?? -1)
-        }
-        // 解析 set-cookie
-//        parseResponseCookieHeader(setCookieValue: response.response?.value(forHTTPHeaderField: "Set-Cookie"))
+        // handle success data
+        if responseValue.success == true,
+           let data = response.value?.data {
+            // 解析 set-cookie
+            //        parseResponseCookieHeader(setCookieValue: response.response?.value(forHTTPHeaderField: "Set-Cookie"))
 
-        if let data = response.value?.data {
             return data
+        }
+
+        // handle error result
+        if responseValue.success == false {
+            throw SynoDiskStationApiBizError.apiBizError(responseValue.errorCode ?? -1)
         }
 
         throw SynoDiskStationApiCommonError.responseBodyEmptyError
@@ -119,6 +101,10 @@ extension SynoDiskStationApi {
         var error: SynoApiAuthError?
 
         var data: Data?
+
+        var errorCode: Int? {
+            error?.code
+        }
     }
 
     /**
@@ -126,5 +112,42 @@ extension SynoDiskStationApi {
      */
     private struct SynoApiAuthError: Decodable {
         var code: Int
+    }
+
+    /**
+     handle error
+     */
+    private func handleApiErrors(error: AFError?) throws {
+        guard let error else {
+            return
+        }
+
+        switch error {
+        case let .sessionTaskFailed(error: sessionError):
+            let sessionError = sessionError as NSError
+            switch sessionError.domain {
+            case NSURLErrorDomain:
+                // error code 对照 https://juejin.cn/post/6844903838059593741
+                switch sessionError.code {
+                case NSURLErrorSecureConnectionFailed:
+                    // 发生了SSL错误，无法建立与该服务器的安全连接。
+                    throw SynoDiskStationApiCommonError.sslConnectionFailed(sessionError.localizedDescription)
+                case NSURLErrorCannotFindHost:
+                    // 未能找到使用指定主机名的服务器。
+                    throw SynoDiskStationApiCommonError.canNotFindHostError(sessionError.localizedDescription)
+                default:
+                    // 没有识别出的异常
+                    throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
+                }
+            default:
+                // 没有识别出的异常
+                Logger.error("SynoDiskStationApi.handleApiErrors NSURLErrorDomain unknown domain, error \(error)")
+                throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
+            }
+        default:
+            // 没有识别出的异常
+            Logger.error("SynoDiskStationApi.handleApiErrors unknown error , error \(error)")
+            throw SynoDiskStationApiCommonError.commonUrlError(error.localizedDescription)
+        }
     }
 }

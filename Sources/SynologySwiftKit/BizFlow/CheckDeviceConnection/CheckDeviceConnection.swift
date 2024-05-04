@@ -18,10 +18,10 @@ public class CheckDeviceConnection {
     /**
      check device connection status
      */
-    public func checkConnectionStatus(fetchNewServerByQuickConnectId: Bool = false, onFinish: @escaping (_ success: Bool, _ connection: (type: ConnectionType, url: String)?) -> Void) {
+    public func checkConnectionStatus(pingCurrentConnection: Bool = false, fetchNewServerByQuickConnectId: Bool = false, onFinish: @escaping (_ success: Bool, _ connection: (type: ConnectionType, url: String)?) -> Void) {
         Task {
             // ping current connection url
-            if let connection = DeviceConnection.shared.getCurrentConnectionUrl() {
+            if pingCurrentConnection, let connection = DeviceConnection.shared.getCurrentConnectionUrl() {
                 let connectionUrl = connection.url
                 let connectionType = connection.type
 
@@ -35,7 +35,7 @@ public class CheckDeviceConnection {
                     }
                     return
                 }
-                
+
                 if connectionType == .custom_domain {
                     // 域名ping一次失败，结束
                     DispatchQueue.main.async {
@@ -50,8 +50,6 @@ public class CheckDeviceConnection {
                 return
             }
 
-            // 判断满足 quick connect id 条件
-            let isQuickConnectId = await quickConnect.isQuickConnectId(server: loginPreferences.server)
             // fetch server connection by qc
             do {
                 if let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: loginPreferences.server, enableHttps: loginPreferences.isEnableHttps) {

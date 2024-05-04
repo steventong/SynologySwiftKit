@@ -26,6 +26,11 @@ public enum DiskStationApiDefine: String {
     /**
      audio station
      */
+    case SYNO_AUDIO_STATION_SONG = "SYNO.AudioStation.Song"
+
+    /**
+     ==
+     */
     case SYNO_AUDIO_STATION_ALBUM = "SYNO.AudioStation.Album"
     case SYNO_AUDIO_STATION_ARTIST = "SYNO.AudioStation.Artist"
     case SYNO_AUDIO_STATION_BROWSE_PLAYLIST = "SYNO.AudioStation.Browse.Playlist"
@@ -45,7 +50,6 @@ public enum DiskStationApiDefine: String {
     case SYNO_AUDIO_STATION_REMOTEPLAYER = "SYNO.AudioStation.RemotePlayer"
     case SYNO_AUDIO_STATION_REMOTEPLAYERSTATUS = "SYNO.AudioStation.RemotePlayerStatus"
     case SYNO_AUDIO_STATION_SEARCH = "SYNO.AudioStation.Search"
-    case SYNO_AUDIO_STATION_SONG = "SYNO.AudioStation.Song"
     case SYNO_AUDIO_STATION_STREAM = "SYNO.AudioStation.Stream"
     case SYNO_AUDIO_STATION_TAG = "SYNO.AudioStation.Tag"
     case SYNO_AUDIO_STATION_VOICEASSISTANT_BROWSE = "SYNO.AudioStation.VoiceAssistant.Browse"
@@ -68,6 +72,8 @@ public enum DiskStationApiDefine: String {
         switch self {
         case .SYNO_API_AUTH:
             return 6
+        case .SYNO_AUDIO_STATION_SONG:
+            return 3
         default:
             return 1
         }
@@ -122,9 +128,15 @@ public enum DiskStationApiDefine: String {
     }
 
     /**
-     sid
+     assemble sid
      */
     var requireAuthHeader: Bool {
+        switch self {
+        case .SYNO_API_AUTH:
+            false
+        default:
+            true
+        }
         return true
     }
 }
