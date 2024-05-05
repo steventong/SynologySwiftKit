@@ -38,7 +38,7 @@ public actor Auth {
         let deviceName = getDeviceName()
         let deviceId = getDeviceId()
 
-        let api = SynoDiskStationApi(api: .SYNO_API_AUTH, method: "login", parameters: [
+        let api = SynoDiskStationApi(api: .SYNO_API_AUTH, method: "login", version: 6, parameters: [
             "account": username,
             "passwd": password,
             "format": "cookie",

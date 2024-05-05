@@ -19,7 +19,7 @@ public actor ApiInfo {
      getApiInfo
      */
     public func getApiInfo() async throws -> [String: ApiInfoNode] {
-        let api = SynoDiskStationApi(api: .SYNO_API_INFO, method: "query", parameters: [
+        let api = SynoDiskStationApi(api: .SYNO_API_INFO, method: "query", version: 1, parameters: [
             "query": "all",
         ])
 

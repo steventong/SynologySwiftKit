@@ -45,3 +45,25 @@ public struct PlaylistListResult: Decodable {
 public struct PlaylistGetInfoResult: Decodable {
     var playlists: [Playlist]
 }
+
+public struct PlaylistCreateResult: Decodable {
+    public var id: String
+}
+
+public struct PlaylistRenameResult: Decodable {
+    public var id: String
+}
+
+public struct PlaylistDeleteResult: Decodable {
+    public var errors: [String]
+}
+
+public struct PlaylistRemoveMissingResult: Decodable {
+    
+}
+
+
+
+public struct PlaylistUpdateSongsResult: Decodable {
+    
+}
