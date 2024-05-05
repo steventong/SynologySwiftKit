@@ -19,10 +19,21 @@ public struct Playlist: Decodable {
     public var songs: [Song] {
         additional?.songs ?? []
     }
+
+    public var songs_offset: Int {
+        additional?.songs_offset ?? 0
+    }
+
+    public var songs_total: Int {
+        additional?.songs_total ?? 0
+    }
 }
 
 struct PlaylistAdditional: Decodable {
     var songs: [Song]
+
+    var songs_offset: Int
+    var songs_total: Int
 }
 
 public struct PlaylistListResult: Decodable {

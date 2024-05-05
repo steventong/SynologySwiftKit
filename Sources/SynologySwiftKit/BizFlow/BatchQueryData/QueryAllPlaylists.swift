@@ -32,7 +32,7 @@ public class QueryAllPlaylists {
 
             // 播放列表内的歌曲列表
             if queryPlaylistSongs {
-                await batchQueryPlaylistGetInfo(playlists: playlists, batchSize: batchSize, maxThreads: maxThreads, onTaskUpdate: onPlaylistSongTaskUpdate)
+                await batchQueryPlaylistSongList(playlists: playlists, batchSize: batchSize, maxThreads: maxThreads, onTaskUpdate: onPlaylistSongTaskUpdate)
             }
 
             onTaskFinish()
@@ -41,15 +41,6 @@ public class QueryAllPlaylists {
 }
 
 extension QueryAllPlaylists {
-    /**
-     queryPlaylistList
-     */
-    private func queryPlaylistList(taskIndex: Int, batchSize: Int, total: Int, onTaskUpdate: @escaping (_ data: [Playlist], _ total: Int) -> Void) async -> [Playlist] {
-        let playlistListResult = await audioStationApi.playlistList(limit: batchSize, offset: batchSize * taskIndex)
-        onTaskUpdate(playlistListResult.data, total)
-        return playlistListResult.data
-    }
-
     /**
      batch queryPlaylistList
      */
@@ -90,18 +81,22 @@ extension QueryAllPlaylists {
     }
 
     /**
-     query music in playlist
+     queryPlaylistList
      */
-    private func queryPlaylistGetInfo(playlist: Playlist, onTaskUpdate: @escaping (_ playlist: Playlist, _ songs: [Song], _ total: Int) -> Void) async -> [Playlist] {
-        let playlistGetInfoResult = await audioStationApi.playlistGetInfo(id: playlist.id, limit: 5000, offset: 0)
-        onTaskUpdate(playlist, playlistGetInfoResult.data[0].songs, playlistGetInfoResult.data[0].songs.count)
-        return playlistGetInfoResult.data
+    private func queryPlaylistList(taskIndex: Int, batchSize: Int, total: Int, onTaskUpdate: @escaping (_ data: [Playlist], _ total: Int) -> Void) async -> [Playlist] {
+        let playlistListResult = await audioStationApi.playlistList(limit: batchSize, offset: batchSize * taskIndex)
+        onTaskUpdate(playlistListResult.data, total)
+        return playlistListResult.data
     }
 
     /**
      batch query music in playlist
      */
-    private func batchQueryPlaylistGetInfo(playlists: [Playlist], batchSize: Int, maxThreads: Int, onTaskUpdate: @escaping (_ playlist: Playlist, _ songs: [Song], _ total: Int) -> Void) async {
+    private func batchQueryPlaylistSongList(playlists: [Playlist], batchSize: Int, maxThreads: Int, onTaskUpdate: @escaping (_ playlist: Playlist, _ songs: [Song], _ total: Int) -> Void) async {
+        guard !playlists.isEmpty else {
+            return
+        }
+
         // task count
         let taskCount = playlists.count / batchSize + 1
         Logger.info("batchQueryPlaylistGetInfo task, total count = \(playlists.count), taskCount = \(taskCount)")
@@ -109,23 +104,32 @@ extension QueryAllPlaylists {
         let targetThreadsLimit = taskCount > maxThreads ? maxThreads : taskCount
 
         // execute task
-        await withTaskGroup(of: Int.self, body: { taskGroup in
+        await withTaskGroup(of: [Song].self, body: { taskGroup in
             // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
             for taskIndex in 0 ..< targetThreadsLimit {
                 taskGroup.addTask {
-                    let playlist = await self.queryPlaylistGetInfo(playlist: playlists[taskIndex], onTaskUpdate: onTaskUpdate)
-                    return playlist.count
+                    let songList = await self.queryPlaylistSongList(playlist: playlists[taskIndex], onTaskUpdate: onTaskUpdate)
+                    return songList
                 }
             }
 
             var waitTaskIndex = targetThreadsLimit
             while await taskGroup.next() != nil && waitTaskIndex < taskCount {
                 taskGroup.addTask { [waitTaskIndex] in
-                    let playlist = await self.queryPlaylistGetInfo(playlist: playlists[waitTaskIndex], onTaskUpdate: onTaskUpdate)
-                    return playlist.count
+                    let songList = await self.queryPlaylistSongList(playlist: playlists[waitTaskIndex], onTaskUpdate: onTaskUpdate)
+                    return songList
                 }
                 waitTaskIndex += 1
             }
         })
+    }
+
+    /**
+     query music in playlist
+     */
+    private func queryPlaylistSongList(playlist: Playlist, onTaskUpdate: @escaping (_ playlist: Playlist, _ songs: [Song], _ total: Int) -> Void) async -> [Song] {
+        let songsResult = await audioStationApi.playlistSongList(playlistId: playlist.id, limit: 5000, offset: 0)
+        onTaskUpdate(playlist, songsResult.data, songsResult.total)
+        return songsResult.data
     }
 }

@@ -55,18 +55,22 @@ public class AudioStationApi {
     /**
      query songs in  playlist
      */
-    public func playlistGetInfo(id: String, limit: Int, offset: Int) async -> (total: Int, data: [Playlist]) {
+    public func playlistSongList(playlistId: String, limit: Int, offset: Int) async -> (total: Int, data: [Song]) {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, parameters: [
-            "additional": "songs,songs_song_tag,songs_song_audio,songs_song_rating",
+            "id": playlistId,
             "library": "all",
+            "additional": "songs,songs_song_tag,songs_song_audio,songs_song_rating",
             "songs_limit": limit,
             "songs_offset": offset,
-            "id": id,
         ])
 
         do {
             let result = try await api.request(resultType: PlaylistGetInfoResult.self)
-            return (result.playlists.count, result.playlists)
+            if let playlist = result.playlists.first {
+                return (playlist.songs_total, playlist.songs)
+            }
+
+            return (0, [])
         } catch {
             Logger.error("AudioStationApi.playlist error: \(error)")
         }
