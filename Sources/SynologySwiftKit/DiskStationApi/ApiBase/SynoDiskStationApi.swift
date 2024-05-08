@@ -20,7 +20,7 @@ struct SynoDiskStationApi {
     let httpMethod: HTTPMethod
     let url: String
 
-    init(api: DiskStationApiDefine, method: String, version: Int? = nil, httpMethod: HTTPMethod = .get, parameters: Parameters = [:]) {
+    init(api: DiskStationApiDefine, method: String, version: Int, httpMethod: HTTPMethod = .get, parameters: Parameters = [:]) {
         session = AlamofireClient.shared.session()
 
         name = api.apiName

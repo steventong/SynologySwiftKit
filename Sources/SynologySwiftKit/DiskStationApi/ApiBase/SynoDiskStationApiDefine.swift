@@ -71,19 +71,8 @@ public enum DiskStationApiDefine: String {
     /**
      api version
      */
-    func apiVersion(version: Int? = nil) -> Int {
-        if let version {
-            return version
-        }
-
-        switch self {
-        case .SYNO_API_AUTH:
-            return 6
-        case .SYNO_AUDIO_STATION_SONG:
-            return 3
-        default:
-            return 1
-        }
+    func apiVersion(version: Int) -> Int {
+        return version
     }
 
     /**
