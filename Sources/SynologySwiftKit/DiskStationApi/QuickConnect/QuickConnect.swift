@@ -103,10 +103,11 @@ extension QuickConnect {
         }
 
         // 解析机器信息和连接信息 serverInfos - 服务区域不正确（errno = 4，suberrno = 2），换区域重新请求 get_server_info
+        // errno = 4，suberrno = 0 也是要在其他站点
         // 第一次请求的结果处理：需要处理sites信息，转发到其他站点
-        if serverInfo.errno == 4 && serverInfo.suberrno == 2,
-           let synologyServers = serverInfo.sites, !synologyServers.isEmpty {
-            Logger.debug("quickConnectId: \(quickConnectId), find avaliable serverInfo on sites: \(synologyServers)")
+        // 不将errno 作为判断条件，只要是有sites，就查询其他站点。
+        if let synologyServers = serverInfo.sites, !synologyServers.isEmpty {
+            Logger.debug("quickConnectId: \(quickConnectId), find avaliable serverInfo on sites: \(synologyServers), errno = \(errno), suberrno=\(suberrno)")
 
             // 在新的区域站点调用 get_server_info
             let multiServerInfos = try await invokeSynologyGetServerInfoOnMultiServers(synologyServers: synologyServers, quickConnectId: quickConnectId, enableHttps: enableHttps)

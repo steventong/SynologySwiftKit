@@ -25,18 +25,18 @@ final class QuickConnectTests: XCTestCase {
             UserDefaults.standard.removePersistentDomain(forName: bundleIdentifier)
         }
 
-        let result = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
-
-        print(result)
+        if let result = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true) {
+            print(result)
+        }
     }
 
     /**
      带缓存测试
      */
     func testGetConnectionByQcIdWithCache() async throws {
-        let result = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
-
-        print(result)
+        if let result = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true) {
+            print(result)
+        }
     }
 
     /**
@@ -48,7 +48,9 @@ final class QuickConnectTests: XCTestCase {
         }
 
         do {
-            try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: "FAKE-QUICKCONNECT-ID", enableHttps: true)
+            if let result = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: "FAKE-QUICKCONNECT-ID", enableHttps: true) {
+                print(result)
+            }
         } catch QuickConnectError.serverInfoNotFound {
             print("serverInfoNotFound")
         }
