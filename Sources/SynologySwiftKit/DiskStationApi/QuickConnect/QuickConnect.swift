@@ -29,7 +29,7 @@ public actor QuickConnect {
         }
 
         // 从站点返回中解析设备连接信息
-        let connections = parseServerInfoConnections(serverInfo: serverInfo.serverInfo, enableHttps: enableHttps, targetType: [.lan, .ddns, .relay])
+        let connections = handleSynologyServiceApiResult(serverInfo: serverInfo.serverInfo, enableHttps: enableHttps, targetType: [.lan, .ddns, .relay])
         Logger.debug("parse connections from serverInfo: \(connections)")
 
         // 测试获取连接信息， 并请求 requestTunnel（如果没有relay类型的地址）
@@ -90,11 +90,10 @@ extension QuickConnect {
     private func getAvaliableServerInfo(quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
         // 通过 quick connect Id 查询机器的地址连接信息
         let synologyServer = fetchSynologyServerFromCache(quickConnectId: quickConnectId)
-        Logger.debug("fetchSynologyServerUrlFromCache: quickConnectId: \(quickConnectId), initial synologyServer: \(synologyServer)")
 
         // 通过 get_server_info 查询 quickConnectId 机器信息和连接信息
         // 获取设备连接信息
-        let serverInfo = try await invokeSynologyGetServerInfo(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: "get_server_info")
+        let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .get_server_info)
 
         // 成功返回
         if serverInfo.errno == 0 {
@@ -131,12 +130,12 @@ extension QuickConnect {
         let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
 
         if let synologyServerUrl = UserDefaults.standard.string(forKey: key) {
-            Logger.debug("found cached synologyServerUrl: \(synologyServerUrl)")
+            Logger.info("[SynologySwiftKit][QuickConnect]cached synology server: \(synologyServerUrl)")
             return synologyServerUrl
         }
 
-        Logger.debug("default synologyServerUrl: global.quickconnect.to")
-        return "global.quickconnect.to"
+        Logger.info("[SynologySwiftKit][QuickConnect]default synology server: \(SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER)")
+        return SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER
     }
 
     /**
@@ -162,7 +161,7 @@ extension QuickConnect {
             for synologyServer in synologyServers {
                 taskGroup.addTask {
                     do {
-                        let serverInfo = try await self.invokeSynologyGetServerInfo(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: "get_server_info")
+                        let serverInfo = try await self.invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .get_server_info)
                         if serverInfo.errno == 0 {
                             Logger.debug("get_server_info result, from \(synologyServer), serverInfo: \(serverInfo)")
                             return (synologyServer, serverInfo)
@@ -194,18 +193,15 @@ extension QuickConnect {
     /**
      发起 get_server_info 请求
      */
-    private func invokeSynologyGetServerInfo(synologyServer: String, quickConnectId: String, enableHttps: Bool, command: String) async throws -> ServerInfo {
-        Logger.debug("send request: command: \(command), server: \(synologyServer)")
-
+    private func invokeSynologyServiceApi(synologyServer: String, quickConnectId: String, enableHttps: Bool, command: QuickConnectServerCommand) async throws -> ServerInfo {
         // https
         // dsm_portal_https dsm_portal
         // dsm_https dsm
-        let parameter = SynoGetServerInfoRequest(id: enableHttps ? "dsm_https" : "dsm", serverID: quickConnectId, command: command)
+        let requestParams = SynoGetServerInfoRequest(id: enableHttps ? .dsm_https : .dsm, command: command, serverID: quickConnectId)
 
         // request
         let synologyServerUrl = "https://\(synologyServer)/Serv.php"
-        let getServerInfo = session.request(synologyServerUrl, method: .post,
-                                            parameters: parameter, encoder: JSONParameterEncoder.default)
+        let getServerInfo = session.request(synologyServerUrl, method: .post, parameters: requestParams, encoder: JSONParameterEncoder.default)
             .serializingDecodable(ServerInfo.self)
 
         return try await getServerInfo.value
@@ -214,7 +210,7 @@ extension QuickConnect {
     /**
      解析地址
      */
-    private func parseServerInfoConnections(serverInfo: ServerInfo, enableHttps: Bool, targetType: [ConnectionType]) -> [ConnectionType: String] {
+    private func handleSynologyServiceApiResult(serverInfo: ServerInfo, enableHttps: Bool, targetType: [ConnectionType]) -> [ConnectionType: String] {
         var connections: [ConnectionType: String] = [:]
         let httpScheme = enableHttps ? "https://" : "http://"
 
@@ -276,10 +272,10 @@ extension QuickConnect {
         Logger.debug("relay connection is not present, send request_tunnel request, synologyServer = \(synologyServer)")
 
         do {
-            let serverInfo = try await invokeSynologyGetServerInfo(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: "request_tunnel")
+            let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .request_tunnel)
 
             // 从站点返回中解析设备连接信息
-            let connections = parseServerInfoConnections(serverInfo: serverInfo, enableHttps: enableHttps, targetType: [.relay])
+            let connections = handleSynologyServiceApiResult(serverInfo: serverInfo, enableHttps: enableHttps, targetType: [.relay])
             if let relay = connections[.relay] {
                 Logger.debug("parse relay connection: \(relay)")
                 return (ConnectionType.relay, relay)
