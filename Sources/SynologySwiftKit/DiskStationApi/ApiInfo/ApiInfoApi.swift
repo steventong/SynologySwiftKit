@@ -8,7 +8,7 @@
 import Alamofire
 import Foundation
 
-public actor ApiInfo {
+public actor ApiInfoApi {
     let session: Session
 
     public init() {
