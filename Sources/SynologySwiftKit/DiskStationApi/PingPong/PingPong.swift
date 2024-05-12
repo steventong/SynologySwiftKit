@@ -16,29 +16,6 @@ class PingPong {
     }
 
     /**
-     pingpong test
-     https://host:port/webman/pingpong.cgi?action=cors&quickconnect=true
-     */
-    func pingpong(url: String) async -> Bool {
-        Logger.debug("send request: pingpong \(url)")
-        let requestUrl = buildPingPongUrl(url: url)
-
-        do {
-            let result = try await session
-                .request(requestUrl)
-                .serializingDecodable(PingPongResult.self)
-                .value
-
-            return result.success
-        } catch {
-            print(error)
-        }
-
-        Logger.debug("send request: pingpong fail \(url)")
-        return false
-    }
-
-    /**
       pingpong url
      */
     func pingpong(urls: [ConnectionType: String]) async -> [ConnectionType: String] {
@@ -67,6 +44,47 @@ class PingPong {
             Logger.debug("send request: pingpong result: \(data)")
             return data
         })
+    }
+
+    /**
+     pingpong test
+     https://host:port/webman/pingpong.cgi?action=cors&quickconnect=true
+     */
+    func pingpong(url: String) async -> Bool {
+        Logger.debug("send request: pingpong \(url)")
+        let requestUrl = buildPingPongUrl(url: url)
+
+        do {
+            let result = try await session
+                .request(requestUrl)
+                .serializingDecodable(PingPongResult.self)
+                .value
+
+            return result.success
+        } catch {
+            switch error {
+            case let AFError.sessionTaskFailed(error: sessionError):
+                let sessionError = sessionError as NSError
+                switch sessionError.domain {
+                case NSURLErrorDomain:
+                    switch sessionError.code {
+                    case NSURLErrorSecureConnectionFailed:
+                        // 发生了SSL错误，无法建立与该服务器的安全连接。
+                        print("pingpong ssl error: \(error)")
+                    default:
+                        print("pingpong error: \(error)")
+                    }
+                default:
+                    print("pingpong error: \(error)")
+                }
+                print("pingpong error: \(error)")
+            default:
+                print("pingpong error: \(error)")
+            }
+        }
+
+        Logger.debug("send request: pingpong fail \(url)")
+        return false
     }
 }
 

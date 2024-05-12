@@ -20,8 +20,9 @@ public actor QuickConnect {
      获取设备地址
      */
     public func getDeviceConnectionByQuickConnectId(quickConnectId: String, enableHttps: Bool) async throws -> (type: ConnectionType, url: String)? {
-        // 获取serverInfo
-        let serverInfo = try await getAvaliableServerInfo(quickConnectId: quickConnectId, enableHttps: enableHttps)
+        // 获取 serverInfo 信息
+        // 从群晖服务API接口获取serverInfo信息，包含 get_server_info和request_tunnel，返回可用的地址。
+        let serverInfo = try await queryAvaliableServerInfo(quickConnectId: quickConnectId, enableHttps: enableHttps)
 
         // 没有找到设备信息
         guard let serverInfo else {
@@ -87,7 +88,7 @@ extension QuickConnect {
     /**
      获取 serverInfo
      */
-    private func getAvaliableServerInfo(quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
+    private func queryAvaliableServerInfo(quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
         // 通过 quick connect Id 查询机器的地址连接信息
         let synologyServer = fetchSynologyServerFromCache(quickConnectId: quickConnectId)
 
@@ -109,7 +110,7 @@ extension QuickConnect {
             Logger.debug("quickConnectId: \(quickConnectId), find avaliable serverInfo on sites: \(synologyServers), errno = \(serverInfo.errno), suberrno=\(serverInfo.suberrno ?? -999)")
 
             // 在新的区域站点调用 get_server_info
-            let multiServerInfos = try await invokeSynologyGetServerInfoOnMultiServers(synologyServers: synologyServers, quickConnectId: quickConnectId, enableHttps: enableHttps)
+            let multiServerInfos = try await invokeSynologyServiceApi(synologyServers: synologyServers, quickConnectId: quickConnectId, enableHttps: enableHttps)
             if let multiServerInfos {
                 // 缓存地址下次使用
                 saveSynologyServerToCache(quickConnectId: quickConnectId, synologyServer: multiServerInfos.synologyServer)
@@ -153,7 +154,7 @@ extension QuickConnect {
     /**
      并发多个 get_server_info 请求
      */
-    private func invokeSynologyGetServerInfoOnMultiServers(synologyServers: [String], quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
+    private func invokeSynologyServiceApi(synologyServers: [String], quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
         Logger.debug("send request: invokeSynologyGetServerInfoOnMultiServers, \(synologyServers)")
         return await withTaskGroup(of: (synologyServer: String, serverInfo: ServerInfo)?.self, returning: (synologyServer: String, serverInfo: ServerInfo)?.self, body: { taskGroup in
 
@@ -200,7 +201,7 @@ extension QuickConnect {
         let requestParams = SynoGetServerInfoRequest(id: enableHttps ? .dsm_https : .dsm, command: command, serverID: quickConnectId)
 
         // request
-        let synologyServerUrl = "https://\(synologyServer)/Serv.php"
+        let synologyServerUrl = buildSynologyServerUrl(server: synologyServer)
         let getServerInfo = session.request(synologyServerUrl, method: .post, parameters: requestParams, encoder: JSONParameterEncoder.default)
             .serializingDecodable(ServerInfo.self)
 
@@ -286,5 +287,12 @@ extension QuickConnect {
         }
 
         return nil
+    }
+
+    /**
+     buildSynologyServerUrl
+     */
+    private func buildSynologyServerUrl(server: String) -> String {
+        return "https://\(server)/Serv.php"
     }
 }
