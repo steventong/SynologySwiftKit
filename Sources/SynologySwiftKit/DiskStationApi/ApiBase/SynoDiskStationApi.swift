@@ -63,7 +63,7 @@ struct SynoDiskStationApi {
 
         // empty result
         guard let responseValue = response.value else {
-            throw SynoDiskStationApiCommonError.responseBodyEmptyError
+            throw SynoDiskStationApiError.responseBodyEmptyError
         }
 
         // handle success data
@@ -76,11 +76,40 @@ struct SynoDiskStationApi {
         }
 
         // handle error result
+        /**
+         100 Unknown error.
+         101 No parameter of API, method or version.
+         102 The requested API does not exist.
+         103 The requested method does not exist.
+         104 The requested version does not support the functionality.
+         105 The logged in session does not have permission.
+         106 Session timeout.
+         107 Session interrupted by duplicated login.
+         108 Failed to upload the file.
+         109 The network connection is unstable or the system is busy.
+         110 The network connection is unstable or the system is busy.
+         111 The network connection is unstable or the system is busy.
+         112 Preserve for other purpose.
+         113 Preserve for other purpose.
+         114 Lost parameters for this API.
+         115 Not allowed to upload a file.
+         116 Not allowed to perform for a demo site.
+         117 The network connection is unstable or the system is busy.
+         118 The network connection is unstable or the system is busy.
+         119 Invalid session.
+         120-149 Preserve for other purpose.
+         150 Request source IP does not match the login IP.
+         */
         if responseValue.success == false {
-            throw SynoDiskStationApiBizError.apiBizError(responseValue.errorCode ?? -1)
+            switch responseValue.errorCode {
+            case 119:
+                throw SynoDiskStationApiError.invalidSession
+            default:
+                throw SynoDiskStationApiError.apiBizError(responseValue.errorCode ?? -1)
+            }
         }
 
-        throw SynoDiskStationApiCommonError.responseBodyEmptyError
+        throw SynoDiskStationApiError.responseBodyEmptyError
     }
 }
 
@@ -93,7 +122,7 @@ extension SynoDiskStationApi {
             return "\(connection.url)\(apiUrl)"
         }
 
-        throw SynoDiskStationApiCommonError.requestHostNotPressentError
+        throw SynoDiskStationApiError.requestHostNotPressentError
     }
 
     /**
@@ -141,23 +170,23 @@ extension SynoDiskStationApi {
                 switch sessionError.code {
                 case NSURLErrorSecureConnectionFailed:
                     // 发生了SSL错误，无法建立与该服务器的安全连接。
-                    throw SynoDiskStationApiCommonError.sslConnectionFailed(sessionError.localizedDescription)
+                    throw SynoDiskStationApiError.sslConnectionFailed(sessionError.localizedDescription)
                 case NSURLErrorCannotFindHost:
                     // 未能找到使用指定主机名的服务器。
-                    throw SynoDiskStationApiCommonError.canNotFindHostError(sessionError.localizedDescription)
+                    throw SynoDiskStationApiError.canNotFindHostError(sessionError.localizedDescription)
                 default:
                     // 没有识别出的异常
-                    throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
+                    throw SynoDiskStationApiError.commonUrlError(sessionError.localizedDescription)
                 }
             default:
                 // 没有识别出的异常
                 Logger.error("SynoDiskStationApi.handleApiErrors NSURLErrorDomain unknown domain, error \(error)")
-                throw SynoDiskStationApiCommonError.commonUrlError(sessionError.localizedDescription)
+                throw SynoDiskStationApiError.commonUrlError(sessionError.localizedDescription)
             }
         default:
             // 没有识别出的异常
             Logger.error("SynoDiskStationApi.handleApiErrors unknown error , error \(error)")
-            throw SynoDiskStationApiCommonError.commonUrlError(error.localizedDescription)
+            throw SynoDiskStationApiError.commonUrlError(error.localizedDescription)
         }
     }
 }

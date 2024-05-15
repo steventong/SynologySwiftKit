@@ -50,9 +50,9 @@ public actor AuthApi {
         do {
             let authResult = try await api.request(resultType: AuthResult.self)
             return handleAuthResult(authResult: authResult)
-        } catch let SynoDiskStationApiBizError.apiBizError(errorCode) {
+        } catch let SynoDiskStationApiError.apiBizError(errorCode) {
             throw AuthError.getAuthErrorByCode(errorCode: errorCode)
-        } catch let commonError as SynoDiskStationApiCommonError {
+        } catch let commonError as SynoDiskStationApiError {
             throw AuthError.commonNetworkError(commonError.localizedDescription)
         }
     }
