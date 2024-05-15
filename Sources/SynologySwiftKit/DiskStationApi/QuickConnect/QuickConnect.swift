@@ -13,7 +13,7 @@ public actor QuickConnect {
     let pingpong = PingPong()
 
     public init() {
-        session = AlamofireClient.shared.session()
+        session = AlamofireClient.shared.session(timeoutIntervalForRequest: 10)
     }
 
     /**

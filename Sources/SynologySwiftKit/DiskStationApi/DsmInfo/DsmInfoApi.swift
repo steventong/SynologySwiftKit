@@ -8,10 +8,8 @@
 import Alamofire
 
 public class DsmInfoApi {
-    let session: Session
 
     public init() {
-        session = AlamofireClient.shared.session()
     }
 
     /**

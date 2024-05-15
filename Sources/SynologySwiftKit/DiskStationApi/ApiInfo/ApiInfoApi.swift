@@ -9,10 +9,8 @@ import Alamofire
 import Foundation
 
 public actor ApiInfoApi {
-    let session: Session
 
     public init() {
-        session = AlamofireClient.shared.session()
     }
 
     /**

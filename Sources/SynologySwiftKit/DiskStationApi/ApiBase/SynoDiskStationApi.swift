@@ -20,8 +20,11 @@ struct SynoDiskStationApi {
     let httpMethod: HTTPMethod
     let url: String
 
-    init(api: DiskStationApiDefine, method: String, version: Int, httpMethod: HTTPMethod = .get, parameters: Parameters = [:]) {
-        session = AlamofireClient.shared.session()
+    /**
+     init
+     */
+    init(api: DiskStationApiDefine, method: String, version: Int, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
+        session = AlamofireClient.shared.session(timeoutIntervalForRequest: timeout)
 
         name = api.apiName
         self.method = method
@@ -29,6 +32,13 @@ struct SynoDiskStationApi {
         self.httpMethod = httpMethod
         self.parameters = parameters
         url = api.apiUrl
+    }
+
+    /**
+     request
+     */
+    public func request() async throws {
+        let empty = try await request(resultType: SynoDiskStationApiEmptyData.self)
     }
 
     /**

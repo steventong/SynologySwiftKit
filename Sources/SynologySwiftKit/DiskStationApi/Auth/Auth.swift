@@ -9,10 +9,8 @@ import Alamofire
 import Foundation
 
 public actor Auth {
-    let session: Session
 
     public init() {
-        session = AlamofireClient.shared.session()
     }
 
     /**
@@ -57,6 +55,15 @@ public actor Auth {
         } catch let commonError as SynoDiskStationApiCommonError {
             throw AuthError.commonNetworkError(commonError.localizedDescription)
         }
+    }
+
+    /**
+     logout
+     */
+    public func logout() async throws {
+        let api = SynoDiskStationApi(api: .SYNO_API_AUTH, method: "logout", version: 6, timeout: 3)
+
+        try await api.request()
     }
 }
 
