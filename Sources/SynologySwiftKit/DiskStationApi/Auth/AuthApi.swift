@@ -8,7 +8,7 @@
 import Alamofire
 import Foundation
 
-public actor Auth {
+public actor AuthApi {
 
     public init() {
     }
@@ -67,7 +67,7 @@ public actor Auth {
     }
 }
 
-extension Auth {
+extension AuthApi {
     /**
      getDeviceName
      */

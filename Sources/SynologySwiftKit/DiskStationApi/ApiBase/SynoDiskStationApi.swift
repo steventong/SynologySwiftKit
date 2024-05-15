@@ -10,7 +10,7 @@ import Foundation
 
 struct SynoDiskStationApi {
     let session: Session
-    let quickConnect = QuickConnect()
+    let quickConnectApi = QuickConnectApi()
     let deviceConnection = DeviceConnection()
 
     let name: String
@@ -38,7 +38,7 @@ struct SynoDiskStationApi {
      request
      */
     public func request() async throws {
-        let empty = try await request(resultType: SynoDiskStationApiEmptyData.self)
+        let ignored = try await request(resultType: SynoDiskStationApiEmptyData.self)
     }
 
     /**

@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension QuickConnect {
+extension QuickConnectApi {
     enum QuickConnectServerCommand: String, Encodable {
         case get_server_info
         case request_tunnel

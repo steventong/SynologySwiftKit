@@ -8,7 +8,7 @@
 import Alamofire
 import Foundation
 
-public actor QuickConnect {
+public actor QuickConnectApi {
     let session: Session
     let pingpong = PingPong()
 
@@ -73,7 +73,7 @@ public actor QuickConnect {
     }
 }
 
-extension QuickConnect {
+extension QuickConnectApi {
     /**
      判断是否是 quickConnect ID
      */
