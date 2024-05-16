@@ -68,7 +68,7 @@ public class DeviceConnection {
 
         if let sid, let sidExpireAt {
             let session = (sid, sidExpireAt, did, didExpireAt)
-            Logger.info("[DeviceConnection]getLoginSession, session = \(session)")
+//            Logger.info("[DeviceConnection]getLoginSession, session = \(session)")
             return session
         }
 

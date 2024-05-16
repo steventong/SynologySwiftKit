@@ -52,7 +52,7 @@ struct SynoDiskStationApi {
         parameters["method"] = method
         parameters["version"] = apiVersion(apiName: name, apiVersion: version)
 
-        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
+//        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
         let response = await session.request(apiUrl, method: httpMethod, parameters: parameters)
             .serializingDecodable(DiskStationApiResult<Value>.self)
