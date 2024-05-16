@@ -21,7 +21,7 @@ public class DeviceConnection {
      */
     public func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
         if let connection {
-            Logger.info("[DeviceConnection]query Connection from context, connection = \(connection)")
+//            Logger.info("[DeviceConnection]query Connection from context, connection = \(connection)")
             return connection
         }
 
