@@ -81,15 +81,15 @@ public class DeviceConnection {
      */
     public func updateLoginSession(sid: String, did: String?) {
         let sidExpireAt = addSecondsFromNow(seconds: ONE_WEEK_SECONDS)
-        Logger.info("update login session, sid will expire at: \(sidExpireAt)")
+//        Logger.debug("update login session, sid will expire at: \(sidExpireAt)")
 
         if let did {
             let didExpireAt = addSecondsFromNow(seconds: ONE_YEAR_SECONDS)
             session = (sid, sidExpireAt, did, didExpireAt)
-            Logger.info("update login session, did is present, session: \(session)")
+//            Logger.debug("update login session, did is present, session: \(session)")
         } else {
             session = (sid, sidExpireAt, nil, nil)
-            Logger.info("update login session, session: \(session)")
+//            Logger.debug("update login session, session: \(session)")
         }
 
         guard let session else {
