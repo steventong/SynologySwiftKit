@@ -57,7 +57,7 @@ public class DeviceConnection {
      */
     public func getLoginSession() -> (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)? {
         if let session {
-            Logger.info("[DeviceConnection]getLoginSession, session is valid")
+//            Logger.info("[DeviceConnection]getLoginSession, session is valid")
             return session
         }
 
