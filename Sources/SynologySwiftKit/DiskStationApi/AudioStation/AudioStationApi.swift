@@ -39,8 +39,11 @@ public class AudioStationApi {
 
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id=
      */
-    public func songStreamUrl(musicId: String, position: Int = 0, quality: SongStreamQuality) -> URL? {
+    public func songStreamUrl(musicId: String, position: Int = 0, quality: SongStreamQuality) throws -> URL? {
         let method = quality == .ORIGINAL ? "stream" : "transcode"
+        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+            throw SynoDiskStationApiError.invalidSession
+        }
 
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, method: method, version: 2, parameters: [
             "id": musicId,
