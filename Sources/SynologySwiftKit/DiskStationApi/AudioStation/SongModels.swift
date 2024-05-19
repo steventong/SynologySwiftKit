@@ -100,3 +100,36 @@ public struct SongListResult: Decodable, Encodable {
 
     public var songs: [Song]
 }
+
+public enum SongStreamQuality {
+    case LOW
+    case MEDIUM
+    case HIGH
+    case ORIGINAL
+
+    var format: String? {
+        switch self {
+        case .HIGH:
+            "wav"
+        case .MEDIUM:
+            "mp3"
+        case .LOW:
+            "mp3"
+        case .ORIGINAL:
+            "mp3"
+        }
+    }
+
+    var bitrate: Int? {
+        switch self {
+        case .HIGH:
+            320000
+        case .MEDIUM:
+            256000
+        case .LOW:
+            128000
+        case .ORIGINAL:
+            nil
+        }
+    }
+}

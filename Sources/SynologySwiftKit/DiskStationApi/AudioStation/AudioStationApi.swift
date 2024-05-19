@@ -33,6 +33,27 @@ public class AudioStationApi {
     }
 
     /**
+     High: /webapi/AudioStation/stream.cgi/0.wav?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=wav&id=
+     M: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=mp3&id=
+     L: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=mp3&id=
+
+     Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id=
+     */
+    public func songStreamUrl(musicId: String, position: Int = 0, quality: SongStreamQuality) -> URL? {
+        let method = quality == .ORIGINAL ? "stream" : "transcode"
+
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, method: method, version: 2, parameters: [
+            "id": musicId,
+            "position": position,
+            "format": quality.format ?? "",
+            "bitrate": quality.bitrate ?? "",
+            "_sid": sid,
+        ])
+
+        return api.requestUrl()
+    }
+
+    /**
      query playlist list
      */
     public func playlistList(limit: Int, offset: Int) async -> (total: Int, data: [Playlist]) {
@@ -270,7 +291,7 @@ public class AudioStationApi {
      id: playlist_personal_normal/1111
      songs:
      version: 3
-     
+
      api: SYNO.AudioStation.Playlist
      method: updatesongs
      offset: 3

@@ -29,7 +29,7 @@ public class DeviceConnection {
             let typeRawValuw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             if let type = ConnectionType(rawValue: typeRawValuw) {
                 connection = (type, url)
-                Logger.warn("[DeviceConnection]query Connection from userdefaults, connection = \(connection)")
+//                Logger.warn("[DeviceConnection]query Connection from userdefaults, connection = \(connection)")
                 return connection
             }
         }
@@ -43,13 +43,13 @@ public class DeviceConnection {
      */
     public func updateCurrentConnectionUrl(type: ConnectionType, url: String) {
         connection = (type, url)
-        Logger.info("[DeviceConnection]prepare update Connection to userdefaults, connection = \(connection)")
+//        Logger.info("[DeviceConnection]prepare update Connection to userdefaults, connection = \(connection)")
 
         UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
         UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
 
         UserDefaults.standard.synchronize()
-        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection)")
+//        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection)")
     }
 
     /**

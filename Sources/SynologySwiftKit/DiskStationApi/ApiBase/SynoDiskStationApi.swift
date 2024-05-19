@@ -23,7 +23,7 @@ struct SynoDiskStationApi {
     /**
      init
      */
-    init(api: DiskStationApiDefine, method: String, version: Int, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
+    init(api: DiskStationApiDefine, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
         session = AlamofireClient.shared.session(timeoutIntervalForRequest: timeout)
 
         name = api.apiName
@@ -35,26 +35,66 @@ struct SynoDiskStationApi {
     }
 
     /**
-     request
+     request for result
      */
-    public func request() async throws {
-        let ignored = try await request(resultType: SynoDiskStationApiEmptyData.self)
+    public func request() async throws -> Bool {
+        let apiResult = try await apiRequest(resultType: SynoDiskStationApiEmptyData.self)
+        return apiResult.success
     }
 
     /**
-     request
-     */
+     request for result data
+     **/
     public func request<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
-        let apiUrl = try apiUrl(apiUrl: url)
+        let apiResult = try await apiRequest(resultType: Value.self)
+        if let data = apiResult.data {
+            return data
+        }
+
+        throw SynoDiskStationApiError.responseBodyEmptyError
+    }
+
+    /**
+     build request Url not invoke api
+     */
+    public func requestUrl() -> URL? {
+        guard let apiUrl = try? apiUrl(apiUrl: url) else {
+            // 处理获取 apiUrl 失败的情况
+            return nil
+        }
 
         var parameters = self.parameters
         parameters["api"] = name
         parameters["method"] = method
         parameters["version"] = apiVersion(apiName: name, apiVersion: version)
 
+        // 使用 URLComponents 构建带有查询参数的 URL
+        var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false)
+        components?.queryItems = parameters.map { URLQueryItem(name: $0.key, value: "\($0.value)") }
+
+        // 返回构建好的 URL
+        return components?.url
+    }
+}
+
+extension SynoDiskStationApi {
+    /**
+     request
+     */
+    private func apiRequest<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> DiskStationApiResult<Value> {
+        guard let apiUrl = try? apiUrl(apiUrl: url) else {
+            // 处理获取 apiUrl 失败的情况
+            throw SynoDiskStationApiError.requestHostNotPressentError
+        }
+
+        var query = parameters
+        query["api"] = name
+        query["method"] = method
+        query["version"] = apiVersion(apiName: name, apiVersion: version)
+
 //        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
-        let response = await session.request(apiUrl, method: httpMethod, parameters: parameters)
+        let response = await session.request(apiUrl.absoluteString, method: httpMethod, parameters: query)
             .serializingDecodable(DiskStationApiResult<Value>.self)
             .response
 
@@ -67,12 +107,10 @@ struct SynoDiskStationApi {
         }
 
         // handle success data
-        if responseValue.success == true,
-           let data = response.value?.data {
+        if responseValue.success == true {
             // 解析 set-cookie
-            //        parseResponseCookieHeader(setCookieValue: response.response?.value(forHTTPHeaderField: "Set-Cookie"))
-
-            return data
+            // parseResponseCookieHeader(setCookieValue: response.response?.value(forHTTPHeaderField: "Set-Cookie"))
+            return responseValue
         }
 
         // handle error result
@@ -111,15 +149,14 @@ struct SynoDiskStationApi {
 
         throw SynoDiskStationApiError.responseBodyEmptyError
     }
-}
 
-extension SynoDiskStationApi {
     /**
      api url
      */
-    private func apiUrl(apiUrl: String) throws -> String {
-        if let connection = deviceConnection.getCurrentConnectionUrl() {
-            return "\(connection.url)\(apiUrl)"
+    private func apiUrl(apiUrl: String) throws -> URL {
+        if let connection = deviceConnection.getCurrentConnectionUrl(),
+           let connectionURL = URL(string: "\(connection.url)\(apiUrl)") {
+            return connectionURL
         }
 
         throw SynoDiskStationApiError.requestHostNotPressentError
