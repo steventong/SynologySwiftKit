@@ -129,6 +129,9 @@ extension SynoDiskStationApi {
         let response = await session.request(apiUrl.absoluteString, method: httpMethod, headers: headers)
             .serializingDecodable(DiskStationApiResult<Value>.self)
             .response
+        
+        // debug log
+        Logger.info(response.description)
 
         // error handler
         try handleApiErrors(error: response.error)
