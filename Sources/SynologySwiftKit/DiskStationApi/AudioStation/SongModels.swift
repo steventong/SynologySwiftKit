@@ -110,13 +110,13 @@ public enum SongStreamQuality {
     var format: String? {
         switch self {
         case .HIGH:
-            "wav"
+            "mp3"
         case .MEDIUM:
             "mp3"
         case .LOW:
             "mp3"
         case .ORIGINAL:
-            "mp3"
+            "wav"
         }
     }
 
