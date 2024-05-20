@@ -107,7 +107,7 @@ public enum SongStreamQuality {
     case HIGH
     case ORIGINAL
 
-    var format: String? {
+    var format: String {
         switch self {
         case .HIGH:
             "mp3"

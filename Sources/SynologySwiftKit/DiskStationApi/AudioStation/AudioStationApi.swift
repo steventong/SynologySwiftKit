@@ -46,10 +46,12 @@ public class AudioStationApi {
             throw SynoDiskStationApiError.invalidSession
         }
 
+        let fileName = "\(songId).\(quality.format)"
+
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, method: method, version: 2, parameters: [
             "id": songId,
             "position": position,
-            "format": quality.format ?? "",
+            "format": quality.format,
             "bitrate": quality.bitrate ?? "",
             "_sid": sid,
         ])

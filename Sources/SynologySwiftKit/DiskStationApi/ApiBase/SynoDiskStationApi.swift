@@ -23,7 +23,7 @@ struct SynoDiskStationApi {
     /**
      init
      */
-    init(api: DiskStationApiDefine, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
+    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
         session = AlamofireClient.shared.session(timeoutIntervalForRequest: timeout)
 
         name = api.apiName
@@ -31,7 +31,12 @@ struct SynoDiskStationApi {
         self.version = api.apiVersion(version: version)
         self.httpMethod = httpMethod
         self.parameters = parameters
-        url = api.apiUrl
+
+        if let path {
+            url = api.apiUrl + path
+        } else {
+            url = api.apiUrl
+        }
     }
 
     /**
@@ -58,7 +63,16 @@ struct SynoDiskStationApi {
      build request Url not invoke api
      */
     public func requestUrl() -> URL? {
-        guard let apiUrl = try? apiUrl(apiUrl: url) else {
+        return buildRequestUrl()
+    }
+}
+
+extension SynoDiskStationApi {
+    /**
+     build request Url not invoke api
+     */
+    public func buildRequestUrl() -> URL? {
+        guard let apiUrl = try? apiUrl(apiPath: url) else {
             // 处理获取 apiUrl 失败的情况
             return nil
         }
@@ -94,26 +108,19 @@ struct SynoDiskStationApi {
         Logger.debug("synology build requestUrl: \(requestUrl)")
         return requestUrl
     }
-}
 
-extension SynoDiskStationApi {
     /**
      request
      */
     private func apiRequest<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> DiskStationApiResult<Value> {
-        guard let apiUrl = try? apiUrl(apiUrl: url) else {
+        guard let apiUrl = buildRequestUrl() else {
             // 处理获取 apiUrl 失败的情况
             throw SynoDiskStationApiError.requestHostNotPressentError
         }
 
-        var query = parameters
-        query["api"] = name
-        query["method"] = method
-        query["version"] = apiVersion(apiName: name, apiVersion: version)
-
 //        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
-        let response = await session.request(apiUrl.absoluteString, method: httpMethod, parameters: query)
+        let response = await session.request(apiUrl.absoluteString, method: httpMethod)
             .serializingDecodable(DiskStationApiResult<Value>.self)
             .response
 
@@ -178,9 +185,9 @@ extension SynoDiskStationApi {
     /**
      api url
      */
-    private func apiUrl(apiUrl: String) throws -> URL {
+    private func apiUrl(apiPath: String) throws -> URL {
         if let connection = deviceConnection.getCurrentConnectionUrl(),
-           let connectionURL = URL(string: "\(connection.url)\(apiUrl)") {
+           let connectionURL = URL(string: "\(connection.url)\(apiPath)") {
             return connectionURL
         }
 
