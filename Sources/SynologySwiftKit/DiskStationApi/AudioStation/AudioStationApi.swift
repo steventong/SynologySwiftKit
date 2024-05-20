@@ -39,14 +39,14 @@ public class AudioStationApi {
 
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id=
      */
-    public func songStreamUrl(musicId: String, position: Int = 0, quality: SongStreamQuality) throws -> URL? {
+    public func songStreamUrl(songId: String, position: Int = 0, quality: SongStreamQuality) throws -> URL? {
         let method = quality == .ORIGINAL ? "stream" : "transcode"
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
 
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, method: method, version: 2, parameters: [
-            "id": musicId,
+            "id": songId,
             "position": position,
             "format": quality.format ?? "",
             "bitrate": quality.bitrate ?? "",
@@ -57,9 +57,63 @@ public class AudioStationApi {
     }
 
     /**
+     音乐封面
+     /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getsongcover&version=1&library=all&id=music_6834&_sid=
+     */
+    public func songCoverURL(songId: String) throws -> URL? {
+        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+            throw SynoDiskStationApiError.invalidSession
+        }
+
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getsongcover", parameters: [
+            "library": "all",
+            "id": songId,
+            "_sid": sid,
+        ])
+
+        return api.requestUrl()
+    }
+
+    /**
+     专辑封面
+     /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&album_name=%E4%B8%83%E9%87%8C%E9%A6%99&album_artist_name=
+     */
+    func albumCoverURL(albumName: String, artistName: String) throws -> URL? {
+        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+            throw SynoDiskStationApiError.invalidSession
+        }
+
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3, parameters: [
+            "library": "all",
+            "album_name": albumName,
+            "album_artist_name": artistName,
+            "_sid": sid,
+        ])
+
+        return api.requestUrl()
+    }
+
+    /**
+     GET /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&artist_name=Backstreet%20Boys
+     */
+    func artistCoverURL(artistName: String) throws -> URL? {
+        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+            throw SynoDiskStationApiError.invalidSession
+        }
+
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3, parameters: [
+            "library": "all",
+            "artist_name": artistName,
+            "_sid": sid,
+        ])
+
+        return api.requestUrl()
+    }
+
+    /**
       /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&composer_name=%E4%BA%94%E6%9C%88%E5%A4%A9
      */
-    public func composerCoverUrl(composerName: String) throws -> URL? {
+    public func composerCoverURL(composerName: String) throws -> URL? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
