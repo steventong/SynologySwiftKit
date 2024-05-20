@@ -118,9 +118,15 @@ extension SynoDiskStationApi {
             throw SynoDiskStationApiError.requestHostNotPressentError
         }
 
+        // build cookie
+        var headers: HTTPHeaders = []
+        if let cookie = buildCookie() {
+            headers.add(name: "Cookie", value: cookie)
+        }
+
 //        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
-        let response = await session.request(apiUrl.absoluteString, method: httpMethod)
+        let response = await session.request(apiUrl.absoluteString, method: httpMethod, headers: headers)
             .serializingDecodable(DiskStationApiResult<Value>.self)
             .response
 
@@ -199,6 +205,21 @@ extension SynoDiskStationApi {
      */
     private func apiVersion(apiName: String, apiVersion: Int) -> Int {
         return apiVersion
+    }
+
+    /**
+     build sid cookie
+     */
+    private func buildCookie() -> String? {
+        if let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) {
+            if let did = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName) {
+                return "id=\(sid); did=\(did)"
+            }
+
+            return "id=\(sid)"
+        }
+
+        return nil
     }
 
     /**
