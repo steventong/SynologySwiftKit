@@ -57,6 +57,24 @@ public class AudioStationApi {
     }
 
     /**
+      /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&composer_name=%E4%BA%94%E6%9C%88%E5%A4%A9
+     */
+    public func composerCoverUrl(composerName: String) throws -> URL? {
+        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+            throw SynoDiskStationApiError.invalidSession
+        }
+
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3, parameters: [
+            "version": 3,
+            "library": "all",
+            "composer_name": composerName,
+            "_sid": sid,
+        ])
+
+        return api.requestUrl()
+    }
+
+    /**
      query playlist list
      */
     public func playlistList(limit: Int, offset: Int) async -> (total: Int, data: [Playlist]) {
@@ -160,7 +178,6 @@ public class AudioStationApi {
      name: 智能列表
 
      {"data":{"id":"playlist_shared_normal/381"},"success":true}
-
      */
     public func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, parameters: [
