@@ -131,7 +131,7 @@ extension SynoDiskStationApi {
             .response
         
         // debug log
-        Logger.info(response.description)
+        Logger.debug(response.debugDescription)
 
         // error handler
         try handleApiErrors(error: response.error)
