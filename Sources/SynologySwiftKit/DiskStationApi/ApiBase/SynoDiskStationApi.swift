@@ -159,6 +159,12 @@ extension SynoDiskStationApi {
          */
         if responseValue.success == false {
             switch responseValue.errorCode {
+            case 105:
+                throw SynoDiskStationApiError.invalidSession
+            case 106:
+                throw SynoDiskStationApiError.invalidSession
+            case 107:
+                throw SynoDiskStationApiError.invalidSession
             case 119:
                 throw SynoDiskStationApiError.invalidSession
             default:
