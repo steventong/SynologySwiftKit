@@ -69,13 +69,23 @@ struct SynoDiskStationApi {
         parameters["version"] = apiVersion(apiName: name, apiVersion: version)
 
         // 使用 URLComponents 构建带有查询参数的 URL
-        var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false)
-        components?.queryItems = parameters
+        guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
+            Logger.error("apiUrl is invalid: \(apiUrl) ")
+            return nil
+        }
+
+        components.queryItems = parameters
             .sorted { $0.key < $1.key }
             .map { URLQueryItem(name: $0.key, value: "\($0.value)") }
 
         // 返回构建好的 URL
-        return components?.url
+        guard let requestUrl = components.url else {
+            Logger.error("requestUrl is invalid: \(components) ")
+            return nil
+        }
+
+        Logger.debug("synology build requestUrl: \(requestUrl)")
+        return requestUrl
     }
 }
 
