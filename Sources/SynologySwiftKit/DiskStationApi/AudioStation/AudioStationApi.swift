@@ -78,7 +78,7 @@ public class AudioStationApi {
      专辑封面
      /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&album_name=%E4%B8%83%E9%87%8C%E9%A6%99&album_artist_name=
      */
-    func albumCoverURL(albumName: String, artistName: String) throws -> URL? {
+    public func albumCoverURL(albumName: String, artistName: String) throws -> URL? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
@@ -96,7 +96,7 @@ public class AudioStationApi {
     /**
      GET /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&artist_name=Backstreet%20Boys
      */
-    func artistCoverURL(artistName: String) throws -> URL? {
+    public func artistCoverURL(artistName: String) throws -> URL? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
