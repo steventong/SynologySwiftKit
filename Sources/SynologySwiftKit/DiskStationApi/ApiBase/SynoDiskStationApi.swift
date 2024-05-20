@@ -70,7 +70,9 @@ struct SynoDiskStationApi {
 
         // 使用 URLComponents 构建带有查询参数的 URL
         var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false)
-        components?.queryItems = parameters.map { URLQueryItem(name: $0.key, value: "\($0.value)") }
+        components?.queryItems = parameters
+            .sorted { $0.key < $1.key }
+            .map { URLQueryItem(name: $0.key, value: "\($0.value)") }
 
         // 返回构建好的 URL
         return components?.url
