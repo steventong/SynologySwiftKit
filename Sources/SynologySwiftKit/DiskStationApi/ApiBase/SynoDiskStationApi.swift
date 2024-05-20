@@ -74,9 +74,16 @@ struct SynoDiskStationApi {
             return nil
         }
 
-        components.queryItems = parameters
-            .sorted { $0.key < $1.key }
-            .map { URLQueryItem(name: $0.key, value: "\($0.value)") }
+        // 对参数的键进行自定义排序：普通键在前，_开头的键在后，并且各自按字母顺序排序
+        components.queryItems = parameters.sorted {
+            if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") {
+                return false
+            } else if !$0.key.hasPrefix("_") && $1.key.hasPrefix("_") {
+                return true
+            } else {
+                return $0.key < $1.key
+            }
+        }.map { URLQueryItem(name: $0.key, value: "\($0.value)") }
 
         // 返回构建好的 URL
         guard let requestUrl = components.url else {
