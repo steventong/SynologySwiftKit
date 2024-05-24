@@ -101,7 +101,7 @@ public struct SongListResult: Decodable, Encodable {
     public var songs: [Song]
 }
 
-public enum SongStreamQuality {
+public enum SongStreamQuality: String {
     case LOW
     case MEDIUM
     case HIGH
