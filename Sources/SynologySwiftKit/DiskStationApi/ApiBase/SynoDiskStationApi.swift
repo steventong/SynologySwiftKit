@@ -105,7 +105,7 @@ extension SynoDiskStationApi {
             return nil
         }
 
-        Logger.debug("synology build requestUrl: \(requestUrl)")
+//        Logger.debug("synology build requestUrl: \(requestUrl)")
         return requestUrl
     }
 
