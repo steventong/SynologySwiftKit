@@ -129,4 +129,11 @@ public class AudioStationApi {
     public func playlistRemoveSongs(id: String, songs: [String]) async -> Bool {
         return await playlistApi.playlistRemoveSongs(id: id, songs: songs)
     }
+
+    /**
+     tagEditorLoad
+     */
+    public func tagEditorLoad(path: String) async throws -> TagEditorResult? {
+        return try await tagEditorApi.tagEditorLoad(path: path)
+    }
 }

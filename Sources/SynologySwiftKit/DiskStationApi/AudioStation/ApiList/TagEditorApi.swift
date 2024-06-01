@@ -35,7 +35,7 @@ class TagEditorApi {
      }
 
      */
-    func load(path: String) async throws -> TagEditorResult? {
+    func tagEditorLoad(path: String) async throws -> TagEditorResult? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
