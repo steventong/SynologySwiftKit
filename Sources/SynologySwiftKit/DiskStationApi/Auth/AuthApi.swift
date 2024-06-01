@@ -9,7 +9,6 @@ import Alamofire
 import Foundation
 
 public actor AuthApi {
-
     public init() {
     }
 
@@ -48,7 +47,7 @@ public actor AuthApi {
         ])
 
         do {
-            let authResult = try await api.request(resultType: AuthResult.self)
+            let authResult = try await api.requestForData(resultType: AuthResult.self)
             return handleAuthResult(authResult: authResult)
         } catch let SynoDiskStationApiError.apiBizError(errorCode) {
             throw AuthError.getAuthErrorByCode(errorCode: errorCode)
@@ -62,7 +61,6 @@ public actor AuthApi {
      */
     public func logout() async throws {
         let api = SynoDiskStationApi(api: .SYNO_API_AUTH, method: "logout", version: 6, timeout: 3)
-
         try await api.request()
     }
 }

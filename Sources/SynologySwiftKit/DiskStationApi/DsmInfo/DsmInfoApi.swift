@@ -18,7 +18,7 @@ public class DsmInfoApi {
     public func queryDmsInfo() async throws -> DsmInfo? {
         let api = SynoDiskStationApi(api: .SYNO_DSM_INFO, method: "getinfo", version: 2)
 
-        let dsmInfo = try await api.request(resultType: DsmInfo.self)
+        let dsmInfo = try await api.requestForData(resultType: DsmInfo.self)
 
         Logger.info("dsmInfo: \(dsmInfo)")
         return dsmInfo
