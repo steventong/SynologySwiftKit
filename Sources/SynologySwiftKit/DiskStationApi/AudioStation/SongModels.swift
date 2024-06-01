@@ -133,3 +133,11 @@ public enum SongStreamQuality: String {
         }
     }
 }
+
+public struct SongInfo: Decodable {
+    /**
+     songs
+     */
+    var songs: [Song]
+    
+}

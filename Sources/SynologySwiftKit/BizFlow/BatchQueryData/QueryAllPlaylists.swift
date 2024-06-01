@@ -128,7 +128,7 @@ extension QueryAllPlaylists {
      query music in playlist
      */
     private func queryPlaylistSongList(playlist: Playlist, onTaskUpdate: @escaping (_ playlist: Playlist, _ songs: [Song], _ total: Int) -> Void) async -> [Song] {
-        let songsResult = await audioStationApi.playlistSongList(playlistId: playlist.id, limit: 5000, offset: 0)
+        let songsResult = await audioStationApi.playlistSongList(id: playlist.id, songsLimit: 5000, songsOffset: 0)
         onTaskUpdate(playlist, songsResult.data, songsResult.total)
         return songsResult.data
     }

@@ -33,6 +33,65 @@ public class AudioStationApi {
     }
 
     /**
+     query song info
+
+     /webapi/AudioStation/song.cgi?additional=song_rating&api=SYNO.AudioStation.Song&id=music_6910&method=getinfo&version=2
+     {
+         "success": true,
+         "data": {
+             "songs": [
+                 {
+                     "additional": {
+                         "song_audio": {
+                             "bitrate": 1536000,
+                             "channel": 2,
+                             "codec": "pcm_s16le",
+                             "container": "wav",
+                             "duration": 201,
+                             "filesize": 38740388,
+                             "frequency": 48000
+                         },
+                         "song_rating": {
+                             "rating": 0
+                         },
+                         "song_tag": {
+                             "album": "02 范特西",
+                             "album_artist": "",
+                             "artist": "",
+                             "comment": "",
+                             "composer": "",
+                             "disc": 0,
+                             "genre": "",
+                             "track": 0,
+                             "year": 0
+                         }
+                     },
+                     "id": "music_6910",
+                     "path": "/music/周杰伦/02 范特西/双截棍.wav",
+                     "title": "双截棍",
+                     "type": "file"
+                 }
+             ]
+         }
+     }
+     */
+    public func songGetInfo(id: String) async -> Song? {
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "getinfo", version: 2, parameters: [
+            "id": id,
+            "additional": "song_tag,song_audio,song_rating",
+        ])
+
+        do {
+            let result = try await api.request(resultType: SongInfo.self)
+            return result.songs.first
+        } catch {
+            Logger.error("AudioStationApi.songGetInfo error: \(error)")
+        }
+
+        return nil
+    }
+
+    /**
      High: /webapi/AudioStation/stream.cgi/0.wav?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=wav&id=
      M: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=mp3&id=
      L: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=mp3&id=
@@ -40,16 +99,16 @@ public class AudioStationApi {
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id= ??
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id= ??   format=wav
      */
-    public func songStreamUrl(songId: String, position: Int = 0, quality: SongStreamQuality) throws -> URL? {
+    public func songStreamUrl(id: String, position: Int = 0, quality: SongStreamQuality) throws -> URL? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
 
-        let songFileName = "/\(songId).\(quality.format)"
+        let songFileName = "/\(id).\(quality.format)"
         let method = quality == .ORIGINAL ? "stream" : "transcode"
 
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, path: songFileName, method: method, version: 2, parameters: [
-            "id": songId,
+            "id": id,
             "position": position,
             "format": quality.format,
             "bitrate": quality.bitrate ?? "",
@@ -81,7 +140,7 @@ public class AudioStationApi {
      专辑封面
      /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&album_name=%E4%B8%83%E9%87%8C%E9%A6%99&album_artist_name=
      */
-    public func albumCoverURL(albumName: String, artistName: String) throws -> URL? {
+    public func albumCoverURL(albumName: String, albumArtistName: String) throws -> URL? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
@@ -89,7 +148,7 @@ public class AudioStationApi {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3, parameters: [
             "library": "all",
             "album_name": albumName,
-            "album_artist_name": artistName,
+            "album_artist_name": albumArtistName,
             "_sid": sid,
         ])
 
@@ -154,13 +213,13 @@ public class AudioStationApi {
     /**
      query playlist songs
      */
-    public func playlistSongList(playlistId: String, limit: Int, offset: Int) async -> (total: Int, data: [Song]) {
+    public func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async -> (total: Int, data: [Song]) {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, parameters: [
-            "id": playlistId,
+            "id": id,
             "library": "all",
             "additional": "songs,songs_song_tag,songs_song_audio,songs_song_rating",
-            "songs_limit": limit,
-            "songs_offset": offset,
+            "songs_limit": songsLimit,
+            "songs_offset": songsOffset,
         ])
 
         do {
@@ -341,12 +400,12 @@ public class AudioStationApi {
 
      { "success": true }
      */
-    public func playlistAddSongs(playlistId: String, songIds: [String]) async -> Bool {
+    public func playlistAddSongs(id: String, songs: [String]) async -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
-            "id": playlistId,
+            "id": id,
             "limit": 0,
             "offset": -1,
-            "songs": songIds,
+            "songs": songs,
             "skip_duplicate": true,
         ])
 
@@ -379,12 +438,12 @@ public class AudioStationApi {
 
      { "success": true }
      */
-    public func playlistRemoveSongs(playlistId: String, songIds: [String]) async -> Bool {
+    public func playlistRemoveSongs(id: String, songs: [String]) async -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
-            "id": playlistId,
+            "id": "id",
             "limit": 0,
             "offset": -1,
-            "songs": songIds,
+            "songs": songs,
             "skip_duplicate": true,
         ])
 
