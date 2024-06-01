@@ -74,7 +74,7 @@ public struct SongAudio: Decodable, Encodable {
     public var codec: String
     public var container: String
     public var duration: Double
-    public var filesize: Int
+    public var filesize: Int64
     public var frequency: Int
 }
 
