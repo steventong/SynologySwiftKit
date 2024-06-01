@@ -69,28 +69,45 @@ public struct SongAdditional: Decodable, Encodable {
 }
 
 public struct SongAudio: Decodable, Encodable {
+    // 码率 bps
     public var bitrate: Int
+    // 声道数
     public var channel: Int
+    // 文件类型
     public var codec: String
+    // 文件类型
     public var container: String
+    // 时长
     public var duration: Double
+    // 文件大小 b
     public var filesize: Int64
+    // 取样率 hz
     public var frequency: Int
 }
 
 public struct SongRating: Decodable, Encodable {
+    // 评分 0-5
     public var rating: Int
 }
 
 public struct SongTag: Decodable, Encodable {
+    // 专辑
     public var album: String
+    // 专辑艺人
     public var album_artist: String
+    // 艺人
     public var artist: String
+    // 备注、注解
     public var comment: String
+    // 作曲者
     public var composer: String
+    // 光盘 #
     public var disc: Int
+    // 类型
     public var genre: String
+    // 轨道 #
     public var track: Int
+    // 年份
     public var year: Int
 }
 
