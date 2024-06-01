@@ -47,7 +47,7 @@ public struct Song: Decodable, Encodable {
     public var type: String
     public var path: String
 
-    var additional: SongAdditional?
+    public var additional: SongAdditional?
 
     public var audio: SongAudio? {
         additional?.song_audio
@@ -62,10 +62,10 @@ public struct Song: Decodable, Encodable {
     }
 }
 
-struct SongAdditional: Decodable, Encodable {
-    var song_audio: SongAudio?
-    var song_rating: SongRating?
-    var song_tag: SongTag?
+public struct SongAdditional: Decodable, Encodable {
+    public var song_audio: SongAudio?
+    public var song_rating: SongRating?
+    public var song_tag: SongTag?
 }
 
 public struct SongAudio: Decodable, Encodable {
