@@ -11,7 +11,7 @@ class SongApi {
     /**
      query song list
      */
-    public func songList(limit: Int, offset: Int) async throws -> (total: Int, data: [Song]) {
+     func songList(limit: Int, offset: Int) async throws -> (total: Int, data: [Song]) {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
@@ -76,7 +76,7 @@ class SongApi {
          }
      }
      */
-    public func songGetInfo(id: String) async throws -> Song? {
+     func songGetInfo(id: String) async throws -> Song? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }

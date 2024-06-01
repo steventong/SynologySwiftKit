@@ -8,9 +8,6 @@
 import Foundation
 
 class TagEditorApi {
-    public init() {
-    }
-
     /**
      query song list
 
@@ -38,7 +35,7 @@ class TagEditorApi {
      }
 
      */
-    public func load(path: String) async throws -> TagEditorResult? {
+    func load(path: String) async throws -> TagEditorResult? {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }

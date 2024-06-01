@@ -1,6 +1,6 @@
 //
 //  File.swift
-//  
+//
 //
 //  Created by Steven on 2024/6/1.
 //
@@ -11,7 +11,7 @@ class PlaylistApi {
     /**
      query playlist list
      */
-    public func playlistList(limit: Int, offset: Int) async -> (total: Int, data: [Playlist]) {
+    func playlistList(limit: Int, offset: Int) async -> (total: Int, data: [Playlist]) {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "list", version: 1, parameters: [
             "library": "all",
             "limit": limit,
@@ -31,7 +31,7 @@ class PlaylistApi {
     /**
      query playlist songs
      */
-    public func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async -> (total: Int, data: [Song]) {
+    func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async -> (total: Int, data: [Song]) {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, parameters: [
             "id": id,
             "library": "all",
@@ -83,7 +83,7 @@ class PlaylistApi {
      {"data":{"id":"playlist_personal_normal/1111"},"success":true}
 
      */
-    public func playlistCreate(name: String, shared: Bool, songs: String?) async -> String? {
+    func playlistCreate(name: String, shared: Bool, songs: String?) async -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "create", version: 3, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
@@ -113,7 +113,7 @@ class PlaylistApi {
 
      {"data":{"id":"playlist_shared_normal/381"},"success":true}
      */
-    public func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async -> String? {
+    func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
@@ -142,7 +142,7 @@ class PlaylistApi {
      {"data":{"id":"playlist_personal_normal/个人播放列表测试del"},"success":true}
 
      */
-    public func playlistRename(id: String, newName: String) async -> String? {
+    func playlistRename(id: String, newName: String) async -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "rename", version: 3, parameters: [
             "id": id,
             "new_name": newName,
@@ -168,7 +168,7 @@ class PlaylistApi {
      {"data":{"errors":[]},"success":true}
 
      */
-    public func playlistDelete(id: String) async -> Bool {
+    func playlistDelete(id: String) async -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "delete", version: 3, parameters: [
             "id": id,
         ])
@@ -192,7 +192,7 @@ class PlaylistApi {
      {"success":true}
 
      */
-    public func playlistRemoveMissing(id: String) async -> Bool {
+    func playlistRemoveMissing(id: String) async -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "removemissing", version: 3, parameters: [
             "id": id,
         ])
@@ -218,7 +218,7 @@ class PlaylistApi {
 
      { "success": true }
      */
-    public func playlistAddSongs(id: String, songs: [String]) async -> Bool {
+    func playlistAddSongs(id: String, songs: [String]) async -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
             "id": id,
             "limit": 0,
@@ -256,7 +256,7 @@ class PlaylistApi {
 
      { "success": true }
      */
-    public func playlistRemoveSongs(id: String, songs: [String]) async -> Bool {
+    func playlistRemoveSongs(id: String, songs: [String]) async -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
             "id": "id",
             "limit": 0,
