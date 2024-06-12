@@ -11,17 +11,26 @@ class SongApi {
     /**
      query song list
      */
-     func songList(limit: Int, offset: Int) async throws -> (total: Int, data: [Song]) {
-        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
-            throw SynoDiskStationApiError.invalidSession
-        }
-
-        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, parameters: [
+    func songList(limit: Int, offset: Int, song_rating_meq: Int? = nil, sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
+        // 通用参数
+        var parameters: [String: Any] = [
             "additional": "song_tag,song_audio,song_rating",
             "library": "all",
             "limit": limit,
             "offset": offset,
-        ])
+        ]
+
+        // 动态参数
+        if let song_rating_meq {
+            parameters["song_rating_meq"] = song_rating_meq
+        }
+
+        if let sort {
+            parameters["sort_by"] = sort.sort_by
+            parameters["sort_direction"] = sort.sort_direction
+        }
+
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, parameters: parameters)
 
         do {
             let result = try await api.requestForData(resultType: SongListResult.self)
@@ -76,11 +85,7 @@ class SongApi {
          }
      }
      */
-     func songGetInfo(id: String) async throws -> Song? {
-        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
-            throw SynoDiskStationApiError.invalidSession
-        }
-
+    func songGetInfo(id: String) async throws -> Song? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "getinfo", version: 2, parameters: [
             "id": id,
             "additional": "song_tag,song_audio,song_rating",
@@ -95,6 +100,4 @@ class SongApi {
 
         return nil
     }
-
-
 }

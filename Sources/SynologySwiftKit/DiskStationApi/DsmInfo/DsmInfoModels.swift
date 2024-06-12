@@ -10,7 +10,21 @@ import Foundation
 extension DsmInfoApi {
     public class DsmInfo: Decodable {
         /**
-         {"data":{"codepage":"chs","model":"","ram":20480,"serial":"","temperature":61,"temperature_warn":false,"time":"Sat Feb  3 10:33:59 2024","uptime":0000,"version":"69057","version_string":"DSM 7.2.1-69057 Update 3"},"success":true}
+         {
+            "data": {
+               "codepage": "chs",
+               "model": "DS920+",
+               "ram": 20480,
+               "serial": "11111111",
+               "temperature": 56,
+               "temperature_warn": false,
+               "time": "Sun Jun  2 13:34:43 2024",
+               "uptime": 3500000,
+               "version": "69057",
+               "version_string": "DSM 7.2.1-69057 Update 5"
+            },
+            "success": true
+         }
          */
 
         public var codepage: String?
