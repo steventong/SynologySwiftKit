@@ -20,8 +20,8 @@ public class AudioStationApi {
     /**
      query song list
      */
-    public func songList(limit: Int, offset: Int) async throws -> (total: Int, data: [Song]) {
-        return try await songApi.songList(limit: limit, offset: offset)
+    public func songList(limit: Int, offset: Int, song_rating_meq: Int? = nil, sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
+        return try await songApi.songList(limit: limit, offset: offset, song_rating_meq: song_rating_meq, sort: sort)
     }
 
     /**
