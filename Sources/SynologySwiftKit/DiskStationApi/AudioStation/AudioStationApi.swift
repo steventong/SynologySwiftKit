@@ -70,64 +70,64 @@ public class AudioStationApi {
     /**
      query playlist list
      */
-    public func playlistList(limit: Int, offset: Int) async -> (total: Int, data: [Playlist]) {
-        return await playlistApi.playlistList(limit: limit, offset: offset)
+    public func playlistList(limit: Int, offset: Int) async throws -> (total: Int, data: [Playlist]) {
+        return try await playlistApi.playlistList(limit: limit, offset: offset)
     }
 
     /**
      query playlist songs
      */
-    public func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async -> (total: Int, data: [Song]) {
-        return await playlistApi.playlistSongList(id: id, songsLimit: songsLimit, songsOffset: songsOffset)
+    public func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async throws -> (total: Int, data: [Song]) {
+        return try await playlistApi.playlistSongList(id: id, songsLimit: songsLimit, songsOffset: songsOffset)
     }
 
     /**
      创建播放列表
      */
-    public func playlistCreate(name: String, shared: Bool, songs: String?) async -> String? {
-        return await playlistApi.playlistCreate(name: name, shared: shared, songs: songs)
+    public func playlistCreate(name: String, shared: Bool, songs: String?) async throws -> String? {
+        return try await playlistApi.playlistCreate(name: name, shared: shared, songs: songs)
     }
 
     /**
      创建智能播放列表
      */
-    public func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async -> String? {
-        return await playlistApi.playlistCreateSmart(name: name, shared: shared, conj_rule: conj_rule, rules_json: rules_json)
+    public func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async throws -> String? {
+        return try await playlistApi.playlistCreateSmart(name: name, shared: shared, conj_rule: conj_rule, rules_json: rules_json)
     }
 
     /**
      rename
      */
-    public func playlistRename(id: String, newName: String) async -> String? {
-        return await playlistApi.playlistRename(id: id, newName: newName)
+    public func playlistRename(id: String, newName: String) async throws -> String? {
+        return try await playlistApi.playlistRename(id: id, newName: newName)
     }
 
     /**
      delete
      */
-    public func playlistDelete(id: String) async -> Bool {
-        return await playlistApi.playlistDelete(id: id)
+    public func playlistDelete(id: String) async throws -> Bool {
+        return try await playlistApi.playlistDelete(id: id)
     }
 
     /**
      removemissing
      */
-    public func playlistRemoveMissing(id: String) async -> Bool {
-        return await playlistApi.playlistRemoveMissing(id: id)
+    public func playlistRemoveMissing(id: String) async throws -> Bool {
+        return try await playlistApi.playlistRemoveMissing(id: id)
     }
 
     /**
      updatesongs
      */
-    public func playlistAddSongs(id: String, songs: [String]) async -> Bool {
-        return await playlistApi.playlistAddSongs(id: id, songs: songs)
+    public func playlistAddSongs(id: String, songs: [String]) async throws -> Bool {
+        return try await playlistApi.playlistAddSongs(id: id, songs: songs)
     }
 
     /**
      updatesongs
      */
-    public func playlistRemoveSongs(id: String, songs: [String]) async -> Bool {
-        return await playlistApi.playlistRemoveSongs(id: id, songs: songs)
+    public func playlistRemoveSongs(id: String, songs: [String]) async throws -> Bool {
+        return try await playlistApi.playlistRemoveSongs(id: id, songs: songs)
     }
 
     /**
