@@ -12,7 +12,6 @@ extension AudioStationApi {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_LYRICS, method: "getlyrics", version: 1, parameters: [
             "library": "all",
             "id": id,
-            "version": 1,
         ])
 
         do {
