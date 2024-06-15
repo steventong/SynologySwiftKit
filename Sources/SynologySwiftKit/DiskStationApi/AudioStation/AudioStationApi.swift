@@ -9,6 +9,7 @@ import Foundation
 
 public class AudioStationApi {
     let songApi = SongApi()
+    let albumApi = AlbumApi()
     let streamApi = StreamApi()
     let coverApi = CoverApi()
     let playlistApi = PlaylistApi()
@@ -135,5 +136,12 @@ public class AudioStationApi {
      */
     public func tagEditorLoad(path: String) async throws -> TagEditorResult? {
         return try await tagEditorApi.tagEditorLoad(path: path)
+    }
+
+    /**
+     query album list
+     */
+    public func albumList(limit: Int, sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Album]) {
+        return try await albumApi.albumList(limit: limit, sort: sort)
     }
 }

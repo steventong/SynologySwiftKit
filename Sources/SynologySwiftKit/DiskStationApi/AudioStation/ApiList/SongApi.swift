@@ -36,7 +36,7 @@ class SongApi {
             let result = try await api.requestForData(resultType: SongListResult.self)
             return (result.total, result.songs)
         } catch {
-            Logger.error("AudioStationApi.songList error: \(error)")
+            Logger.error("AudioStationApi.SongApi.songList error: \(error)")
         }
 
         return (0, [])
@@ -95,7 +95,7 @@ class SongApi {
             let result = try await api.requestForData(resultType: SongInfo.self)
             return result.songs.first
         } catch {
-            Logger.error("AudioStationApi.songGetInfo error: \(error)")
+            Logger.error("AudioStationApi.SongApi.songGetInfo error: \(error)")
         }
 
         return nil

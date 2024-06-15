@@ -22,7 +22,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistListResult.self)
             return (result.total, result.playlists)
         } catch {
-            Logger.error("AudioStationApi.playlistList error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistList error: \(error)")
         }
 
         return (0, [])
@@ -48,7 +48,7 @@ class PlaylistApi {
 
             return (0, [])
         } catch {
-            Logger.error("AudioStationApi.playlistSongList error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistSongList error: \(error)")
         }
 
         return (0, [])
@@ -94,7 +94,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistCreateResult.self)
             return result.id
         } catch {
-            Logger.error("AudioStationApi.playlistCreate error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistCreate error: \(error)")
         }
 
         return nil
@@ -125,7 +125,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistCreateResult.self)
             return result.id
         } catch {
-            Logger.error("AudioStationApi.playlistCreateSmart error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistCreateSmart error: \(error)")
         }
 
         return nil
@@ -152,7 +152,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistRenameResult.self)
             return result.id
         } catch {
-            Logger.error("AudioStationApi.playlistRename error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistRename error: \(error)")
         }
 
         return nil
@@ -177,7 +177,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistDeleteResult.self)
             return result.errors.isEmpty
         } catch {
-            Logger.error("AudioStationApi.playlistDelete error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistDelete error: \(error)")
         }
 
         return false
@@ -201,7 +201,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistRemoveMissingResult.self)
             return true
         } catch {
-            Logger.error("AudioStationApi.playlistDelete error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistDelete error: \(error)")
         }
 
         return false
@@ -231,7 +231,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistUpdateSongsResult.self)
             return true
         } catch {
-            Logger.error("AudioStationApi.playlistAddSongs error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistAddSongs error: \(error)")
         }
 
         return false
@@ -269,7 +269,7 @@ class PlaylistApi {
             let result = try await api.requestForData(resultType: PlaylistUpdateSongsResult.self)
             return true
         } catch {
-            Logger.error("AudioStationApi.playlistAddSongs error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistAddSongs error: \(error)")
         }
 
         return false

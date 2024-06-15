@@ -53,7 +53,7 @@ class TagEditorApi {
                 return result
             }
         } catch {
-            Logger.error("TagEditorApi.load error: \(error)")
+            Logger.error("AudioStationApi.TagEditorApi.load error: \(error)")
         }
 
         return nil
