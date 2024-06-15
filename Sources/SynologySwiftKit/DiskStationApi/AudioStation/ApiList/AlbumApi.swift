@@ -36,9 +36,10 @@ extension AudioStationApi {
      }
 
      */
-    public func albumList(limit: Int, sort: (sort_by: String, sort_direction: String)?) async throws -> (total: Int, data: [Album]) {
+    public func albumList(library: String, limit: Int, sort: (sort_by: String, sort_direction: String)?) async throws -> (total: Int, data: [Album]) {
         var parameters: [String: Any] = [
             "limit": limit,
+            "offset": 0,
             "library": "shared",
             "additional": "avg_rating",
         ]
