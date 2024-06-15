@@ -11,7 +11,7 @@ extension AudioStationApi  {
     /**
      query song list
      */
-    func songList(limit: Int, offset: Int, song_rating_meq: Int? = nil, sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
+    public func songList(limit: Int, offset: Int, song_rating_meq: Int? = nil, sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
         // 通用参数
         var parameters: [String: Any] = [
             "additional": "song_tag,song_audio,song_rating",
@@ -85,7 +85,7 @@ extension AudioStationApi  {
          }
      }
      */
-    func songGetInfo(id: String) async throws -> Song? {
+    public func songGetInfo(id: String) async throws -> Song? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "getinfo", version: 2, parameters: [
             "id": id,
             "additional": "song_tag,song_audio,song_rating",
@@ -104,7 +104,7 @@ extension AudioStationApi  {
     /**
      update song rating, from 1 - 5
      */
-    func songSetRating(id: String, level: Int) async throws -> Bool {
+    public func songSetRating(id: String, level: Int) async throws -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, parameters: [
             "id": id,
             "rating": level,

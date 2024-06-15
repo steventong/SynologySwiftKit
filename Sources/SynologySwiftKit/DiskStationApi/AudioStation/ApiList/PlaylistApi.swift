@@ -11,7 +11,7 @@ extension AudioStationApi  {
     /**
      query playlist list
      */
-    func playlistList(limit: Int, offset: Int) async throws -> (total: Int, data: [Playlist]) {
+    public func playlistList(limit: Int, offset: Int) async throws -> (total: Int, data: [Playlist]) {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "list", version: 1, parameters: [
             "library": "all",
             "limit": limit,
@@ -31,7 +31,7 @@ extension AudioStationApi  {
     /**
      query playlist songs
      */
-    func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async throws -> (total: Int, data: [Song]) {
+    public func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async throws -> (total: Int, data: [Song]) {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, parameters: [
             "id": id,
             "library": "all",
@@ -83,7 +83,7 @@ extension AudioStationApi  {
      {"data":{"id":"playlist_personal_normal/1111"},"success":true}
 
      */
-    func playlistCreate(name: String, shared: Bool, songs: String?) async throws -> String? {
+    public  func playlistCreate(name: String, shared: Bool, songs: String?) async throws -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "create", version: 3, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
@@ -113,7 +113,7 @@ extension AudioStationApi  {
 
      {"data":{"id":"playlist_shared_normal/381"},"success":true}
      */
-    func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async throws -> String? {
+    public  func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async throws -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
@@ -142,7 +142,7 @@ extension AudioStationApi  {
      {"data":{"id":"playlist_personal_normal/个人播放列表测试del"},"success":true}
 
      */
-    func playlistRename(id: String, newName: String) async throws -> String? {
+    public func playlistRename(id: String, newName: String) async throws -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "rename", version: 3, parameters: [
             "id": id,
             "new_name": newName,
@@ -168,7 +168,7 @@ extension AudioStationApi  {
      {"data":{"errors":[]},"success":true}
 
      */
-    func playlistDelete(id: String) async throws -> Bool {
+    public  func playlistDelete(id: String) async throws -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "delete", version: 3, parameters: [
             "id": id,
         ])
@@ -192,7 +192,7 @@ extension AudioStationApi  {
      {"success":true}
 
      */
-    func playlistRemoveMissing(id: String) async throws -> Bool {
+    public func playlistRemoveMissing(id: String) async throws -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "removemissing", version: 3, parameters: [
             "id": id,
         ])
@@ -218,7 +218,7 @@ extension AudioStationApi  {
 
      { "success": true }
      */
-    func playlistAddSongs(id: String, songs: [String]) async throws -> Bool {
+    public func playlistAddSongs(id: String, songs: [String]) async throws -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
             "id": id,
             "limit": 0,
@@ -256,7 +256,7 @@ extension AudioStationApi  {
 
      { "success": true }
      */
-    func playlistRemoveSongs(id: String, songs: [String]) async throws -> Bool {
+    public func playlistRemoveSongs(id: String, songs: [String]) async throws -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
             "id": "id",
             "limit": 0,
