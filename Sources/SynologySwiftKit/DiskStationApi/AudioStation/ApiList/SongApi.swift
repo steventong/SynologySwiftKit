@@ -7,7 +7,7 @@
 
 import Foundation
 
-class SongApi {
+extension AudioStationApi  {
     /**
      query song list
      */

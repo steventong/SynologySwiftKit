@@ -7,7 +7,7 @@
 
 import Foundation
 
-class TagEditorApi {
+extension AudioStationApi {
     /**
      query song list
 

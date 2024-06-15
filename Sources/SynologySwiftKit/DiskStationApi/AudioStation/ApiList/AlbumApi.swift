@@ -7,7 +7,7 @@
 
 import Foundation
 
-class AlbumApi {
+extension AudioStationApi {
     /**
      album list
 

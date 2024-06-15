@@ -7,7 +7,7 @@
 
 import Foundation
 
-class PlaylistApi {
+extension AudioStationApi  {
     /**
      query playlist list
      */

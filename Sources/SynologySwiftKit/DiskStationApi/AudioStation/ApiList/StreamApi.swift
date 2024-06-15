@@ -7,7 +7,7 @@
 
 import Foundation
 
-class StreamApi {
+extension AudioStationApi  {
     /**
      High: /webapi/AudioStation/stream.cgi/0.wav?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=wav&id=
      M: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=mp3&id=
