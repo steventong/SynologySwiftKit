@@ -104,10 +104,10 @@ extension AudioStationApi  {
     /**
      update song rating, from 1 - 5
      */
-    public func songSetRating(id: String, level: Int) async throws -> Bool {
+    public func songSetRating(id: String, rating: Int) async throws -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, parameters: [
             "id": id,
-            "rating": level,
+            "rating": rating,
         ])
 
         do {

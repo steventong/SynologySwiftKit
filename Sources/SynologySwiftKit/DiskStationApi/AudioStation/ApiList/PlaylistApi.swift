@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension AudioStationApi  {
+extension AudioStationApi {
     /**
      query playlist list
      */
@@ -83,7 +83,7 @@ extension AudioStationApi  {
      {"data":{"id":"playlist_personal_normal/1111"},"success":true}
 
      */
-    public  func playlistCreate(name: String, shared: Bool, songs: String?) async throws -> String? {
+    public func playlistCreate(name: String, shared: Bool, songs: String?) async throws -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "create", version: 3, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
@@ -113,7 +113,7 @@ extension AudioStationApi  {
 
      {"data":{"id":"playlist_shared_normal/381"},"success":true}
      */
-    public  func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async throws -> String? {
+    public func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async throws -> String? {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
@@ -168,7 +168,7 @@ extension AudioStationApi  {
      {"data":{"errors":[]},"success":true}
 
      */
-    public  func playlistDelete(id: String) async throws -> Bool {
+    public func playlistDelete(id: String) async throws -> Bool {
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "delete", version: 3, parameters: [
             "id": id,
         ])
@@ -198,10 +198,9 @@ extension AudioStationApi  {
         ])
 
         do {
-            let result = try await api.requestForData(resultType: PlaylistRemoveMissingResult.self)
-            return true
+            return try await api.request()
         } catch {
-            Logger.error("AudioStationApi.PlaylistApi.playlistDelete error: \(error)")
+            Logger.error("AudioStationApi.PlaylistApi.playlistRemoveMissing error: \(error)")
         }
 
         return false
@@ -228,8 +227,7 @@ extension AudioStationApi  {
         ])
 
         do {
-            let result = try await api.requestForData(resultType: PlaylistUpdateSongsResult.self)
-            return true
+            return try await api.request()
         } catch {
             Logger.error("AudioStationApi.PlaylistApi.playlistAddSongs error: \(error)")
         }
@@ -256,24 +254,21 @@ extension AudioStationApi  {
 
      { "success": true }
      */
-    public func playlistRemoveSongs(id: String, songs: [String]) async throws -> Bool {
-        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
-            "id": "id",
-            "limit": 0,
-            "offset": -1,
-            "songs": songs,
-            "skip_duplicate": true,
-        ])
-
-        do {
-            let result = try await api.requestForData(resultType: PlaylistUpdateSongsResult.self)
-            return true
-        } catch {
-            Logger.error("AudioStationApi.PlaylistApi.playlistAddSongs error: \(error)")
-        }
-
-        return false
-    }
-    
-    
+//    public func playlistRemoveSongs(id: String, songs: [String]) async throws -> Bool {
+//        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
+//            "id": "id",
+//            "limit": 0,
+//            "offset": -1,
+//            "songs": songs,
+//            "skip_duplicate": true,
+//        ])
+//
+//        do {
+//            return try await api.request()
+//        } catch {
+//            Logger.error("AudioStationApi.PlaylistApi.playlistAddSongs error: \(error)")
+//        }
+//
+//        return false
+//    }
 }
