@@ -8,14 +8,13 @@
 import Foundation
 
 public struct Composer: Decodable {
-    var name: String
-
+    public var name: String
 }
 
 public struct ComposerListResult: Decodable {
-    var offset: Int
-    
-    var total: Int
-    
-    var composers: [Composer]
+    public var offset: Int
+
+    public var total: Int
+
+    public var composers: [Composer]
 }
