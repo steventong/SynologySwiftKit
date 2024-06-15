@@ -100,4 +100,24 @@ class SongApi {
 
         return nil
     }
+
+    /**
+     update song rating, from 1 - 5
+     */
+    func songSetRating(id: String, level: Int) async throws -> Bool {
+        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, parameters: [
+            "id": id,
+            "rating": level,
+        ])
+
+        do {
+            return try await api.request()
+        } catch {
+            Logger.error("AudioStationApi.SongApi.songSetRating error: \(error)")
+        }
+
+        return false
+    }
+    
+
 }
