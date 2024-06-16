@@ -47,7 +47,7 @@ public struct Song: Decodable, Encodable {
     public var type: String
     public var path: String
 
-    var additional: SongAdditional?
+    public var additional: SongAdditional?
 
     public var audio: SongAudio? {
         additional?.song_audio
@@ -62,35 +62,52 @@ public struct Song: Decodable, Encodable {
     }
 }
 
-struct SongAdditional: Decodable, Encodable {
-    var song_audio: SongAudio?
-    var song_rating: SongRating?
-    var song_tag: SongTag?
+public struct SongAdditional: Decodable, Encodable {
+    public var song_audio: SongAudio?
+    public var song_rating: SongRating?
+    public var song_tag: SongTag?
 }
 
 public struct SongAudio: Decodable, Encodable {
+    // 码率 bps
     public var bitrate: Int
+    // 声道数
     public var channel: Int
+    // 文件类型
     public var codec: String
+    // 文件类型
     public var container: String
+    // 时长
     public var duration: Double
-    public var filesize: Int
+    // 文件大小 b
+    public var filesize: Int64
+    // 取样率 hz
     public var frequency: Int
 }
 
 public struct SongRating: Decodable, Encodable {
+    // 评分 0-5
     public var rating: Int
 }
 
 public struct SongTag: Decodable, Encodable {
+    // 专辑
     public var album: String
+    // 专辑艺人
     public var album_artist: String
+    // 艺人
     public var artist: String
+    // 备注、注解
     public var comment: String
+    // 作曲者
     public var composer: String
+    // 光盘 #
     public var disc: Int
+    // 类型
     public var genre: String
+    // 轨道 #
     public var track: Int
+    // 年份
     public var year: Int
 }
 
@@ -99,4 +116,65 @@ public struct SongListResult: Decodable, Encodable {
     public var total: Int
 
     public var songs: [Song]
+}
+
+public enum SongStreamQuality: String {
+    case LOW
+    case MEDIUM
+    case HIGH
+    case ORIGINAL
+
+    var format: String {
+        switch self {
+        case .HIGH:
+            "wav"
+        case .MEDIUM:
+            "mp3"
+        case .LOW:
+            "mp3"
+        case .ORIGINAL:
+            "mp3"
+        }
+    }
+
+    var bitrate: Int? {
+        switch self {
+        case .HIGH:
+            320000
+        case .MEDIUM:
+            256000
+        case .LOW:
+            128000
+        case .ORIGINAL:
+            nil
+        }
+    }
+}
+
+public struct SongInfo: Decodable {
+    /**
+     songs
+     */
+    var songs: [Song]
+}
+
+public struct TagEditorResult: Decodable {
+    public var success: Bool
+    public var read_fail_count: Int
+    public var lyrics: String
+    public var files: [TagEditorFile]
+}
+
+public struct TagEditorFile: Decodable {
+    public var album: String
+    public var album_artist: String
+    public var artist: String
+    public var comment: String
+    public var composer: String
+    public var disc: Int
+    public var genre: String
+    public var path: String
+    public var title: String
+    public var track: Int
+    public var year: Int
 }

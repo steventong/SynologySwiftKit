@@ -9,18 +9,18 @@
 import XCTest
 
 final class ApiInfoTests: XCTestCase {
-    let quickConnect = QuickConnect()
+    let quickConnectApi = QuickConnectApi()
 
     /**
      testGetApiInfo
      */
     func testGetApiInfo() async throws {
-        let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
+        let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
 
         if let connection {
             Logger.info("device connection: \(connection)")
 
-            let apiInfo = ApiInfo()
+            let apiInfo = ApiInfoApi()
             let apiInfoList = try await apiInfo.getApiInfo()
             Logger.info("apiInfoList \(apiInfoList)")
         }

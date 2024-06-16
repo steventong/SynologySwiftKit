@@ -19,7 +19,7 @@ public class QueryAllPlaylists {
                                   onTaskFinish: @escaping () -> Void) {
         Task {
             // query first batch
-            let playlists_firstBatch = await audioStationApi.playlistList(limit: 1, offset: 0)
+            let playlists_firstBatch = try await audioStationApi.playlistList(limit: 1, offset: 0)
 
             let total = playlists_firstBatch.total
             if total == 0 {
@@ -63,8 +63,9 @@ extension QueryAllPlaylists {
             var waitTaskIndex = targetThreadsLimit
             var playlists: [Playlist] = []
 
-            while let playlist = await taskGroup.next(), playlist != nil {
+            while let playlist = await taskGroup.next() {
                 playlists.append(contentsOf: playlist)
+
                 if waitTaskIndex < taskCount {
                     taskGroup.addTask { [waitTaskIndex] in
                         await self.queryPlaylistList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
@@ -84,9 +85,14 @@ extension QueryAllPlaylists {
      queryPlaylistList
      */
     private func queryPlaylistList(taskIndex: Int, batchSize: Int, total: Int, onTaskUpdate: @escaping (_ data: [Playlist], _ total: Int) -> Void) async -> [Playlist] {
-        let playlistListResult = await audioStationApi.playlistList(limit: batchSize, offset: batchSize * taskIndex)
-        onTaskUpdate(playlistListResult.data, total)
-        return playlistListResult.data
+        do {
+            let playlistListResult = try await audioStationApi.playlistList(limit: batchSize, offset: batchSize * taskIndex)
+            onTaskUpdate(playlistListResult.data, total)
+
+            return playlistListResult.data
+        } catch {
+            return []
+        }
     }
 
     /**
@@ -128,8 +134,13 @@ extension QueryAllPlaylists {
      query music in playlist
      */
     private func queryPlaylistSongList(playlist: Playlist, onTaskUpdate: @escaping (_ playlist: Playlist, _ songs: [Song], _ total: Int) -> Void) async -> [Song] {
-        let songsResult = await audioStationApi.playlistSongList(playlistId: playlist.id, limit: 5000, offset: 0)
-        onTaskUpdate(playlist, songsResult.data, songsResult.total)
-        return songsResult.data
+        do {
+            let songsResult = try await audioStationApi.playlistSongList(id: playlist.id, songsLimit: 5000, songsOffset: 0)
+            onTaskUpdate(playlist, songsResult.data, songsResult.total)
+
+            return songsResult.data
+        } catch {
+            return []
+        }
     }
 }

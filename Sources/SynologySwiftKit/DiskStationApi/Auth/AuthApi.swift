@@ -8,11 +8,8 @@
 import Alamofire
 import Foundation
 
-public actor Auth {
-    let session: Session
-
+public actor AuthApi {
     public init() {
-        session = AlamofireClient.shared.session()
     }
 
     /**
@@ -50,17 +47,25 @@ public actor Auth {
         ])
 
         do {
-            let authResult = try await api.request(resultType: AuthResult.self)
+            let authResult = try await api.requestForData(resultType: AuthResult.self)
             return handleAuthResult(authResult: authResult)
-        } catch let SynoDiskStationApiBizError.apiBizError(errorCode) {
+        } catch let SynoDiskStationApiError.apiBizError(errorCode) {
             throw AuthError.getAuthErrorByCode(errorCode: errorCode)
-        } catch let commonError as SynoDiskStationApiCommonError {
+        } catch let commonError as SynoDiskStationApiError {
             throw AuthError.commonNetworkError(commonError.localizedDescription)
         }
     }
+
+    /**
+     logout
+     */
+    public func logout() async throws {
+        let api = SynoDiskStationApi(api: .SYNO_API_AUTH, method: "logout", version: 6, timeout: 3)
+        try await api.request()
+    }
 }
 
-extension Auth {
+extension AuthApi {
     /**
      getDeviceName
      */

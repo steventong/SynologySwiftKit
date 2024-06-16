@@ -7,13 +7,21 @@
 
 import Foundation
 
-public enum SynoDiskStationApiCommonError: Error, LocalizedError {
+public enum SynoDiskStationApiError: Error, LocalizedError {
+    /**
+     下面是一些通用的错误，网络异常，ssl异常等等。
+     */
     case sslConnectionFailed(String)
     case canNotFindHostError(String)
     case commonUrlError(String)
     case responseBodyEmptyError
     case requestHostNotPressentError
     case synoDiskStationApiError(Int)
+    /**
+     下面是接口返回的异常解析
+     */
+    case invalidSession
+    case apiBizError(Int)
 
     public var errorDescription: String? {
         switch self {
@@ -29,6 +37,10 @@ public enum SynoDiskStationApiCommonError: Error, LocalizedError {
             return "请求失败，请求地址格式错误"
         case let .synoDiskStationApiError(code):
             return "接口返回错误: \(code)"
+        case .invalidSession:
+            return "登录已过期，请重新登录"
+        case let .apiBizError(errorCode):
+            return "接口返回错误: \(errorCode)"
         }
     }
 }

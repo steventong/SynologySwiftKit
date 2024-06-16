@@ -11,10 +11,13 @@ import Foundation
 class AlamofireClient {
     static let shared = AlamofireClient()
 
-    func session(timeout: TimeInterval = 10) -> Session {
+    /**
+     session
+     */
+    func session(timeoutIntervalForRequest: TimeInterval, timeoutIntervalForResource: TimeInterval = 10) -> Session {
         let configuration = URLSessionConfiguration.af.default
-        configuration.timeoutIntervalForRequest = timeout
-        configuration.timeoutIntervalForResource = 10
+        configuration.timeoutIntervalForRequest = timeoutIntervalForRequest
+        configuration.timeoutIntervalForResource = timeoutIntervalForResource
 
         #if DEBUG
             return Session(configuration: configuration, eventMonitors: [AlamofireLoggerMonitor()])
@@ -22,6 +25,4 @@ class AlamofireClient {
             return Session(configuration: configuration)
         #endif
     }
-    
-    
 }

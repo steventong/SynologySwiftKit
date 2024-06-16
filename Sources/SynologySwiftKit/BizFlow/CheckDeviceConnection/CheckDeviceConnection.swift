@@ -8,7 +8,7 @@
 import Foundation
 
 public class CheckDeviceConnection {
-    let quickConnect = QuickConnect()
+    let quickConnectApi = QuickConnectApi()
     let deviceConnection = DeviceConnection()
     let pingpong = PingPong()
 
@@ -52,7 +52,7 @@ public class CheckDeviceConnection {
 
             // fetch server connection by qc
             do {
-                if let connection = try await quickConnect.getDeviceConnectionByQuickConnectId(quickConnectId: loginPreferences.server, enableHttps: loginPreferences.isEnableHttps) {
+                if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: loginPreferences.server, enableHttps: loginPreferences.isEnableHttps) {
                     // 新的连接地址信息
                     DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
                     // 成功回调

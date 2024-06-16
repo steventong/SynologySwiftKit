@@ -33,6 +33,11 @@ public enum DiskStationApiDefine: String {
     case SYNO_AUDIO_STATION_PLAYLIST = "SYNO.AudioStation.Playlist"
 
     /**
+     not standard api
+     */
+    case SYNO_AUDIO_STATION_TAG_EDITOR_UI = "tagEditorUI"
+
+    /**
      ==
      */
     case SYNO_AUDIO_STATION_ALBUM = "SYNO.AudioStation.Album"
@@ -106,6 +111,8 @@ public enum DiskStationApiDefine: String {
             return "/webapi/AudioStation/lyrics.cgi"
         case .SYNO_AUDIO_STATION_LYRICSSEARCH:
             return "/webapi/AudioStation/lyrics_search.cgi"
+        case .SYNO_AUDIO_STATION_TAG_EDITOR_UI:
+            return "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi"
         default:
             return "/webapi/entry.cgi"
         }

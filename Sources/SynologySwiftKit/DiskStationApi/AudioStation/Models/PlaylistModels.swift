@@ -14,7 +14,7 @@ public struct Playlist: Decodable {
     public var sharing_status: String
     public var type: String
 
-    var additional: PlaylistAdditional?
+    public var additional: PlaylistAdditional?
 
     public var songs: [Song] {
         additional?.songs ?? []
@@ -29,21 +29,21 @@ public struct Playlist: Decodable {
     }
 }
 
-struct PlaylistAdditional: Decodable {
-    var songs: [Song]
+public struct PlaylistAdditional: Decodable {
+    public var songs: [Song]
 
-    var songs_offset: Int
-    var songs_total: Int
+    public var songs_offset: Int
+    public var songs_total: Int
 }
 
 public struct PlaylistListResult: Decodable {
-    var offset: Int
-    var total: Int
-    var playlists: [Playlist]
+    public var offset: Int
+    public var total: Int
+    public var playlists: [Playlist]
 }
 
 public struct PlaylistGetInfoResult: Decodable {
-    var playlists: [Playlist]
+    public var playlists: [Playlist]
 }
 
 public struct PlaylistCreateResult: Decodable {
@@ -56,14 +56,4 @@ public struct PlaylistRenameResult: Decodable {
 
 public struct PlaylistDeleteResult: Decodable {
     public var errors: [String]
-}
-
-public struct PlaylistRemoveMissingResult: Decodable {
-    
-}
-
-
-
-public struct PlaylistUpdateSongsResult: Decodable {
-    
 }

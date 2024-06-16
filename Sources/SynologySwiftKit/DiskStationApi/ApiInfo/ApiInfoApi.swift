@@ -8,11 +8,9 @@
 import Alamofire
 import Foundation
 
-public actor ApiInfo {
-    let session: Session
+public actor ApiInfoApi {
 
     public init() {
-        session = AlamofireClient.shared.session()
     }
 
     /**
@@ -23,7 +21,7 @@ public actor ApiInfo {
             "query": "all",
         ])
 
-        let apiInfoList = try await api.request(resultType: [String: ApiInfoNode].self)
+        let apiInfoList = try await api.requestForData(resultType: [String: ApiInfoNode].self)
 
         Logger.info("apiInfo: \(apiInfoList)")
 

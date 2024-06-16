@@ -7,19 +7,29 @@
 
 import Foundation
 
-extension QuickConnect {
+extension QuickConnectApi {
+    enum QuickConnectServerCommand: String, Encodable {
+        case get_server_info
+        case request_tunnel
+    }
+
+    enum QuickConnectServerId: String, Encodable {
+        case dsm_https
+        case dsm
+    }
+
     struct SynoGetServerInfoRequest: Encodable {
-        let id: String
-        let command: String
+        let id: QuickConnectServerId
+        let command: QuickConnectServerCommand
         let serverID: String
         let version: Int
         let stop_when_success: Bool
         let stop_when_error: Bool
 
-        init(id: String, serverID: String, command: String) {
+        init(id: QuickConnectServerId, command: QuickConnectServerCommand, serverID: String) {
             self.id = id
-            self.serverID = serverID
             self.command = command
+            self.serverID = serverID
             version = 1
             stop_when_success = false
             stop_when_error = false
