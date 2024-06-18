@@ -7,6 +7,7 @@
 
 import Alamofire
 import Foundation
+import SwiftyJSON
 
 struct SynoDiskStationApi {
     let session: Session
@@ -153,7 +154,7 @@ extension SynoDiskStationApi {
 //        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
         let response = await session.request(apiUrl.absoluteString, method: httpMethod, encoding: JSONEncoding.default, headers: headers)
-            .serializingDecodable(Value.self)
+            .serializingString()
             .response
 
         // debug log
@@ -167,15 +168,19 @@ extension SynoDiskStationApi {
             throw SynoDiskStationApiError.responseBodyEmptyError
         }
 
-        let resultIsSuccess = isResultSuccess(responseValue)
+        guard let resultObj = try parseStringToObj(responseValue: responseValue, resultType: Value.self) else {
+            throw SynoDiskStationApiError.responseBodyEmptyError
+        }
+
+        let resultIsSuccess = isResultSuccess(resultObj)
         // handle success data
         if resultIsSuccess == true {
             // 解析 set-cookie
             // parseResponseCookieHeader(setCookieValue: response.response?.value(forHTTPHeaderField: "Set-Cookie"))
-            return responseValue
+            return resultObj
         } else {
             // handle error result
-            let errorCode = parseErrorCode(responseValue)
+            let errorCode = parseErrorCode(resultObj)
 
             /**
              100 Unknown error.
@@ -216,6 +221,19 @@ extension SynoDiskStationApi {
 
             throw SynoDiskStationApiError.responseBodyEmptyError
         }
+    }
+
+    private func parseStringToObj<Value: Decodable>(responseValue: String, resultType: Value.Type = Value.self) throws -> Value? {
+        if let dataFromString = responseValue.data(using: .utf8) {
+            let json = try JSON(data: dataFromString)
+            if let jsonObject = json.dictionaryObject {
+                let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [])
+                let valueType = try JSONDecoder().decode(Value.self, from: jsonData)
+                return valueType
+            }
+        }
+
+        return nil
     }
 
     /**
