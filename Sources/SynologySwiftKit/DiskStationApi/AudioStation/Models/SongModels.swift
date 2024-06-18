@@ -127,7 +127,7 @@ public enum SongStreamQuality: String {
     var format: String {
         switch self {
         case .HIGH:
-            "wav"
+            "mp3"
         case .MEDIUM:
             "mp3"
         case .LOW:
