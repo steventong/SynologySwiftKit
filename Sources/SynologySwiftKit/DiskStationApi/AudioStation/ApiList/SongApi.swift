@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension AudioStationApi  {
+extension AudioStationApi {
     /**
      query song list
      */
@@ -32,14 +32,8 @@ extension AudioStationApi  {
 
         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, parameters: parameters)
 
-        do {
-            let result = try await api.requestForData(resultType: SongListResult.self)
-            return (result.total, result.songs)
-        } catch {
-            Logger.error("AudioStationApi.SongApi.songList error: \(error)")
-        }
-
-        return (0, [])
+        let result = try await api.requestForData(resultType: SongListResult.self)
+        return (result.total, result.songs)
     }
 
     /**
@@ -91,14 +85,8 @@ extension AudioStationApi  {
             "additional": "song_tag,song_audio,song_rating",
         ])
 
-        do {
-            let result = try await api.requestForData(resultType: SongInfo.self)
-            return result.songs.first
-        } catch {
-            Logger.error("AudioStationApi.SongApi.songGetInfo error: \(error)")
-        }
-
-        return nil
+        let result = try await api.requestForData(resultType: SongInfo.self)
+        return result.songs.first
     }
 
     /**
@@ -110,14 +98,6 @@ extension AudioStationApi  {
             "rating": rating,
         ])
 
-        do {
-            return try await api.request()
-        } catch {
-            Logger.error("AudioStationApi.SongApi.songSetRating error: \(error)")
-        }
-
-        return false
+        return try await api.request()
     }
-    
-
 }
