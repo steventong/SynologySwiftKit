@@ -13,7 +13,7 @@ class QueryAllSongsTests: XCTestCase {
 
         try queryAllSongs.queryAllSongs(batchSize: 500, threads: 4, onTaskUpdate: { songs, total in
             Logger.info("onTaskUpdate, total = \(total), songs = \(songs.count)")
-        }, onTaskFinish: {
+        }, onTaskFinish: { result, error in
             Logger.info("onTaskFinish")
         })
     }

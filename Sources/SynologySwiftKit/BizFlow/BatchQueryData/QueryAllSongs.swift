@@ -13,41 +13,45 @@ public class QueryAllSongs {
     public init() {
     }
 
-    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3, onTaskUpdate: @escaping (_ songs: [Song], _ total: Int) -> Void, onTaskFinish: @escaping () -> Void) throws {
+    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3, onTaskUpdate: @escaping (_ songs: [Song], _ total: Int) -> Void, onTaskFinish: @escaping (Bool, Error?) -> Void) throws {
         Task {
-            // query first batch
-            let songs_firstBatch = try await audioStationApi.songList(limit: 1, offset: 0)
+            do {
+                // query first batch
+                let songs_firstBatch = try await audioStationApi.songList(limit: 1, offset: 0)
 
-            let total = songs_firstBatch.total
-            if total == 0 {
-                onTaskFinish()
-                return
+                let total = songs_firstBatch.total
+                if total == 0 {
+                    onTaskFinish(true, nil)
+                    return
+                }
+
+                // task count
+                let taskCount = total / batchSize + 1
+                Logger.info("queryAllSongs task, total count = \(total), taskCount = \(taskCount)")
+
+                // execute task
+                try await withThrowingTaskGroup(of: Int.self, body: { taskGroup in
+                    // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
+                    for taskIndex in 0 ..< threads {
+                        taskGroup.addTask {
+                            try await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
+                        }
+                    }
+
+                    var waitTaskIndex = threads
+                    while try await taskGroup.next() != nil && waitTaskIndex < taskCount {
+                        taskGroup.addTask { [waitTaskIndex] in
+                            try await self.querySongList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
+                        }
+                        waitTaskIndex += 1
+                    }
+                })
+
+                Logger.info("queryAllSongs task, all task done, total count = \(total), taskCount = \(taskCount)")
+                onTaskFinish(true, nil)
+            } catch {
+                onTaskFinish(false, error)
             }
-
-            // task count
-            let taskCount = total / batchSize + 1
-            Logger.info("queryAllSongs task, total count = \(total), taskCount = \(taskCount)")
-
-            // execute task
-            try await withThrowingTaskGroup(of: Int.self, body: { taskGroup in
-                // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
-                for taskIndex in 0 ..< threads {
-                    taskGroup.addTask {
-                        try await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
-                    }
-                }
-
-                var waitTaskIndex = threads
-                while try await taskGroup.next() != nil && waitTaskIndex < taskCount {
-                    taskGroup.addTask { [waitTaskIndex] in
-                        try await self.querySongList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
-                    }
-                    waitTaskIndex += 1
-                }
-            })
-
-            Logger.info("queryAllSongs task, all task done, total count = \(total), taskCount = \(taskCount)")
-            onTaskFinish()
         }
     }
 }
