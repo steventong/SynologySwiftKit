@@ -149,12 +149,14 @@ extension SynoDiskStationApi {
         if let cookie = buildCookie() {
             headers.add(name: "Cookie", value: cookie)
         }
+        
         headers.add(name: "Content-Type", value: "application/json; charset=utf-8")
+        headers.add(name: "Accept-Charset", value: "utf-8")
 
-//        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
+        //        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
         let response = await session.request(apiUrl.absoluteString, method: httpMethod, encoding: JSONEncoding.default, headers: headers)
-            .serializingString(encoding: .utf8)
+            .serializingString(encoding: .unicode)
             .response
 
         // debug log
