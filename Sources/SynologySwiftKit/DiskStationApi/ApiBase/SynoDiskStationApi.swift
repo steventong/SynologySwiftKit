@@ -156,7 +156,7 @@ extension SynoDiskStationApi {
         //        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
         let response = await session.request(apiUrl.absoluteString, method: httpMethod, encoding: JSONEncoding.default, headers: headers)
-            .serializingString(encoding: .utf8)
+            .serializingString()
             .response
 
         // debug log
