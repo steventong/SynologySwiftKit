@@ -13,7 +13,7 @@ public class QueryAllSongs {
     public init() {
     }
 
-    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3, onTaskUpdate: @escaping (_ songs: [Song], _ total: Int) -> Void, onTaskFinish: @escaping (Bool, Error?) -> Void) throws {
+    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3, onTaskUpdate: @escaping (_ songs: [Song], _ total: Int) -> Void, onTaskFinish: @escaping (Bool, Error?) -> Void) {
         Task {
             do {
                 // query first batch

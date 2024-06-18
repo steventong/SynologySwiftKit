@@ -11,9 +11,9 @@ class QueryAllSongsTests: XCTestCase {
     func test() async throws {
         let queryAllSongs = QueryAllSongs()
 
-        try queryAllSongs.queryAllSongs(batchSize: 500, threads: 4, onTaskUpdate: { songs, total in
+        queryAllSongs.queryAllSongs(batchSize: 500, threads: 4, onTaskUpdate: { songs, total in
             Logger.info("onTaskUpdate, total = \(total), songs = \(songs.count)")
-        }, onTaskFinish: { result, error in
+        }, onTaskFinish: { _, _ in
             Logger.info("onTaskFinish")
         })
     }
