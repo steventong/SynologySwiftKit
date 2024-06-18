@@ -155,22 +155,32 @@ extension SynoDiskStationApi {
 
         //        Logger.debug("send request: \(name), apiUrl: \(apiUrl)")
 
-        let response = await session.request(apiUrl.absoluteString, method: httpMethod, encoding: JSONEncoding.default, headers: headers)
-            .serializingData()
+        // Set Encoding
+        var encoding: ParameterEncoding = JSONEncoding.default
+        switch httpMethod {
+        case .get:
+            encoding = URLEncoding.default
+        default:
+            encoding = JSONEncoding.default
+        }
+
+        // request
+        let response = await session.request(apiUrl.absoluteString, method: httpMethod, encoding: encoding, headers: headers)
+            .serializingString(encoding: .utf8)
             .response
 
         // debug log
-//        Logger.debug(response.debugDescription)
+        Logger.debug(response.debugDescription)
 
         // error handler
         try handleApiErrors(error: response.error)
 
         // empty result
-        guard let responseData = response.value else {
+        guard let responseValue = response.value else {
             throw SynoDiskStationApiError.responseBodyEmptyError
         }
 
-        guard let resultObj = try parseStringToObj(responseData: responseData, resultType: Value.self) else {
+        guard let resultObj = try parseStringToObj(responseValue: responseValue, resultType: Value.self) else {
             throw SynoDiskStationApiError.responseBodyEmptyError
         }
 
@@ -225,12 +235,14 @@ extension SynoDiskStationApi {
         }
     }
 
-    private func parseStringToObj<Value: Decodable>(responseData: Data, resultType: Value.Type = Value.self) throws -> Value? {
-        let json = try JSON(data: responseData)
-        if let jsonObject = json.dictionaryObject {
-            let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [])
-            let valueType = try JSONDecoder().decode(Value.self, from: jsonData)
-            return valueType
+    private func parseStringToObj<Value: Decodable>(responseValue: String, resultType: Value.Type = Value.self) throws -> Value? {
+        if let dataFromString = responseValue.data(using: .utf8) {
+            let json = try JSON(data: dataFromString)
+            if let jsonObject = json.dictionaryObject {
+                let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [])
+                let valueType = try JSONDecoder().decode(Value.self, from: jsonData)
+                return valueType
+            }
         }
 
         return nil
