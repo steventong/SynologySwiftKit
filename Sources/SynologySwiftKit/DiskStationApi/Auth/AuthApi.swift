@@ -44,7 +44,7 @@ public actor AuthApi {
             "enable_device_token": otpCode != nil ? "yes" : "no",
             "device_name": deviceName,
             "device_id": deviceId ?? "",
-        ])
+        ], timeout: 10)
 
         do {
             let authResult = try await api.requestForData(resultType: AuthResult.self)
