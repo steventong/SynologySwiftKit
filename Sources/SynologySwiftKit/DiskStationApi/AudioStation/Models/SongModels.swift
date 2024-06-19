@@ -43,7 +43,7 @@ import Foundation
  */
 public struct Song: Decodable, Encodable {
     public var id: String
-    public var title: String
+    public var title: String?
     public var type: String
     public var path: String
 

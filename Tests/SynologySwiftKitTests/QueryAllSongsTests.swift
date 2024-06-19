@@ -14,8 +14,6 @@ class QueryAllSongsTests: XCTestCase {
 //
         UserDefaults.standard.setValue(SecretKey.sid, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
 
-        let _ = AlamofireClientFactory.createSession(timeoutIntervalForRequest: 3)
-
         let queryAllSongs = QueryAllSongs()
 
         queryAllSongs.queryAllSongs(batchSize: 500, threads: 4, onTaskUpdate: { songs, total in
