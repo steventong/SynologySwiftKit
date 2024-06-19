@@ -7,7 +7,7 @@
 
 import Foundation
 
-extension AudioStationApi  {
+extension AudioStationApi {
     /**
      High: /webapi/AudioStation/stream.cgi/0.wav?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=wav&id=
      M: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=transcode&format=mp3&id=
@@ -16,7 +16,7 @@ extension AudioStationApi  {
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id= ??
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id= ??   format=wav
      */
-    public func songStreamUrl(id: String, position: Int = 0, quality: SongStreamQuality) throws -> URL? {
+    public func songStreamUrl(id: String, position: Int = 0, quality: SongStreamQuality) throws -> URL {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }
@@ -32,6 +32,6 @@ extension AudioStationApi  {
             "_sid": sid,
         ])
 
-        return api.assembleRequestUrl()
+        return try api.assembleRequestUrl()
     }
 }

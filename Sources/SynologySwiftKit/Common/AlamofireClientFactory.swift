@@ -8,13 +8,11 @@
 import Alamofire
 import Foundation
 
-class AlamofireClient {
-    static let shared = AlamofireClient()
-
+class AlamofireClientFactory {
     /**
      session
      */
-    func session(timeoutIntervalForRequest: TimeInterval, timeoutIntervalForResource: TimeInterval = 10) -> Session {
+    static func createSession(timeoutIntervalForRequest: TimeInterval, timeoutIntervalForResource: TimeInterval = 10) -> Session {
         let configuration = URLSessionConfiguration.af.default
         configuration.timeoutIntervalForRequest = timeoutIntervalForRequest
         configuration.timeoutIntervalForResource = timeoutIntervalForResource

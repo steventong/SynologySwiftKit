@@ -12,7 +12,7 @@ class PingPong {
     let session: Session
 
     init() {
-        session = AlamofireClient.shared.session(timeoutIntervalForRequest: 3.6)
+        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: 3.6)
     }
 
     /**

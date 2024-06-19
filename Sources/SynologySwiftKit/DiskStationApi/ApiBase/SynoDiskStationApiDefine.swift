@@ -83,7 +83,7 @@ public enum DiskStationApiDefine: String {
     /**
      api Url
      */
-    var apiUrl: String {
+    var apiPath: String {
         switch self {
         case .SYNO_API_INFO:
             return "/webapi/query.cgi"
