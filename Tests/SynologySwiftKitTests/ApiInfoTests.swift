@@ -20,9 +20,8 @@ final class ApiInfoTests: XCTestCase {
         if let connection {
             Logger.info("device connection: \(connection)")
 
-            let apiInfo = ApiInfoApi()
-            let apiInfoList = try await apiInfo.getApiInfo()
-            Logger.info("apiInfoList \(apiInfoList)")
+            let apiInfo = try await ApiInfoApi.shared.getApiInfo(apiName: "SYNO.API.Info")
+            Logger.info("apiInfo: \(apiInfo)")
         }
     }
 }

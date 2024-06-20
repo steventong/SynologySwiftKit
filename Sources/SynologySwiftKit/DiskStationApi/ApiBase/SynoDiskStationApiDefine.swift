@@ -81,49 +81,57 @@ public enum DiskStationApiDefine: String {
     /**
      api version
      */
-    func apiVersion(version: Int) -> Int {
-        return version
+    func apiInfo(apiName: String, version: Int) async throws -> (version: Int, path: String) {
+        if apiName == DiskStationApiDefine.SYNO_API_INFO.rawValue {
+            return (1, "/query.cgi")
+        }
+
+        let apiInfo = try await ApiInfoApi.shared.getApiInfo(apiName: apiName)
+        debugPrint(apiInfo)
+
+        let apiVersion = version > apiInfo.maxVersion ? apiInfo.maxVersion : version
+        return (apiVersion, apiInfo.path)
     }
 
-    /**
-     api Url
-     */
-    var apiPath: String {
-        switch self {
-        case .SYNO_API_INFO:
-            return "/webapi/query.cgi"
-        case .SYNO_API_ENCRYPTION:
-            return "/webapi/encryption.cgi"
-        case .SYNO_API_AUTH:
-            return "/webapi/auth.cgi"
-        case .SYNO_AUDIO_STATION_SONG:
-            return "/webapi/AudioStation/song.cgi"
-        case .SYNO_AUDIO_STATION_STREAM:
-            return "/webapi/AudioStation/stream.cgi"
-        case .SYNO_AUDIO_STATION_PLAYLIST:
-            return "/webapi/AudioStation/playlist.cgi"
-        case .SYNO_AUDIO_STATION_COVER:
-            return "/webapi/AudioStation/cover.cgi"
-        case .SYNO_AUDIO_STATION_ARTIST:
-            return "/webapi/AudioStation/artist.cgi"
-        case .SYNO_AUDIO_STATION_ALBUM:
-            return "/webapi/AudioStation/album.cgi"
-        case .SYNO_AUDIO_STATION_GENRE:
-            return "/webapi/AudioStation/genre.cgi"
-        case .SYNO_AUDIO_STATION_COMPOSER:
-            return "/webapi/AudioStation/composer.cgi"
-        case .SYNO_AUDIO_STATION_FOLDER:
-            return "/webapi/AudioStation/folder.cgi"
-        case .SYNO_AUDIO_STATION_LYRICS:
-            return "/webapi/AudioStation/lyrics.cgi"
-        case .SYNO_AUDIO_STATION_LYRICSSEARCH:
-            return "/webapi/AudioStation/lyrics_search.cgi"
-        case .SYNO_AUDIO_STATION_TAG_EDITOR_UI:
-            return "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi"
-        default:
-            return "/webapi/entry.cgi"
-        }
-    }
+//    /**
+//     api Url
+//     */
+//    var apiPath: String {
+//        switch self {
+//        case .SYNO_API_INFO:
+//            return "/webapi/query.cgi"
+//        case .SYNO_API_ENCRYPTION:
+//            return "/webapi/encryption.cgi"
+//        case .SYNO_API_AUTH:
+//            return "/webapi/auth.cgi"
+//        case .SYNO_AUDIO_STATION_SONG:
+//            return "/webapi/AudioStation/song.cgi"
+//        case .SYNO_AUDIO_STATION_STREAM:
+//            return "/webapi/AudioStation/stream.cgi"
+//        case .SYNO_AUDIO_STATION_PLAYLIST:
+//            return "/webapi/AudioStation/playlist.cgi"
+//        case .SYNO_AUDIO_STATION_COVER:
+//            return "/webapi/AudioStation/cover.cgi"
+//        case .SYNO_AUDIO_STATION_ARTIST:
+//            return "/webapi/AudioStation/artist.cgi"
+//        case .SYNO_AUDIO_STATION_ALBUM:
+//            return "/webapi/AudioStation/album.cgi"
+//        case .SYNO_AUDIO_STATION_GENRE:
+//            return "/webapi/AudioStation/genre.cgi"
+//        case .SYNO_AUDIO_STATION_COMPOSER:
+//            return "/webapi/AudioStation/composer.cgi"
+//        case .SYNO_AUDIO_STATION_FOLDER:
+//            return "/webapi/AudioStation/folder.cgi"
+//        case .SYNO_AUDIO_STATION_LYRICS:
+//            return "/webapi/AudioStation/lyrics.cgi"
+//        case .SYNO_AUDIO_STATION_LYRICSSEARCH:
+//            return "/webapi/AudioStation/lyrics_search.cgi"
+//        case .SYNO_AUDIO_STATION_TAG_EDITOR_UI:
+//            return "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi"
+//        default:
+//            return "/webapi/entry.cgi"
+//        }
+//    }
 
     /**
      http method

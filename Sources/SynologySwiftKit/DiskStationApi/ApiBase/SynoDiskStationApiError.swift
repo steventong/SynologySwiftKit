@@ -17,6 +17,8 @@ public enum SynoDiskStationApiError: Error, LocalizedError {
     case responseBodyEmptyError
     case requestHostNotPressentError
     case synoDiskStationApiError(Int)
+    case synoApiIsNotExist(String)
+
     /**
      下面是接口返回的异常解析
      */
@@ -37,6 +39,8 @@ public enum SynoDiskStationApiError: Error, LocalizedError {
             return "请求失败，请求地址格式错误"
         case let .synoDiskStationApiError(code):
             return "接口返回错误: \(code)"
+        case let .synoApiIsNotExist(apiName):
+            return "接口不存在: \(apiName)"
         case .invalidSession:
             return "登录已过期，请重新登录"
         case let .apiBizError(errorCode):

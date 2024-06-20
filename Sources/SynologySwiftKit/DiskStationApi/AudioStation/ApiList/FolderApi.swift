@@ -9,7 +9,7 @@ import Foundation
 
 extension AudioStationApi {
     public func folderList(id: String?) async throws -> (total: Int, data: [Folder]) {
-        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_FOLDER, method: "list", version: 1, parameters: [
+        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_FOLDER, method: "list", version: 1, parameters: [
             "version": 3,
             "id": id ?? "",
             "library": "all",
@@ -18,13 +18,7 @@ extension AudioStationApi {
             "offset": 0,
         ])
 
-        do {
-            let result = try await api.requestForData(resultType: FolderListResult.self)
-            return (result.folder_total, result.items)
-        } catch {
-            Logger.error("AudioStationApi.FolderApi.folderList error: \(error)")
-        }
-
-        return (0, [])
+        let result = try await api.requestForData(resultType: FolderListResult.self)
+        return (result.folder_total, result.items)
     }
 }

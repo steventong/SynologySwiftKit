@@ -35,7 +35,7 @@ public actor AuthApi {
         let deviceName = getDeviceName()
         let deviceId = getDeviceId()
 
-        let api = SynoDiskStationApi(api: .SYNO_API_AUTH, method: "login", version: 6, parameters: [
+        let api = try await SynoDiskStationApi(api: .SYNO_API_AUTH, method: "login", version: 6, parameters: [
             "account": username,
             "passwd": password,
             "format": "cookie",
@@ -44,7 +44,7 @@ public actor AuthApi {
             "enable_device_token": otpCode != nil ? "yes" : "no",
             "device_name": "SynologySwiftKit",
             "device_id": deviceId ?? "",
-            "session": "AudioStation"
+            "session": "AudioStation",
         ], timeout: 10)
 
         do {
@@ -61,7 +61,7 @@ public actor AuthApi {
      logout
      */
     public func logout() async throws {
-        let api = SynoDiskStationApi(api: .SYNO_API_AUTH, method: "logout", version: 6, timeout: 3)
+        let api = try await SynoDiskStationApi(api: .SYNO_API_AUTH, method: "logout", version: 6, timeout: 3)
         try await api.request()
     }
 }

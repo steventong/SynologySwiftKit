@@ -7,7 +7,6 @@
 
 import Alamofire
 import Foundation
-import SwiftyJSON
 
 struct SynoDiskStationApi {
     let session: Session
@@ -23,21 +22,18 @@ struct SynoDiskStationApi {
     /**
      init
      */
-    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
+    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) async throws {
         session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+
+        let apiInfo = try await api.apiInfo(apiName: api.apiName, version: version)
 
         name = api.apiName
         self.method = method
-        self.version = api.apiVersion(version: version)
+        self.version = apiInfo.version
         self.httpMethod = httpMethod
         self.parameters = parameters
         apiIsRequiredAuth = api.requireAuthHeader
-
-        if let extraPath = path {
-            apiPath = api.apiPath + extraPath
-        } else {
-            apiPath = api.apiPath
-        }
+        apiPath = "/webapi/\(apiInfo.path)\(path ?? "")"
     }
 
     /**
@@ -220,19 +216,6 @@ extension SynoDiskStationApi {
         default:
             throw SynoDiskStationApiError.apiBizError(errorCode ?? -1)
         }
-    }
-
-    private func parseStringToObj<Value: Decodable>(responseValue: String, resultType: Value.Type = Value.self) throws -> Value? {
-        if let dataFromString = responseValue.data(using: .utf8) {
-            let json = try JSON(data: dataFromString)
-            if let jsonObject = json.dictionaryObject {
-                let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: [])
-                let valueType = try JSONDecoder().decode(Value.self, from: jsonData)
-                return valueType
-            }
-        }
-
-        return nil
     }
 
     /**

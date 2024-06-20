@@ -30,7 +30,7 @@ extension AudioStationApi {
             parameters["sort_direction"] = sort.sort_direction
         }
 
-         let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, parameters: parameters) 
+        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, parameters: parameters)
 
         let result = try await api.requestForData(resultType: SongListResult.self)
         return (result.total, result.songs)
@@ -80,7 +80,7 @@ extension AudioStationApi {
      }
      */
     public func songGetInfo(id: String) async throws -> Song? {
-        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "getinfo", version: 2, parameters: [
+        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "getinfo", version: 2, parameters: [
             "id": id,
             "additional": "song_tag,song_audio,song_rating",
         ])
@@ -93,7 +93,7 @@ extension AudioStationApi {
      update song rating, from 1 - 5
      */
     public func songSetRating(id: String, rating: Int) async throws -> Bool {
-        let api = SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, parameters: [
+        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, parameters: [
             "id": id,
             "rating": rating,
         ])
