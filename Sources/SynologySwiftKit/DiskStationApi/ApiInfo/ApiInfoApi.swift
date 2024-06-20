@@ -9,7 +9,6 @@ import Alamofire
 import Foundation
 
 public actor ApiInfoApi {
-
     public init() {
     }
 
@@ -26,5 +25,20 @@ public actor ApiInfoApi {
         Logger.info("apiInfo: \(apiInfoList)")
 
         return apiInfoList
+    }
+
+    /**
+     api encryption
+
+     api=SYNO.API.Encryption&method=getinfo&version=1
+     */
+    public func getApiInfoEncryption() async throws -> ApiInfoEncryption {
+        let api = SynoDiskStationApi(api: .SYNO_API_ENCRYPTION, method: "getinfo", version: 1)
+
+        let apiInfoEncryption = try await api.requestForData(resultType: ApiInfoEncryption.self)
+
+        Logger.info("apiInfoEncryption: \(apiInfoEncryption)")
+
+        return apiInfoEncryption
     }
 }

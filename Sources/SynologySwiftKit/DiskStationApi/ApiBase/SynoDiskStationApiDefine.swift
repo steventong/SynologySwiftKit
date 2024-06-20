@@ -19,6 +19,11 @@ public enum DiskStationApiDefine: String {
     case SYNO_DSM_INFO = "SYNO.DSM.Info"
 
     /**
+     Encryption
+     */
+    case SYNO_API_ENCRYPTION = "SYNO.API.Encryption"
+
+    /**
      auth
      */
     case SYNO_API_AUTH = "SYNO.API.Auth"
@@ -87,6 +92,8 @@ public enum DiskStationApiDefine: String {
         switch self {
         case .SYNO_API_INFO:
             return "/webapi/query.cgi"
+        case .SYNO_API_ENCRYPTION:
+            return "/webapi/encryption.cgi"
         case .SYNO_API_AUTH:
             return "/webapi/auth.cgi"
         case .SYNO_AUDIO_STATION_SONG:
@@ -136,6 +143,8 @@ public enum DiskStationApiDefine: String {
     var requireAuthHeader: Bool {
         switch self {
         case .SYNO_API_AUTH:
+            false
+        case .SYNO_API_ENCRYPTION:
             false
         default:
             true
