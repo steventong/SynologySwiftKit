@@ -42,8 +42,9 @@ public actor AuthApi {
             "otp_code": otpCode ?? "",
             "enable_syno_token": "no",
             "enable_device_token": otpCode != nil ? "yes" : "no",
-            "device_name": deviceName,
+            "device_name": "SynologySwiftKit",
             "device_id": deviceId ?? "",
+            "session": "AudioStation"
         ], timeout: 10)
 
         do {
