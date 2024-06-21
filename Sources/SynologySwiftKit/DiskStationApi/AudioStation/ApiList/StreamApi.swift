@@ -16,7 +16,7 @@ extension AudioStationApi {
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id= ??
      Original: /webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&version=2&method=stream&id= ??   format=wav
      */
-    public func songStreamUrl(id: String, position: Int = 0, quality: SongStreamQuality) async throws -> URL {
+    public func songStreamUrl(id: String, position: Int = 0, quality: SongStreamQuality) throws -> URL {
         guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
             throw SynoDiskStationApiError.invalidSession
         }

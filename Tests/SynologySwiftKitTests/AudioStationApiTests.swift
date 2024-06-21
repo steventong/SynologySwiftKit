@@ -17,9 +17,9 @@ final class AudioStationApiTests: XCTestCase {
 
         UserDefaults.standard.setValue("sessionxxxx", forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
 
-        let lowQualityURL = try await audioStationApi.songStreamUrl(id: "music_1234", quality: .LOW)
-        let mediumQualityURL = try await audioStationApi.songStreamUrl(id: "music_1234", quality: .MEDIUM)
-        let highQualityURL = try await audioStationApi.songStreamUrl(id: "music_1234", quality: .HIGH)
+        let lowQualityURL = try audioStationApi.songStreamUrl(id: "music_1234", quality: .LOW)
+        let mediumQualityURL = try audioStationApi.songStreamUrl(id: "music_1234", quality: .MEDIUM)
+        let highQualityURL = try audioStationApi.songStreamUrl(id: "music_1234", quality: .HIGH)
         print("lowQualityURL: \(lowQualityURL)")
         print("mediumQualityURL: \(mediumQualityURL)")
         print("highQualityURL: \(highQualityURL)")
