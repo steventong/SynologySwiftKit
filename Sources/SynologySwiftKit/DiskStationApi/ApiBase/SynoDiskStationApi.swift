@@ -90,10 +90,10 @@ extension SynoDiskStationApi {
         parameters["method"] = method
         parameters["version"] = apiVersion(apiName: name, apiVersion: version)
 
-        if apiIsRequiredAuth,
-           let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) {
-            parameters["_sid"] = sid
-        }
+//        if apiIsRequiredAuth,
+//           let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) {
+//            parameters["_sid"] = sid
+//        }
 
         // 使用 URLComponents 构建带有查询参数的 URL
         guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
