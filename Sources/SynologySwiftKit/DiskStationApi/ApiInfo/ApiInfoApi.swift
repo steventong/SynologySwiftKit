@@ -29,7 +29,7 @@ public class ApiInfoApi {
             throw SynoDiskStationApiError.synoApiIsNotExist(apiName)
         }
 
-        Logger.info("apiInfo, apiName = \(apiName), apiInfo = \(apiInfo)")
+//        Logger.info("apiInfo, apiName = \(apiName), apiInfo = \(apiInfo)")
         return apiInfo
     }
 
