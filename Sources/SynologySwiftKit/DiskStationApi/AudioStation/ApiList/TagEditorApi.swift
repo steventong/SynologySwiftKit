@@ -40,7 +40,7 @@ extension AudioStationApi {
             throw SynoDiskStationApiError.invalidSession
         }
 
-        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "load", parameters: [
+        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "load", parameters: [
             "action": "load",
             "requestFrom": "",
             "audioInfos": "[{\"path\":\"\(path)\"}]",

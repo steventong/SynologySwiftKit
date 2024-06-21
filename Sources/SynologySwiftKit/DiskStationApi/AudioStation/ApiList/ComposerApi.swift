@@ -9,7 +9,7 @@ import Foundation
 
 extension AudioStationApi {
     public func composerList() async throws -> (total: Int, data: [Composer]) {
-        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_COMPOSER, method: "list", version: 1, parameters: [
+        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_COMPOSER, method: "list", version: 1, parameters: [
             "library": "all",
             "limit": 5000,
             "offset": 0,

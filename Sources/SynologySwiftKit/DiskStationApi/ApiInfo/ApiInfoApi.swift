@@ -8,10 +8,9 @@
 import Alamofire
 import Foundation
 
-public actor ApiInfoApi {
+public class ApiInfoApi {
     static let shared = ApiInfoApi()
-    private let lock = NSLock()
-    private var cacheApiInfo: [String: ApiInfoNode] = [:]
+    private var cachedApiInfo: [String: ApiInfoNode] = [:]
 
     private init() {
     }
@@ -19,13 +18,14 @@ public actor ApiInfoApi {
     /**
      getApiInfo
      */
-    public func getApiInfo(apiName: String) async throws -> ApiInfoNode {
-        if cacheApiInfo.isEmpty {
-            Logger.info("apiInfo cache is not avaliable, try to query")
-            cacheApiInfo = try await getApiInfo()
+    public func getApiInfoByApiName(apiName: String) throws -> ApiInfoNode {
+        if cachedApiInfo.isEmpty,
+           let cached = getFromUserDefaults() {
+            cachedApiInfo = cached
+            Logger.debug("SynologySwiftKit.ApiInfoApi, load from cache: \(cachedApiInfo)")
         }
 
-        guard let apiInfo = cacheApiInfo[apiName] else {
+        guard let apiInfo = cachedApiInfo[apiName] else {
             throw SynoDiskStationApiError.synoApiIsNotExist(apiName)
         }
 
@@ -34,26 +34,22 @@ public actor ApiInfoApi {
     }
 
     /**
-     api encryption
-
-     api=SYNO.API.Encryption&method=getinfo&version=1
+     queryApiInfo
      */
-    public func getApiInfoEncryption() async throws -> ApiInfoEncryption {
-        let api = try await SynoDiskStationApi(api: .SYNO_API_ENCRYPTION, method: "getinfo", version: 1)
+    public func queryApiInfo() async throws {
+        cachedApiInfo = try await queryApiInfoFromDsm()
+        Logger.debug("SynologySwiftKit.ApiInfoApi, query from api: \(cachedApiInfo)")
 
-        let apiInfoEncryption = try await api.requestForData(resultType: ApiInfoEncryption.self)
-
-        Logger.info("apiInfoEncryption: \(apiInfoEncryption)")
-
-        return apiInfoEncryption
+        // save to userdefaults
+        saveToUserDefaults(apiInfo: cachedApiInfo)
     }
 }
 
 extension ApiInfoApi {
     /**
-     getApiInfo
+     queryApiInfoFromDsm
      */
-    private func getApiInfo() async throws -> [String: ApiInfoNode] {
+    private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
         let api = try await SynoDiskStationApi(api: .SYNO_API_INFO, method: "query", version: 1, parameters: [
             "query": "all",
         ])
@@ -63,5 +59,21 @@ extension ApiInfoApi {
         Logger.info("apiInfo: \(apiInfo)")
 
         return apiInfo
+    }
+
+    private func saveToUserDefaults(apiInfo: [String: ApiInfoNode]) {
+        let encoder = JSONEncoder()
+        if let encoded = try? encoder.encode(apiInfo) {
+            UserDefaults.standard.setValue(encoded, forKey: UserDefaultsKeys.DISK_STATION_API_INFO.keyName)
+        }
+    }
+
+    private func getFromUserDefaults() -> [String: ApiInfoNode]? {
+        if let data = UserDefaults.standard.data(forKey: UserDefaultsKeys.DISK_STATION_API_INFO.keyName) {
+            let decoder = JSONDecoder()
+            return try? decoder.decode([String: ApiInfoNode].self, from: data)
+        }
+
+        return nil
     }
 }

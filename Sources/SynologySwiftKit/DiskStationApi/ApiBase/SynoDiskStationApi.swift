@@ -22,10 +22,10 @@ struct SynoDiskStationApi {
     /**
      init
      */
-    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) async throws {
+    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) throws {
         session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
 
-        let apiInfo = try await api.apiInfo(apiName: api.apiName, version: version)
+        let apiInfo = try api.apiInfo(apiName: api.apiName, version: version)
 
         name = api.apiName
         self.method = method
@@ -39,11 +39,10 @@ struct SynoDiskStationApi {
     /**
      request for result
      */
-    public func request() async throws -> Bool {
-        let apiResult = try await apiRequest(resultType: DiskStationApiResult<SynoDiskStationApiEmptyData>.self,
-                                             checkResultIsSuccess: { response in response.success },
-                                             parseErrorCode: { response in response.errorCode })
-        return true
+    public func request() async throws {
+        let _ = try await apiRequest(resultType: DiskStationApiResult<SynoDiskStationApiEmptyData>.self,
+                                     checkResultIsSuccess: { response in response.success },
+                                     parseErrorCode: { response in response.errorCode })
     }
 
     /**

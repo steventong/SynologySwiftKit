@@ -24,7 +24,7 @@ extension AudioStationApi {
         let songFileName = "/\(id).\(quality.format)"
         let method = quality == .ORIGINAL ? "stream" : "transcode"
 
-        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, path: songFileName, method: method, version: 2, parameters: [
+        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, path: songFileName, method: method, version: 2, parameters: [
             "id": id,
             "position": position,
             "format": quality.format,

@@ -18,25 +18,27 @@ class PingPong {
     /**
       pingpong url
      */
-    func pingpong(urls: [ConnectionType: String]) async -> [ConnectionType: String] {
-        Logger.debug("send request: pingpong urls: \(urls)")
+    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+        Logger.debug("send request: pingpong connections: \(connections)")
         // 多个地址并发查询
         return await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: [ConnectionType: String].self, body: { taskGroup in
             // 子任务
-            for url in urls {
-                taskGroup.addTask {
-                    if await self.pingpong(url: url.value) {
-                        return (url.key, url.value)
+            connections.forEach { connection in
+                connection.value.forEach { item in
+                    taskGroup.addTask {
+                        if await self.pingpong(url: item) {
+                            return (connection.key, item)
+                        }
+                        return nil
                     }
-
-                    return nil
                 }
             }
 
             // 结果
             var data: [ConnectionType: String] = [:]
             for await result in taskGroup {
-                if let result {
+                if let result, data[result.connnectionType] == nil {
+                    // 同种类型只需要保留一个
                     data[result.connnectionType] = result.url
                 }
             }

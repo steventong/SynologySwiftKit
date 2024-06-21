@@ -23,6 +23,8 @@ enum UserDefaultsKeys {
     case DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT
     case DISK_STATION_AUTH_SESSION_DID
     case DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT
+    
+    case DISK_STATION_API_INFO
 
     var keyName: String {
         switch self {
@@ -48,6 +50,8 @@ enum UserDefaultsKeys {
             return "SynologySwiftKit_DiskStation_Auth_Session_DID"
         case .DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT:
             return "SynologySwiftKit_DiskStation_Auth_Session_DID_expireAt"
+        case .DISK_STATION_API_INFO:
+            return "SynologySwiftKit_DiskStation_Api_Info"
         }
     }
 }
