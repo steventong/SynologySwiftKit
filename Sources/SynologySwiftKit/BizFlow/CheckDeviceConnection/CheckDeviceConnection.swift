@@ -30,7 +30,7 @@ public class CheckDeviceConnection {
                     // 连接可用
                     DeviceConnection.shared.updateCurrentConnectionUrl(type: connectionType, url: connectionUrl)
                     // 更新API info
-                    try await ApiInfoApi.shared.queryApiInfo()
+                    try await ApiInfoApi.shared.queryApiInfo(cacheEnabled: false)
 
                     // 成功回调
                     DispatchQueue.main.async {
