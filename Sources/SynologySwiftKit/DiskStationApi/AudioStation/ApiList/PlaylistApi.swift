@@ -72,11 +72,15 @@ extension AudioStationApi {
 
      */
     public func playlistCreate(name: String, shared: Bool, songs: String?) async throws -> String? {
-        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "create", version: 3, parameters: [
-            "name": name,
-            "library": shared ? "shared" : "personal",
-            "songs": songs ?? "",
-        ])
+        var params: [String: Any] = ["name": name,
+                                     "library": shared ? "shared" : "personal",
+        ]
+
+        if let songs = songs {
+            params[songs] = songs
+        }
+
+        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "create", version: 3, httpMethod: .post, parameters: params)
 
         let result = try await api.requestForData(resultType: PlaylistCreateResult.self)
         return result.id
