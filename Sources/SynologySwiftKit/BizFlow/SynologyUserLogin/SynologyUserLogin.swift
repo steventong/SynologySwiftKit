@@ -42,6 +42,9 @@ public actor SynologyUserLogin {
         // 获取地址成功
         onConnectionFetch(connection.type, connection.url)
 
+        // 更新API info
+        try await ApiInfoApi.shared.queryApiInfo(cacheEnabled: false)
+
         // login seever isQuickConnectID
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
 

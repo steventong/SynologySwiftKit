@@ -9,7 +9,7 @@ import Foundation
 
 extension AudioStationApi {
     public func folderList(id: String?) async throws -> (total: Int, data: [Folder]) {
-        let api = try await SynoDiskStationApi(api: .SYNO_AUDIO_STATION_FOLDER, method: "list", version: 1, parameters: [
+        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_FOLDER, method: "list", version: 1, parameters: [
             "version": 3,
             "id": id ?? "",
             "library": "all",

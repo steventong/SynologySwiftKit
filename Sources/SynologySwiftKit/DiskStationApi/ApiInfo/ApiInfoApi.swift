@@ -22,7 +22,7 @@ public class ApiInfoApi {
         if cachedApiInfo.isEmpty,
            let cached = getFromUserDefaults() {
             cachedApiInfo = cached
-            Logger.debug("SynologySwiftKit.ApiInfoApi, load from cache: \(cachedApiInfo)")
+            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName, load from cache: \(cachedApiInfo)")
         }
 
         guard let apiInfo = cachedApiInfo[apiName] else {
@@ -36,9 +36,17 @@ public class ApiInfoApi {
     /**
      queryApiInfo
      */
-    public func queryApiInfo() async throws {
+    public func queryApiInfo(cacheEnabled: Bool? = true) async throws {
+        // 使用上次的记录, 从缓存获取，有效期一天
+        if cacheEnabled == true, isApiInfoCacheValid(),
+           let cachedApiInfo = getFromUserDefaults() {
+            Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache: \(cachedApiInfo)")
+            self.cachedApiInfo = cachedApiInfo
+            return
+        }
+
         cachedApiInfo = try await queryApiInfoFromDsm()
-        Logger.debug("SynologySwiftKit.ApiInfoApi, query from api: \(cachedApiInfo)")
+        Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from api: \(cachedApiInfo)")
 
         // save to userdefaults
         saveToUserDefaults(apiInfo: cachedApiInfo)
@@ -50,7 +58,8 @@ extension ApiInfoApi {
      queryApiInfoFromDsm
      */
     private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
-        let api = try await SynoDiskStationApi(api: .SYNO_API_INFO, method: "query", version: 1, parameters: [
+        // 从接口查询
+        let api = try SynoDiskStationApi(api: .SYNO_API_INFO, method: "query", version: 1, parameters: [
             "query": "all",
         ])
 
@@ -65,6 +74,7 @@ extension ApiInfoApi {
         let encoder = JSONEncoder()
         if let encoded = try? encoder.encode(apiInfo) {
             UserDefaults.standard.setValue(encoded, forKey: UserDefaultsKeys.DISK_STATION_API_INFO.keyName)
+            UserDefaults.standard.set(Date(), forKey: UserDefaultsKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
         }
     }
 
@@ -75,5 +85,23 @@ extension ApiInfoApi {
         }
 
         return nil
+    }
+
+    private func getSaveToUserDefaultsTime() -> Date? {
+        if let date = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) as? Date {
+            return date
+        }
+
+        return nil
+    }
+
+    private func isApiInfoCacheValid() -> Bool {
+        if let updateTime = getSaveToUserDefaultsTime() {
+            let timeInterval = Date().timeIntervalSince(updateTime)
+            // one day cache valid duration
+            return timeInterval < 24 * 60 * 60
+        }
+
+        return false
     }
 }

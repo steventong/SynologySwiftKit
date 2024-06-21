@@ -29,6 +29,9 @@ public class CheckDeviceConnection {
                 if ping {
                     // 连接可用
                     DeviceConnection.shared.updateCurrentConnectionUrl(type: connectionType, url: connectionUrl)
+                    // 更新API info
+                    try await ApiInfoApi.shared.queryApiInfo()
+
                     // 成功回调
                     DispatchQueue.main.async {
                         onFinish(true, (connectionType, connectionUrl))
@@ -55,6 +58,9 @@ public class CheckDeviceConnection {
                 if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: loginPreferences.server, enableHttps: loginPreferences.isEnableHttps) {
                     // 新的连接地址信息
                     DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+                    // 更新API info
+                    try await ApiInfoApi.shared.queryApiInfo()
+
                     // 成功回调
                     DispatchQueue.main.async {
                         onFinish(true, connection)
