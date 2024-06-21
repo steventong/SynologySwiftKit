@@ -11,6 +11,7 @@ import Foundation
 class AlamofireLoggerMonitor: EventMonitor {
     // Event called when any type of Request is resumed.
     func requestDidResume(_ request: Request) {
+        Logger.debug(request.description)
     }
 
     // Event called whenever a DataRequest has parsed a response.
