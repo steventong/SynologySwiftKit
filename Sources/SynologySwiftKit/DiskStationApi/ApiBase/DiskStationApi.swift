@@ -49,9 +49,17 @@ struct DiskStationApi {
      request for result
      */
     public func request() async throws {
+        // 发送请求
         let _ = try await apiRequest(resultType: DiskStationApiResult<DiskStationApiEmptyData>.self,
-                                     checkResultIsSuccess: { response in response.success },
-                                     parseErrorCode: { response in response.errorCode })
+                                     checkResultIsSuccess: { response in
+                                         // 默认校验 result 需要满足 success = true
+                                         response.success
+                                     },
+                                     parseErrorCode: { response in
+                                         // 异常时，取 error.code
+                                         response.errorCode
+                                     })
+        // 忽略结果
     }
 
     /**
@@ -59,23 +67,41 @@ struct DiskStationApi {
      return data, the result is must success
      **/
     public func requestForData<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
+        // 发送请求
         let apiResult = try await apiRequest(resultType: DiskStationApiResult<Value>.self,
-                                             checkResultIsSuccess: { response in response.success },
-                                             parseErrorCode: { response in response.errorCode })
-        if let data = apiResult.data {
-            return data
+                                             checkResultIsSuccess: { response in
+                                                 // 默认校验 result 需要满足 success = true
+                                                 response.success
+                                             },
+                                             parseErrorCode: { response in
+                                                 // 异常时，取 error.code
+                                                 response.errorCode
+                                             })
+
+        // 结果不能为空
+        guard let data = apiResult.data else {
+            throw DiskStationApiError.responseBodyEmptyError
         }
 
-        throw DiskStationApiError.responseBodyEmptyError
+        // 获取结果
+        return data
     }
 
     /**
      request for result data, not check result success status
      **/
     public func requestForResult<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
+        // 发送请求, 不校验结果
         let apiResult = try await apiRequest(resultType: Value.self,
-                                             checkResultIsSuccess: { _ in true },
-                                             parseErrorCode: { _ in nil })
+                                             checkResultIsSuccess: { _ in
+                                                 // 不校验结果
+                                                 true
+                                             },
+                                             parseErrorCode: { _ in
+                                                 // 当前请求方式下，不会出现异常码
+                                                 nil
+                                             })
+        // 结果
         return apiResult
     }
 
@@ -83,6 +109,7 @@ struct DiskStationApi {
      build request Url not invoke api
      */
     public func assembleRequestUrl() throws -> URL {
+        // 构造地址并返回，不请求
         return try buildApiRequestUrl()
     }
 }

@@ -82,6 +82,7 @@ public enum DiskStationApiDefine: String {
      api version
      */
     func apiInfo(apiName: String, method: String, version: Int) throws -> (path: String, method: String, version: Int) {
+        // api query 直接返回
         if apiName == DiskStationApiDefine.SYNO_API_INFO.rawValue {
             return ("query.cgi", "query", 1)
         }
@@ -99,6 +100,8 @@ public enum DiskStationApiDefine: String {
      */
     var requireAuthCookieHeader: Bool {
         switch self {
+        case .SYNO_API_INFO:
+            false
         case .SYNO_API_AUTH:
             false
         case .SYNO_API_ENCRYPTION:
@@ -108,6 +111,9 @@ public enum DiskStationApiDefine: String {
         }
     }
 
+    /**
+     在URL地址上拼接 _sid 参数，一般是构造资源URL使用。
+     */
     var requireAuthQueryParameter: Bool {
         switch self {
         case .SYNO_AUDIO_STATION_COVER:
