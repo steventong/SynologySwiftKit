@@ -304,6 +304,7 @@ extension DiskStationApi {
     private func buildAuthCookieHeader() throws -> String? {
         if requireAuthCookieHeader {
             guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+                Logger.error("接口: \(name) \(method) 必须配置 sid/did cookie，但 session 不存在。（DiskStationApi.buildAuthCookieHeader）")
                 throw DiskStationApiError.invalidSession(0, "session invalid, sid not exist")
             }
 
@@ -320,6 +321,7 @@ extension DiskStationApi {
     private func buildAuthQueryParameter() throws -> String? {
         if requireAuthQueryParameter {
             guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+                Logger.error("接口: \(name) \(method) 必须配置 sid 参数，但 session 不存在。（DiskStationApi.buildAuthQueryParameter）")
                 throw DiskStationApiError.invalidSession(0, "session invalid, sid not exist")
             }
 
