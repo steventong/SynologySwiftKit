@@ -51,45 +51,45 @@ import Foundation
  }
  */
 public struct AudioStationInfo: Codable {
-    public let enable_equalizer: Bool
-    public let playing_queue_max: Int
-    public let same_subnet: Bool
-    public let enable_user_home: Bool
-    public let has_aac: Bool
-    public let support_bluetooth: Bool
-    public let version_string: String
-    public let has_music_share: Bool
-    public let version: Int
-    public let sid: String
-    public let enable_personal_library: Bool
+    public let enable_equalizer: Bool?
+    public let playing_queue_max: Int?
+    public let same_subnet: Bool?
+    public let enable_user_home: Bool?
+    public let has_aac: Bool?
+    public let support_bluetooth: Bool?
+    public let version_string: String?
+    public let has_music_share: Bool?
+    public let version: Int?
+    public let sid: String?
+    public let enable_personal_library: Bool?
 
     public let settings: AudioStationInfoSettings
 
-    public let support_usb: Bool
-    public let dsd_decode_capability: Bool
-    public let browse_personal_library: String
-    public let serial_number: String
+    public let support_usb: Bool?
+    public let dsd_decode_capability: Bool?
+    public let browse_personal_library: String?
+    public let serial_number: String?
 
     public let privilege: AudioStationInfoPrivilege
 
-    public let support_virtual_library: Bool
-    public let remote_controller: Bool
+    public let support_virtual_library: Bool?
+    public let remote_controller: Bool?
     public let transcode_capability: [String]
-    public let is_manager: Bool
+    public let is_manager: Bool?
 }
 
 public struct AudioStationInfoSettings: Codable {
-    public let disable_upnp: Bool
-    public let enable_download: Bool
-    public let transcode_to_mp3: Bool
-    public let prefer_using_html5: Bool
-    public let audio_show_virtual_library: Bool
+    public let disable_upnp: Bool?
+    public let enable_download: Bool?
+    public let transcode_to_mp3: Bool?
+    public let prefer_using_html5: Bool?
+    public let audio_show_virtual_library: Bool?
 }
 
 public struct AudioStationInfoPrivilege: Codable {
-    public let tag_edit: Bool
-    public let sharing: Bool
-    public let upnp_browse: Bool
-    public let playlist_edit: Bool
-    public let remote_player: Bool
+    public let tag_edit: Bool?
+    public let sharing: Bool?
+    public let upnp_browse: Bool?
+    public let playlist_edit: Bool?
+    public let remote_player: Bool?
 }
