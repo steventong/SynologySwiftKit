@@ -20,8 +20,8 @@ public class ApiInfoApi {
      */
     public func getApiInfoByApiName(apiName: String) throws -> ApiInfoNode {
         if cachedApiInfo.isEmpty,
-           let cached = getFromUserDefaults() {
-            cachedApiInfo = cached
+           let cachedApiInfo = getApiInfoFromUserDefaults() {
+            self.cachedApiInfo = cachedApiInfo
             Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName, load from cache: \(cachedApiInfo)")
         }
 
