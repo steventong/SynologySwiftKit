@@ -13,7 +13,7 @@ public class QueryAllSongs {
     public init() {
     }
 
-    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3, onTaskUpdate: @escaping (_ songs: [Song], _ total: Int) -> Void, onTaskFinish: @escaping () -> Void) {
+    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3, onTaskUpdate: @escaping (_ songs: [Song], _ total: Int) -> Void, onTaskFinish: @escaping (Bool, Error?) -> Void) {
         Task {
             do {
                 // query first batch
@@ -21,7 +21,7 @@ public class QueryAllSongs {
 
                 let total = songs_firstBatch.total
                 if total == 0 {
-                    onTaskFinish()
+                    onTaskFinish(true, nil)
                     return
                 }
 
@@ -30,27 +30,27 @@ public class QueryAllSongs {
                 Logger.info("queryAllSongs task, total count = \(total), taskCount = \(taskCount)")
 
                 // execute task
-                await withTaskGroup(of: Int.self, body: { taskGroup in
+                try await withThrowingTaskGroup(of: Int.self, body: { taskGroup in
                     // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
                     for taskIndex in 0 ..< threads {
                         taskGroup.addTask {
-                            await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
+                            try await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
                         }
                     }
 
                     var waitTaskIndex = threads
-                    while await taskGroup.next() != nil && waitTaskIndex < taskCount {
+                    while try await taskGroup.next() != nil && waitTaskIndex < taskCount {
                         taskGroup.addTask { [waitTaskIndex] in
-                            await self.querySongList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
+                            try await self.querySongList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
                         }
                         waitTaskIndex += 1
                     }
                 })
 
                 Logger.info("queryAllSongs task, all task done, total count = \(total), taskCount = \(taskCount)")
-                onTaskFinish()
+                onTaskFinish(true, nil)
             } catch {
-                onTaskFinish()
+                onTaskFinish(false, error)
             }
         }
     }
@@ -60,20 +60,16 @@ extension QueryAllSongs {
     /**
      querySongList
      */
-    private func querySongList(taskIndex: Int, batchSize: Int, total: Int, onTaskUpdate: @escaping (_ data: [Song], _ total: Int) -> Void) async -> Int {
-        do {
-            Logger.debug("queryAllSongs task, begin querySongList, taskIndex = \(taskIndex), limit = \(batchSize), offset = \(batchSize * taskIndex)")
-            let songListResult = try await audioStationApi.songList(limit: batchSize, offset: batchSize * taskIndex)
+    private func querySongList(taskIndex: Int, batchSize: Int, total: Int, onTaskUpdate: @escaping (_ data: [Song], _ total: Int) -> Void) async throws -> Int {
+        Logger.debug("queryAllSongs task, begin querySongList, taskIndex = \(taskIndex), limit = \(batchSize), offset = \(batchSize * taskIndex)")
+        let songListResult = try await audioStationApi.songList(limit: batchSize, offset: batchSize * taskIndex)
 
-            Logger.debug("queryAllSongs task, begin handle querySongList result, taskIndex = \(taskIndex)")
+        Logger.debug("queryAllSongs task, begin handle querySongList result, taskIndex = \(taskIndex)")
 
-            onTaskUpdate(songListResult.data, total)
+        onTaskUpdate(songListResult.data, total)
 
-            Logger.debug("queryAllSongs task, finish handle querySongList result, taskIndex = \(taskIndex)")
+        Logger.debug("queryAllSongs task, finish handle querySongList result, taskIndex = \(taskIndex)")
 
-            return songListResult.data.count
-        } catch {
-            return 0
-        }
+        return songListResult.data.count
     }
 }

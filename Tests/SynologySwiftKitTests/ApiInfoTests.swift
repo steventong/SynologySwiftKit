@@ -15,14 +15,16 @@ final class ApiInfoTests: XCTestCase {
      testGetApiInfo
      */
     func testGetApiInfo() async throws {
-        let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true)
-
-        if let connection {
+        if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: false) {
             Logger.info("device connection: \(connection)")
 
-            let apiInfo = ApiInfoApi()
-            let apiInfoList = try await apiInfo.getApiInfo()
-            Logger.info("apiInfoList \(apiInfoList)")
+            // 连接可用
+            DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+            // 更新API info
+            try await ApiInfoApi.shared.queryApiInfo()
+
+            let apiInfo = try ApiInfoApi.shared.getApiInfoByApiName(apiName: "SYNO.API.Info")
+            Logger.info("apiInfo: \(apiInfo)")
         }
     }
 }

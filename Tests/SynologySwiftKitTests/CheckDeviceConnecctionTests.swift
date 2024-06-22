@@ -15,9 +15,13 @@ final class CheckDeviceConnecctionTests: XCTestCase {
     func testCheckDeviceStatus() async throws {
         let checkDeviceConnection = CheckDeviceConnection()
 
-        checkDeviceConnection.checkConnectionStatus(fetchNewServerByQuickConnectId: true, onFinish: { success, connection in
-            Logger.info("testCheckDeviceStatus, success = \(success)")
-            Logger.info("testCheckDeviceStatus, connection = \(connection)")
-        })
+        checkDeviceConnection.checkConnectionStatus(fetchNewServerByQuickConnectId: true,
+                                                    onFinish: { success, connection in
+                                                        Logger.info("testCheckDeviceStatus, success = \(success)")
+            
+                                                        if let connection = connection {
+                                                            Logger.info("testCheckDeviceStatus, connection = \(connection)")
+                                                        }
+                                                    })
     }
 }

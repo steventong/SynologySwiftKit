@@ -11,6 +11,7 @@ import OSLog
 public actor SynologyUserLogin {
     let quickConnectApi = QuickConnectApi()
     let authApi = AuthApi()
+    let audioStationApi = AudioStationApi()
 
     // init
     public init() {
@@ -42,6 +43,9 @@ public actor SynologyUserLogin {
         // 获取地址成功
         onConnectionFetch(connection.type, connection.url)
 
+        // 更新API info
+        try await ApiInfoApi.shared.queryApiInfo(cacheEnabled: false)
+
         // login seever isQuickConnectID
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
 
@@ -52,8 +56,14 @@ public actor SynologyUserLogin {
         let authResult = try await authApi.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
 
         // 登录成功
-        Logger.info("authResult: \(authResult)")
+        DeviceConnection.shared.updateLoginSession(sid: authResult.sid, did: authResult.did)
+
+        Logger.info("SynologyUserLogin, userLogin, result: \(authResult)")
         onLoginStepUpdate(.USER_LOGIN_SUCCESS(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
+
+        // 查询 audio station 信息
+        let audioStationInfo = try await audioStationApi.queryAudioStationInfo()
+        Logger.info("SynologyUserLogin, audioStationInfo: \(audioStationInfo)")
 
         // 操作结束
         onLoginStepUpdate(.STEP_FINISH)

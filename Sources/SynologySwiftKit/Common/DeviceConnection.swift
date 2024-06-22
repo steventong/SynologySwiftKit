@@ -21,7 +21,6 @@ public class DeviceConnection {
      */
     public func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
         if let connection {
-//            Logger.info("[DeviceConnection]query Connection from context, connection = \(connection)")
             return connection
         }
 
@@ -29,7 +28,7 @@ public class DeviceConnection {
             let typeRawValuw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             if let type = ConnectionType(rawValue: typeRawValuw) {
                 connection = (type, url)
-//                Logger.warn("[DeviceConnection]query Connection from userdefaults, connection = \(connection)")
+                Logger.warn("[DeviceConnection]query Connection from userdefaults, connection = \(connection!)")
                 return connection
             }
         }
@@ -43,13 +42,12 @@ public class DeviceConnection {
      */
     public func updateCurrentConnectionUrl(type: ConnectionType, url: String) {
         connection = (type, url)
-//        Logger.info("[DeviceConnection]prepare update Connection to userdefaults, connection = \(connection)")
 
         UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
         UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
 
         UserDefaults.standard.synchronize()
-//        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection)")
+        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection!)")
     }
 
     /**
@@ -57,7 +55,6 @@ public class DeviceConnection {
      */
     public func getLoginSession() -> (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)? {
         if let session {
-//            Logger.info("[DeviceConnection]getLoginSession, session is valid")
             return session
         }
 
@@ -67,8 +64,8 @@ public class DeviceConnection {
         let didExpireAt: Date? = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName) as? Date ?? nil
 
         if let sid, let sidExpireAt {
-            let session = (sid, sidExpireAt, did, didExpireAt)
-//            Logger.info("[DeviceConnection]getLoginSession, session = \(session)")
+            session = (sid, sidExpireAt, did, didExpireAt)
+            Logger.warn("[DeviceConnection]getLoginSession from usedefaults, session = \(session!)")
             return session
         }
 
@@ -77,24 +74,23 @@ public class DeviceConnection {
     }
 
     /**
-     update sid
+     update sid/did
      */
     public func updateLoginSession(sid: String, did: String?) {
         let sidExpireAt = addSecondsFromNow(seconds: ONE_WEEK_SECONDS)
-//        Logger.debug("update login session, sid will expire at: \(sidExpireAt)")
+        Logger.debug("update login session, sid will expire at: \(sidExpireAt)")
 
         if let did {
             let didExpireAt = addSecondsFromNow(seconds: ONE_YEAR_SECONDS)
             session = (sid, sidExpireAt, did, didExpireAt)
-//            Logger.debug("update login session, did is present, session: \(session)")
         } else {
             session = (sid, sidExpireAt, nil, nil)
-//            Logger.debug("update login session, session: \(session)")
         }
 
         guard let session else {
             return
         }
+        Logger.debug("update login session, session: \(session)")
 
         UserDefaults.standard.setValue(sid, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
         UserDefaults.standard.setValue(session.sidExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)

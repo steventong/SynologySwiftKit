@@ -8,7 +8,6 @@
 import Alamofire
 
 public class DsmInfoApi {
-
     public init() {
     }
 
@@ -16,7 +15,7 @@ public class DsmInfoApi {
      dsm info
      */
     public func queryDmsInfo() async throws -> DsmInfo? {
-        let api = SynoDiskStationApi(api: .SYNO_DSM_INFO, method: "getinfo", version: 2)
+        let api = try DiskStationApi(api: .SYNO_DSM_INFO, method: "getinfo", version: 2)
 
         let dsmInfo = try await api.requestForData(resultType: DsmInfo.self)
 

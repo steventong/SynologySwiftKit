@@ -13,13 +13,13 @@ public actor QuickConnectApi {
     let pingpong = PingPong()
 
     public init() {
-        session = AlamofireClient.shared.session(timeoutIntervalForRequest: 10)
+        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: 10)
     }
 
     /**
      获取设备地址
      */
-    public func getDeviceConnectionByQuickConnectId(quickConnectId: String, enableHttps: Bool) async throws -> (type: ConnectionType, url: String)? {
+    public func getDeviceConnectionByQuickConnectId(quickConnectId: String, enableHttps: Bool, save: Bool? = false) async throws -> (type: ConnectionType, url: String)? {
         // 获取 serverInfo 信息
         // 从群晖服务API接口获取serverInfo信息，包含 get_server_info和request_tunnel，返回可用的地址。
         let serverInfo = try await queryAvaliableServerInfo(quickConnectId: quickConnectId, enableHttps: enableHttps)
@@ -66,6 +66,10 @@ public actor QuickConnectApi {
         })
 
         if let connectionUrl {
+            if save == true {
+                DeviceConnection.shared.updateCurrentConnectionUrl(type: connectionUrl.connnectionType, url: connectionUrl.url)
+            }
+
             return (connectionUrl.connnectionType, connectionUrl.url)
         }
 
@@ -211,31 +215,59 @@ extension QuickConnectApi {
     /**
      解析地址
      */
-    private func handleSynologyServiceApiResult(serverInfo: ServerInfo, enableHttps: Bool, targetType: [ConnectionType]) -> [ConnectionType: String] {
-        var connections: [ConnectionType: String] = [:]
+    private func handleSynologyServiceApiResult(serverInfo: ServerInfo, enableHttps: Bool, targetType: [ConnectionType]) -> [ConnectionType: [String]] {
+        var connections: [ConnectionType: [String]] = [:]
         let httpScheme = enableHttps ? "https://" : "http://"
 
         // 解析 lan 格式地址
         if targetType.contains(.lan) {
-            if let lan = serverInfo.smartdns?.lan?.first,
+            var lanValues: [String] = []
+
+            if let ip = serverInfo.smartdns?.lan?.first,
                let port = serverInfo.service?.port {
-                connections[.lan] = "\(httpScheme)\(lan):\(port)"
+                lanValues.append("\(httpScheme)\(ip):\(port)")
+            }
+
+            if let ip = serverInfo.server?.interface?.first?.ip,
+               let port = serverInfo.service?.port {
+                lanValues.append("\(httpScheme)\(ip):\(port)")
+            }
+
+            if !lanValues.isEmpty {
+                connections[.lan] = lanValues
             }
         }
 
         // 解析 ddns 格式地址
         if targetType.contains(.ddns) {
+            var ddnsValues: [String] = []
+
             if let ddns = serverInfo.server?.ddns,
                let port = serverInfo.service?.port {
-                connections[.ddns] = "\(httpScheme)\(ddns):\(port)"
+                ddnsValues.append("\(httpScheme)\(ddns):\(port)")
+            }
+
+            if let ddns = serverInfo.server?.ddns,
+               let port = serverInfo.service?.ext_port {
+                ddnsValues.append("\(httpScheme)\(ddns):\(port)")
+            }
+
+            if !ddnsValues.isEmpty {
+                connections[.ddns] = ddnsValues
             }
         }
 
         // 解析 relay 格式地址
         if targetType.contains(.relay) {
+            var relayValues: [String] = []
+
             if let relay_dn = serverInfo.service?.relay_dn,
                let relay_port = serverInfo.service?.relay_port {
-                connections[.relay] = "\(httpScheme)\(relay_dn):\(relay_port)"
+                relayValues.append("\(httpScheme)\(relay_dn):\(relay_port)")
+            }
+
+            if !relayValues.isEmpty {
+                connections[.relay] = relayValues
             }
         }
 
@@ -246,8 +278,8 @@ extension QuickConnectApi {
     /**
      pingpong
      */
-    private func pingpongConnections(connections: [ConnectionType: String]) async -> (ConnectionType, String)? {
-        let avaliablePingpong = await pingpong.pingpong(urls: connections)
+    private func pingpongConnections(connections: [ConnectionType: [String]]) async -> (ConnectionType, String)? {
+        let avaliablePingpong = await pingpong.pingpong(connections: connections)
         if !avaliablePingpong.isEmpty {
             // 优先返回的顺序
             for connectionType in ConnectionType.ordered {
@@ -263,7 +295,7 @@ extension QuickConnectApi {
     /**
      relay connection
      */
-    private func requestForRelayConnection(connections: [ConnectionType: String], synologyServer: String, quickConnectId: String, enableHttps: Bool) async -> (ConnectionType, String)? {
+    private func requestForRelayConnection(connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String, enableHttps: Bool) async -> (ConnectionType, String)? {
         // 包含 relay
         if connections.keys.contains(.relay) {
             return nil
@@ -277,7 +309,7 @@ extension QuickConnectApi {
 
             // 从站点返回中解析设备连接信息
             let connections = handleSynologyServiceApiResult(serverInfo: serverInfo, enableHttps: enableHttps, targetType: [.relay])
-            if let relay = connections[.relay] {
+            if let relay = connections[.relay]?.first {
                 Logger.debug("parse relay connection: \(relay)")
                 return (ConnectionType.relay, relay)
             }

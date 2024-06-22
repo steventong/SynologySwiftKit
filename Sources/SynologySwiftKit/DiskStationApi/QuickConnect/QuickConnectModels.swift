@@ -71,7 +71,7 @@ extension QuickConnectApi {
             let serverID: String?
             let tcp_punch_port: Int?
             let udp_punch_port: Int?
-//            let interface: [ExternalInterface]?
+            let interface: [ExternalInterface]?
         }
 
         struct ExternalServer: Decodable {

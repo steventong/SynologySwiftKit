@@ -24,13 +24,19 @@ enum UserDefaultsKeys {
     case DISK_STATION_AUTH_SESSION_DID
     case DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT
 
+    case DISK_STATION_API_INFO
+    case DISK_STATION_API_INFO_UPDATE_TIME
+
+    case DISK_STATION_AUDIO_STATION_INFO
+    case DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME
+
     var keyName: String {
         switch self {
         case let .SYNOLOGY_SERVER_URL(quickConnectId):
             return "SynologySwiftKit_SynologyServer_\(quickConnectId)"
-        case let .DISK_STATION_SERVER:
+        case .DISK_STATION_SERVER:
             return "SynologySwiftKit_DiskStation_Server"
-        case let .DISK_STATION_SERVER_ENABLE_HTTPS:
+        case .DISK_STATION_SERVER_ENABLE_HTTPS:
             return "SynologySwiftKit_DiskStation_ServerEnableHttps"
         case .DISK_STATION_CONNECTION_URL:
             return "SynologySwiftKit_DiskStation_ConnectionURL"
@@ -48,6 +54,14 @@ enum UserDefaultsKeys {
             return "SynologySwiftKit_DiskStation_Auth_Session_DID"
         case .DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT:
             return "SynologySwiftKit_DiskStation_Auth_Session_DID_expireAt"
+        case .DISK_STATION_API_INFO:
+            return "SynologySwiftKit_DiskStation_ApiInfo"
+        case .DISK_STATION_API_INFO_UPDATE_TIME:
+            return "SynologySwiftKit_DiskStation_ApiInfo_updateTime"
+        case .DISK_STATION_AUDIO_STATION_INFO:
+            return "SynologySwiftKit_DiskStation_AudioStation_Info"
+        case .DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME:
+            return "SynologySwiftKit_DiskStation_AudioStation_updateTime"
         }
     }
 }

@@ -15,8 +15,11 @@ class DsmInfoApiTests: XCTestCase {
         do {
             UserDefaults.standard.setValue("http://10.0.1.160:5000", forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
             UserDefaults.standard.setValue(1, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-           
-            try await dsmInfoApi.queryDmsInfo()
+
+            if let dsm = try await dsmInfoApi.queryDmsInfo() {
+                Logger.info("dsm: \(dsm)")
+            }
+
         } catch {
             Logger.error("error: \(error)")
         }
