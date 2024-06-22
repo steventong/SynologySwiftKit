@@ -43,6 +43,11 @@ public enum DiskStationApiDefine: String {
     case SYNO_AUDIO_STATION_TAG_EDITOR_UI = "tagEditorUI"
 
     /**
+     audio station
+     */
+    case SYNO_AUDIO_STATION_INFO = "SYNO.AudioStation.Info"
+
+    /**
      ==
      */
     case SYNO_AUDIO_STATION_ALBUM = "SYNO.AudioStation.Album"
@@ -53,7 +58,6 @@ public enum DiskStationApiDefine: String {
     case SYNO_AUDIO_STATION_DOWNLOAD = "SYNO.AudioStation.Download"
     case SYNO_AUDIO_STATION_FOLDER = "SYNO.AudioStation.Folder"
     case SYNO_AUDIO_STATION_GENRE = "SYNO.AudioStation.Genre"
-    case SYNO_AUDIO_STATION_INFO = "SYNO.AudioStation.Info"
     case SYNO_AUDIO_STATION_LYRICS = "SYNO.AudioStation.Lyrics"
     case SYNO_AUDIO_STATION_LYRICSSEARCH = "SYNO.AudioStation.LyricsSearch"
     case SYNO_AUDIO_STATION_MEDIASERVER = "SYNO.AudioStation.MediaServer"
