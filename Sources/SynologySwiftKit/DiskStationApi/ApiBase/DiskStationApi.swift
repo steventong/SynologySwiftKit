@@ -177,7 +177,7 @@ extension DiskStationApi {
 //        headers.add(name: "Accept-Charset", value: "utf-8")
 
         // send request & get response
-        let response = await session.request(apiUrl, method: httpMethod, encoding: URLEncoding.default, headers: headers)
+        let response = await session.request(apiUrl, method: httpMethod, parameters: parameters, encoding: URLEncoding.default, headers: headers)
             .serializingDecodable(Value.self)
             .response
 
