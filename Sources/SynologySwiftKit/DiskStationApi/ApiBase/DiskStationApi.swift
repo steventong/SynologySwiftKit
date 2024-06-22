@@ -274,7 +274,7 @@ extension DiskStationApi {
             if errorCode >= 120 && errorCode <= 149 {
                 throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
             } else {
-                throw DiskStationApiError.apiBizError(errorCode, "Unknown errorCode = \(errorCode)")
+                throw DiskStationApiError.apiBizError(errorCode, "errorCode = \(errorCode)")
             }
         }
     }
