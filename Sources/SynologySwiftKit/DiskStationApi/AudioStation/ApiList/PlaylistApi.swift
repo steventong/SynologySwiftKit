@@ -70,17 +70,13 @@ extension AudioStationApi {
 
      {"data":{"id":"playlist_personal_normal/1111"},"success":true}
 
+     library ? "shared" : "personal"  all?
      */
-    public func playlistCreate(name: String, shared: Bool, songs: String?) async throws -> String? {
-        var params: [String: Any] = ["name": name,
-                                     "library": shared ? "shared" : "personal",
-        ]
-
-        if let songs = songs {
-            params[songs] = songs
-        }
-
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "create", version: 3, httpMethod: .post, parameters: params)
+    public func playlist_create(name: String, library: String, songs: String?) async throws -> String? {
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "create", version: 3, httpMethod: .post,
+                                     parameters: ["name": name,
+                                                  "library": library,
+                                                  "songs": songs ?? ""])
 
         let result = try await api.requestForData(resultType: PlaylistCreateResult.self)
         return result.id
