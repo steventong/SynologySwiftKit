@@ -96,7 +96,7 @@ extension ApiInfoApi {
     /**
      get update time
      */
-    private func getSaveToUserDefaultsTime() -> Date? {
+    private func getApiInfoSaveToUserDefaultsTime() -> Date? {
         if let date = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) as? Date {
             return date
         }
@@ -108,7 +108,7 @@ extension ApiInfoApi {
      check time is expired or not (1 day valid)
      */
     private func isApiInfoCacheValid() -> Bool {
-        if let updateTime = getSaveToUserDefaultsTime() {
+        if let updateTime = getApiInfoSaveToUserDefaultsTime() {
             let timeInterval = Date().timeIntervalSince(updateTime)
             // one day cache valid duration
             return timeInterval < 24 * 60 * 60

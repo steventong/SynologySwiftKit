@@ -11,6 +11,7 @@ public class CheckDeviceConnection {
     let quickConnectApi = QuickConnectApi()
     let deviceConnection = DeviceConnection()
     let pingpong = PingPong()
+    let audioStationApi = AudioStationApi()
 
     public init() {
     }
@@ -31,6 +32,9 @@ public class CheckDeviceConnection {
                     DeviceConnection.shared.updateCurrentConnectionUrl(type: connectionType, url: connectionUrl)
                     // 更新API info
                     try await ApiInfoApi.shared.queryApiInfo(cacheEnabled: false)
+                    // 查询 audio station 信息
+                    let audioStationInfo = try await audioStationApi.queryAudioStationInfo()
+                    Logger.info("CheckDeviceConnection, audioStationInfo: \(audioStationInfo)")
 
                     // 成功回调
                     DispatchQueue.main.async {
@@ -68,7 +72,7 @@ public class CheckDeviceConnection {
                     return
                 }
             } catch {
-                print(error)
+                Logger.error("checkConnectionStatus error: \(error)")
             }
 
             DispatchQueue.main.async {
