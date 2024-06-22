@@ -7,8 +7,7 @@
 
 import Foundation
 
-public enum AuthError: Error, LocalizedError {
-    case commonNetworkError(String)
+public enum AuthApiError: Error, LocalizedError {
     case noSuchAccountOrIncorrectPassword
     case disabledAccount
     case deniedPermission
@@ -20,13 +19,14 @@ public enum AuthError: Error, LocalizedError {
     case expiredPassword
     case passwordMustBeChanged
 
+    case undefindedError(String)
+    case invalidSession(Int, String)
+
     /**
      errorDescription
      */
     public var errorDescription: String? {
         switch self {
-        case let .commonNetworkError(msg):
-            return msg
         case .noSuchAccountOrIncorrectPassword:
             return NSLocalizedString("NO_SUCH_ACCOUNT_OR_INCORRECT_PASSWORD", comment: "")
         case .disabledAccount:
@@ -47,13 +47,17 @@ public enum AuthError: Error, LocalizedError {
             return NSLocalizedString("EXPIRED_PASSWORD", comment: "")
         case .passwordMustBeChanged:
             return NSLocalizedString("PASSWORD_MUST_BE_CHANGED", comment: "")
+        case let .undefindedError(msg):
+            return msg
+        case .invalidSession:
+            return "INVALID_SESSION"
         }
     }
 
     /**
      find error
      */
-    public static func getAuthErrorByCode(errorCode: Int) -> AuthError {
+    public static func getAuthApiErrorByCode(errorCode: Int, errorMsg: String) -> AuthApiError {
         switch errorCode {
         case 400:
             noSuchAccountOrIncorrectPassword
@@ -76,7 +80,7 @@ public enum AuthError: Error, LocalizedError {
         case 410:
             passwordMustBeChanged
         default:
-            commonNetworkError("unknown")
+            undefindedError("\(errorMsg), \(errorMsg)")
         }
     }
 }

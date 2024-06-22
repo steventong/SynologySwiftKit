@@ -14,7 +14,7 @@ class EncryptionApi {
      api=SYNO.API.Encryption&method=getinfo&version=1
      */
     public func getApiInfoEncryption() async throws -> ApiInfoEncryption {
-        let api = try SynoDiskStationApi(api: .SYNO_API_ENCRYPTION, method: "getinfo", version: 1)
+        let api = try DiskStationApi(api: .SYNO_API_ENCRYPTION, method: "getinfo", version: 1)
 
         let apiInfoEncryption = try await api.requestForData(resultType: ApiInfoEncryption.self)
 

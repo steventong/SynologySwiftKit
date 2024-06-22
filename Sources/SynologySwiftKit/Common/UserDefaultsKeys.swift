@@ -31,9 +31,9 @@ enum UserDefaultsKeys {
         switch self {
         case let .SYNOLOGY_SERVER_URL(quickConnectId):
             return "SynologySwiftKit_SynologyServer_\(quickConnectId)"
-        case let .DISK_STATION_SERVER:
+        case .DISK_STATION_SERVER:
             return "SynologySwiftKit_DiskStation_Server"
-        case let .DISK_STATION_SERVER_ENABLE_HTTPS:
+        case .DISK_STATION_SERVER_ENABLE_HTTPS:
             return "SynologySwiftKit_DiskStation_ServerEnableHttps"
         case .DISK_STATION_CONNECTION_URL:
             return "SynologySwiftKit_DiskStation_ConnectionURL"

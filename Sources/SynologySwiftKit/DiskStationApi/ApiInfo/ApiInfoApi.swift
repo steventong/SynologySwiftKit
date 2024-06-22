@@ -26,7 +26,7 @@ public class ApiInfoApi {
         }
 
         guard let apiInfo = cachedApiInfo[apiName] else {
-            throw SynoDiskStationApiError.synoApiIsNotExist(apiName)
+            throw DiskStationApiError.synoApiIsNotExist(apiName)
         }
 
 //        Logger.info("apiInfo, apiName = \(apiName), apiInfo = \(apiInfo)")
@@ -59,7 +59,7 @@ extension ApiInfoApi {
      */
     private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
         // 从接口查询
-        let api = try SynoDiskStationApi(api: .SYNO_API_INFO, method: "query", version: 1, parameters: [
+        let api = try DiskStationApi(api: .SYNO_API_INFO, method: "query", version: 1, parameters: [
             "query": "all",
         ])
 

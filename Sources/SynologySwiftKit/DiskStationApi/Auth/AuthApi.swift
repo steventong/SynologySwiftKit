@@ -35,7 +35,7 @@ public actor AuthApi {
         let deviceName = getDeviceName()
         let deviceId = getDeviceId()
 
-        let api = try SynoDiskStationApi(api: .SYNO_API_AUTH, method: "login", version: 6, parameters: [
+        let api = try DiskStationApi(api: .SYNO_API_AUTH, method: "login", version: 6, parameters: [
             "account": username,
             "passwd": password,
             "format": "cookie",
@@ -50,10 +50,18 @@ public actor AuthApi {
         do {
             let authResult = try await api.requestForData(resultType: AuthResult.self)
             return handleAuthResult(authResult: authResult)
-        } catch let SynoDiskStationApiError.apiBizError(errorCode) {
-            throw AuthError.getAuthErrorByCode(errorCode: errorCode)
-        } catch let commonError as SynoDiskStationApiError {
-            throw AuthError.commonNetworkError(commonError.localizedDescription)
+        } catch let DiskStationApiError.invalidSession(errorCode, errorMsg) {
+            // invalid session
+            throw AuthApiError.invalidSession(errorCode, errorMsg)
+        } catch let DiskStationApiError.apiBizError(errorCode, errorMsg) {
+            // 处理登录失败的错误码
+            throw AuthApiError.getAuthApiErrorByCode(errorCode: errorCode, errorMsg: errorMsg)
+        } catch let commonError as DiskStationApiError {
+            // 其他错误
+            throw AuthApiError.undefindedError(commonError.localizedDescription)
+        } catch {
+            // 其他错误
+            throw AuthApiError.undefindedError("login failed, unknown error: \(error)")
         }
     }
 
@@ -61,7 +69,7 @@ public actor AuthApi {
      logout
      */
     public func logout() async throws {
-        let api = try SynoDiskStationApi(api: .SYNO_API_AUTH, method: "logout", version: 6, timeout: 3)
+        let api = try DiskStationApi(api: .SYNO_API_AUTH, method: "logout", version: 6, timeout: 3)
         try await api.request()
     }
 }

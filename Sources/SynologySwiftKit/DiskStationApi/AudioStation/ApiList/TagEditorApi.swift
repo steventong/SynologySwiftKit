@@ -36,15 +36,10 @@ extension AudioStationApi {
 
      */
     public func tagEditorLoad(path: String) async throws -> TagEditorResult? {
-        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
-            throw SynoDiskStationApiError.invalidSession
-        }
-
-        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "load", parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "load", parameters: [
             "action": "load",
             "requestFrom": "",
             "audioInfos": "[{\"path\":\"\(path)\"}]",
-            "_sid": sid,
         ])
 
         let result = try await api.requestForResult(resultType: TagEditorResult.self)

@@ -8,7 +8,7 @@
 import Alamofire
 import Foundation
 
-struct SynoDiskStationApi {
+struct DiskStationApi {
     let session: Session
 
     let name: String
@@ -17,7 +17,8 @@ struct SynoDiskStationApi {
     let parameters: Parameters
     let httpMethod: HTTPMethod
     let apiPath: String
-    let apiIsRequiredAuth: Bool
+    let requireAuthCookieHeader: Bool
+    let requireAuthQueryParameter: Bool
 
     /**
      init
@@ -32,7 +33,8 @@ struct SynoDiskStationApi {
         self.version = apiInfo.version
         self.httpMethod = httpMethod
         self.parameters = parameters
-        apiIsRequiredAuth = api.requireAuthHeader
+        requireAuthCookieHeader = api.requireAuthCookieHeader
+        requireAuthQueryParameter = api.requireAuthQueryParameter
         apiPath = "/webapi/\(apiInfo.path)\(path ?? "")"
     }
 
@@ -40,7 +42,7 @@ struct SynoDiskStationApi {
      request for result
      */
     public func request() async throws {
-        let _ = try await apiRequest(resultType: DiskStationApiResult<SynoDiskStationApiEmptyData>.self,
+        let _ = try await apiRequest(resultType: DiskStationApiResult<DiskStationApiEmptyData>.self,
                                      checkResultIsSuccess: { response in response.success },
                                      parseErrorCode: { response in response.errorCode })
     }
@@ -57,7 +59,7 @@ struct SynoDiskStationApi {
             return data
         }
 
-        throw SynoDiskStationApiError.responseBodyEmptyError
+        throw DiskStationApiError.responseBodyEmptyError
     }
 
     /**
@@ -74,15 +76,15 @@ struct SynoDiskStationApi {
      build request Url not invoke api
      */
     public func assembleRequestUrl() throws -> URL {
-        return try buildRequestUrl()
+        return try buildApiRequestUrl()
     }
 }
 
-extension SynoDiskStationApi {
+extension DiskStationApi {
     /**
      build request Url not invoke api
      */
-    private func buildRequestUrl() throws -> URL {
+    private func buildApiRequestUrl() throws -> URL {
         let apiUrl = try apiUrl(apiPath: apiPath)
 
         var parameters = self.parameters
@@ -90,10 +92,14 @@ extension SynoDiskStationApi {
         parameters["method"] = method
         parameters["version"] = apiVersion(apiName: name, apiVersion: version)
 
+        if let sid = try buildAuthQueryParameter() {
+            parameters["_sid"] = sid
+        }
+
         // 使用 URLComponents 构建带有查询参数的 URL
         guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-            Logger.error("apiUrl is invalid: \(apiUrl) ")
-            throw SynoDiskStationApiError.requestHostNotPressentError
+            Logger.error("DiskStationApi.buildRequestUrl, apiUrl is invalid: \(apiUrl) ")
+            throw DiskStationApiError.requestHostNotPressentError
         }
 
         // 对参数的键进行自定义排序：普通键在前，_开头的键在后，并且各自按字母顺序排序
@@ -111,8 +117,8 @@ extension SynoDiskStationApi {
 
         // 返回构建好的 URL
         guard let requestUrl = components.url else {
-            Logger.error("requestUrl is invalid: \(components) ")
-            throw SynoDiskStationApiError.requestHostNotPressentError
+            Logger.error("DiskStationApi.buildRequestUrl, requestUrl is invalid: \(components) ")
+            throw DiskStationApiError.requestHostNotPressentError
         }
 
         return requestUrl
@@ -124,45 +130,31 @@ extension SynoDiskStationApi {
     private func apiRequest<Value: Decodable>(resultType: Value.Type = Value.self,
                                               checkResultIsSuccess: (Value) -> Bool,
                                               parseErrorCode: (Value) -> Int?) async throws -> Value {
-        let apiUrl = try buildRequestUrl()
+        let apiUrl = try buildApiRequestUrl()
 
         // build cookie
         var headers: HTTPHeaders = []
-
-        // auth header
-        if apiIsRequiredAuth,
-           let cookie = buildCookie() {
+        // auth header: Cookie
+        if let cookie = try buildAuthCookieHeader() {
             headers.add(name: "Cookie", value: cookie)
         }
 
-        headers.add(name: "Content-Type", value: "application/json; charset=utf-8")
-        headers.add(name: "Accept-Charset", value: "utf-8")
+//        headers.add(name: "Content-Type", value: "application/json; charset=utf-8")
+//        headers.add(name: "Accept-Charset", value: "utf-8")
 
-        // Set Encoding
-        var encoding: ParameterEncoding = JSONEncoding.default
-        switch httpMethod {
-        case .get:
-            encoding = URLEncoding.default
-        default:
-            encoding = JSONEncoding.default
-        }
-
-        // request
-        let response = await session.request(apiUrl, method: httpMethod, encoding: encoding, headers: headers)
+        // send request & get response
+        let response = await session.request(apiUrl, method: httpMethod, encoding: URLEncoding.default, headers: headers)
             .serializingDecodable(Value.self)
             .response
 
-        // debug log
-//        Logger.debug(response.debugDescription)
-
-        // error handler
+        // 解决请求过程中抛出的异常。业务返回值异常不在这里处理
         if let error = response.error {
             try handleApiErrors(error: error)
         }
 
         // empty result
         guard let responseData = response.value else {
-            throw SynoDiskStationApiError.responseBodyEmptyError
+            throw DiskStationApiError.responseBodyEmptyError
         }
 
         // handle success data
@@ -173,7 +165,10 @@ extension SynoDiskStationApi {
         }
 
         // handle error result
-        let errorCode = parseErrorCode(responseData)
+        guard let errorCode = parseErrorCode(responseData) else {
+            throw DiskStationApiError.apiBizError(-1, "Unknown error, fetch errorCode fail")
+        }
+
         /**
          100 Unknown error.
          101 No parameter of API, method or version.
@@ -199,16 +194,54 @@ extension SynoDiskStationApi {
          150 Request source IP does not match the login IP.
          */
         switch errorCode {
+        case 100:
+            throw DiskStationApiError.apiBizError(errorCode, "Unknown error.")
+        case 101:
+            throw DiskStationApiError.apiBizError(errorCode, "No parameter of API, method or version.")
+        case 102:
+            throw DiskStationApiError.apiBizError(errorCode, "The requested API does not exist.")
+        case 103:
+            throw DiskStationApiError.apiBizError(errorCode, "The requested method does not exist.")
+        case 104:
+            throw DiskStationApiError.apiBizError(errorCode, "The requested version does not support the functionality.")
         case 105:
-            throw SynoDiskStationApiError.invalidSession
+            throw DiskStationApiError.invalidSession(errorCode, "The logged in session does not have permission.")
         case 106:
-            throw SynoDiskStationApiError.invalidSession
+            throw DiskStationApiError.invalidSession(errorCode, "Session timeout.")
         case 107:
-            throw SynoDiskStationApiError.invalidSession
+            throw DiskStationApiError.invalidSession(errorCode, "Session interrupted by duplicated login.")
+        case 108:
+            throw DiskStationApiError.apiBizError(errorCode, "Failed to upload the file.")
+        case 109:
+            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
+        case 110:
+            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
+        case 111:
+            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
+        case 112:
+            throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
+        case 113:
+            throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
+        case 114:
+            throw DiskStationApiError.apiBizError(errorCode, "Lost parameters for this API.")
+        case 115:
+            throw DiskStationApiError.apiBizError(errorCode, "Not allowed to upload a file.")
+        case 116:
+            throw DiskStationApiError.apiBizError(errorCode, "Not allowed to perform for a demo site.")
+        case 117:
+            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
+        case 118:
+            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
         case 119:
-            throw SynoDiskStationApiError.invalidSession
+            throw DiskStationApiError.invalidSession(errorCode, "Invalid session.")
+        case 150:
+            throw DiskStationApiError.apiBizError(errorCode, "Request source IP does not match the login IP.")
         default:
-            throw SynoDiskStationApiError.apiBizError(errorCode ?? -1)
+            if errorCode >= 120 && errorCode <= 149 {
+                throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
+            } else {
+                throw DiskStationApiError.apiBizError(errorCode, "Unknown errorCode = \(errorCode)")
+            }
         }
     }
 
@@ -221,7 +254,7 @@ extension SynoDiskStationApi {
             return connectionURL
         }
 
-        throw SynoDiskStationApiError.requestHostNotPressentError
+        throw DiskStationApiError.requestHostNotPressentError
     }
 
     /**
@@ -234,12 +267,12 @@ extension SynoDiskStationApi {
     /**
      build sid cookie
      */
-    private func buildCookie() -> String? {
-        guard apiIsRequiredAuth == true else {
-            return nil
-        }
+    private func buildAuthCookieHeader() throws -> String? {
+        if requireAuthCookieHeader {
+            guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+                throw DiskStationApiError.invalidSession(0, "session invalid, sid not exist")
+            }
 
-        if let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) {
             if let did = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName) {
                 return "id=\(sid); did=\(did)"
             }
@@ -250,25 +283,16 @@ extension SynoDiskStationApi {
         return nil
     }
 
-    /**
-     result model container
-     */
-    private struct DiskStationApiResult<Data: Decodable>: Decodable {
-        var success: Bool
-        var error: SynoApiAuthError?
+    private func buildAuthQueryParameter() throws -> String? {
+        if requireAuthQueryParameter {
+            guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
+                throw DiskStationApiError.invalidSession(0, "session invalid, sid not exist")
+            }
 
-        var data: Data?
-
-        var errorCode: Int? {
-            error?.code
+            return sid
         }
-    }
 
-    /**
-     result model container
-     */
-    private struct SynoApiAuthError: Decodable {
-        var code: Int
+        return nil
     }
 
     /**
@@ -284,23 +308,23 @@ extension SynoDiskStationApi {
                 switch sessionError.code {
                 case NSURLErrorSecureConnectionFailed:
                     // 发生了SSL错误，无法建立与该服务器的安全连接。
-                    throw SynoDiskStationApiError.sslConnectionFailed(sessionError.localizedDescription)
+                    throw DiskStationApiError.sslConnectionFailed(sessionError.localizedDescription)
                 case NSURLErrorCannotFindHost:
                     // 未能找到使用指定主机名的服务器。
-                    throw SynoDiskStationApiError.canNotFindHostError(sessionError.localizedDescription)
+                    throw DiskStationApiError.canNotFindHostError(sessionError.localizedDescription)
                 default:
                     // 没有识别出的异常
-                    throw SynoDiskStationApiError.commonUrlError(sessionError.localizedDescription)
+                    throw DiskStationApiError.commonUrlError(sessionError.localizedDescription)
                 }
             default:
                 // 没有识别出的异常
-                Logger.error("SynoDiskStationApi.handleApiErrors NSURLErrorDomain unknown domain, error \(error)")
-                throw SynoDiskStationApiError.commonUrlError(sessionError.localizedDescription)
+                Logger.error("DiskStationApi.handleApiErrors NSURLErrorDomain unknown domain, error \(error)")
+                throw DiskStationApiError.commonUrlError(sessionError.localizedDescription)
             }
         default:
             // 没有识别出的异常
-            Logger.error("SynoDiskStationApi.handleApiErrors unknown error , error \(error)")
-            throw SynoDiskStationApiError.commonUrlError(error.localizedDescription)
+            Logger.error("DiskStationApi.handleApiErrors unknown error , error \(error)")
+            throw DiskStationApiError.commonUrlError(error.localizedDescription)
         }
     }
 }

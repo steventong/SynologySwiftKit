@@ -49,7 +49,7 @@ extension AudioStationApi {
             parameters["sort_direction"] = sort.sort_direction
         }
 
-        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_ALBUM, method: "list", version: 3, parameters: parameters)
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_ALBUM, method: "list", version: 3, parameters: parameters)
 
         let result = try await api.requestForData(resultType: AlbumListResult.self)
         return (result.total, result.albums)

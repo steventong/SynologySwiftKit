@@ -9,7 +9,7 @@ import Foundation
 
 extension AudioStationApi {
     public func lyricsGetLyrics(id: String) async throws -> String? {
-        let api = try SynoDiskStationApi(api: .SYNO_AUDIO_STATION_LYRICS, method: "getlyrics", version: 1, parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_LYRICS, method: "getlyrics", version: 1, parameters: [
             "library": "all",
             "id": id,
         ])
