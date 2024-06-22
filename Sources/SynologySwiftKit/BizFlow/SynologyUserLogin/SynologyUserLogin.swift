@@ -56,6 +56,8 @@ public actor SynologyUserLogin {
         let authResult = try await authApi.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
 
         // 登录成功
+        DeviceConnection.shared.updateLoginSession(sid: authResult.sid, did: authResult.did)
+
         Logger.info("SynologyUserLogin, userLogin, result: \(authResult)")
         onLoginStepUpdate(.USER_LOGIN_SUCCESS(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
 
