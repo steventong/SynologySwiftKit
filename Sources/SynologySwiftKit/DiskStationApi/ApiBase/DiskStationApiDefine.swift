@@ -81,26 +81,17 @@ public enum DiskStationApiDefine: String {
     /**
      api version
      */
-    func apiInfo(apiName: String, version: Int) throws -> (version: Int, path: String) {
+    func apiInfo(apiName: String, method: String, version: Int) throws -> (path: String, method: String, version: Int) {
         if apiName == DiskStationApiDefine.SYNO_API_INFO.rawValue {
-            return (1, "query.cgi")
+            return ("query.cgi", "query", 1)
         }
 
         let apiInfo = try ApiInfoApi.shared.getApiInfoByApiName(apiName: apiName)
-        let apiVersion = min(max(apiInfo.minVersion, version), apiInfo.maxVersion)
-        return (apiVersion, apiInfo.path)
-    }
 
-    /**
-     http method
-     */
-    var apiHttpMethod: HTTPMethod {
-        switch self {
-        case .SYNO_API_AUTH:
-            return .post
-        default:
-            return .get
-        }
+        // 适合的版本号
+        let apiVersion = min(max(apiInfo.minVersion, version), apiInfo.maxVersion)
+
+        return (apiInfo.path, method, apiVersion)
     }
 
     /**

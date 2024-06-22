@@ -26,16 +26,23 @@ struct DiskStationApi {
     init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) throws {
         session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
 
-        let apiInfo = try api.apiInfo(apiName: api.apiName, version: version)
+        let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version)
 
         name = api.apiName
-        self.method = method
+        self.method = apiInfo.method
         self.version = apiInfo.version
         self.httpMethod = httpMethod
         self.parameters = parameters
+
         requireAuthCookieHeader = api.requireAuthCookieHeader
         requireAuthQueryParameter = api.requireAuthQueryParameter
-        apiPath = "/webapi/\(apiInfo.path)\(path ?? "")"
+
+        if let customPath = path {
+            // customPath 要用/开头
+            apiPath = "/webapi/\(apiInfo.path)\(customPath)"
+        } else {
+            apiPath = "/webapi/\(apiInfo.path)"
+        }
     }
 
     /**
@@ -90,7 +97,7 @@ extension DiskStationApi {
         var parameters = self.parameters
         parameters["api"] = name
         parameters["method"] = method
-        parameters["version"] = apiVersion(apiName: name, apiVersion: version)
+        parameters["version"] = version
 
         if let sid = try buildAuthQueryParameter() {
             parameters["_sid"] = sid
