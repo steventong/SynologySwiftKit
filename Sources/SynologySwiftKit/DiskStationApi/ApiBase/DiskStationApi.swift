@@ -26,13 +26,13 @@ struct DiskStationApi {
     init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) throws {
         session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
 
-        let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version)
+        let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version, parameters: parameters)
 
         name = api.apiName
         self.method = apiInfo.method
         self.version = apiInfo.version
+        self.parameters = apiInfo.parameters
         self.httpMethod = httpMethod
-        self.parameters = parameters
 
         requireAuthCookieHeader = api.requireAuthCookieHeader
         requireAuthQueryParameter = api.requireAuthQueryParameter
