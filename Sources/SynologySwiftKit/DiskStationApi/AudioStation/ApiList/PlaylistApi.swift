@@ -140,9 +140,7 @@ extension AudioStationApi {
      */
     public func playlist_delete(id: String) async throws -> Bool {
         let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "delete", version: 3, httpMethod: .post,
-                                     parameters: [
-                                         "id": id,
-                                     ])
+                                     parameters: ["id": id])
 
         let result = try await api.requestForData(resultType: PlaylistDeleteResult.self)
         return result.errors.isEmpty
