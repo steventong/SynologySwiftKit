@@ -13,9 +13,7 @@ extension AudioStationApi {
      */
     public func queryAudioStationInfo(cacheEnabled: Bool? = false) async throws -> AudioStationInfo {
         // 使用上次的记录, 从缓存获取，有效期一天
-        if cacheEnabled == true, isAudioStationInfoCacheValid(),
-           let cachedAudioStationInfo = getAudioStationInfoFromUserDefaults() {
-            Logger.debug("SynologySwiftKit.InfoApi, queryAudioStationInfo, query from userdefaults: \(cachedAudioStationInfo)")
+        if cacheEnabled == true, let cachedAudioStationInfo = queryAudioStationInfoFromCache() {
             return cachedAudioStationInfo
         }
 
@@ -26,6 +24,20 @@ extension AudioStationApi {
         saveAudioStationInfoToUserDefaults(audioStationInfo: audioStationInfo)
         // result
         return audioStationInfo
+    }
+
+    /**
+     queryAudioStationInfo
+     */
+    public func queryAudioStationInfoFromCache() -> AudioStationInfo? {
+        // 使用上次的记录, 从缓存获取，有效期一天
+        if isAudioStationInfoCacheValid(),
+           let cachedAudioStationInfo = getAudioStationInfoFromUserDefaults() {
+            Logger.debug("SynologySwiftKit.InfoApi, queryAudioStationInfo, query from userdefaults: \(cachedAudioStationInfo)")
+            return cachedAudioStationInfo
+        }
+
+        return nil
     }
 }
 
