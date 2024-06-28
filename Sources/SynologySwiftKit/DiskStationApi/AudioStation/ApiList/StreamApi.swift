@@ -17,6 +17,7 @@ extension AudioStationApi {
             return try buildStreamURL(id: id, path: "/\(id).m4a", method: "stream")
         }
 
+        // others ...
         let songFileName = "/\(id).\(quality.format)"
         let method = quality == .ORIGINAL ? "stream" : "transcode"
 
