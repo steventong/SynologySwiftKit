@@ -108,18 +108,21 @@ extension AudioStationApi {
     }
 
     /**
+     /webapi/AudioStation/playlist.cgi
+
+     POST
 
      api: SYNO.AudioStation.Playlist
      method: rename
-     id: playlist_personal_normal/个人播放列表测试
-     new_name: 个人播放列表测试del
+     id: playlist_personal_normal/在测试
+     new_name: 在测试2
      version: 3
 
-     {"data":{"id":"playlist_personal_normal/个人播放列表测试del"},"success":true}
+     {"data":{"id":"playlist_personal_normal/在测试2"},"success":true}
 
      */
-    public func playlistRename(id: String, newName: String) async throws -> String? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "rename", version: 3, parameters: [
+    public func playlist_rename(id: String, newName: String) async throws -> String? {
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "rename", version: 3, httpMethod: .post, parameters: [
             "id": id,
             "new_name": newName,
         ])
