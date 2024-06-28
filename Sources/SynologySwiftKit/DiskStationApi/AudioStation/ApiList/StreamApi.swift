@@ -14,13 +14,13 @@ extension AudioStationApi {
      */
     public func songStreamUrl(id: String, fileExtension: String? = nil, quality: SongStreamQuality) throws -> URL {
         if fileExtension == "m4a" {
-            return try buildStreamURL(id: id, path: "\(id).m4a", method: "stream")
+            return try buildStreamURL(id: id, path: "/\(id).m4a", method: "stream")
         }
 
         let songFileName = "/\(id).\(quality.format)"
         let method = quality == .ORIGINAL ? "stream" : "transcode"
 
-        return try buildStreamURL(id: id, path: "\(id).m4a", method: "stream", format: quality.format, bitrate: quality.bitrate)
+        return try buildStreamURL(id: id, path: songFileName, method: method, format: quality.format, bitrate: quality.bitrate)
     }
 
     /**
