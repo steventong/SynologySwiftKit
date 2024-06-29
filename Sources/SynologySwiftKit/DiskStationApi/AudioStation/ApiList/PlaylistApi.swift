@@ -179,13 +179,16 @@ extension AudioStationApi {
      { "success": true }
      */
     public func playlistAddSongs(id: String, songs: [String]) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, httpMethod: .post, parameters: [
-            "id": id,
-            "limit": 0,
-            "offset": -1,
-            "songs": songs,
-            "skip_duplicate": true,
-        ])
+        var parameters: [String: Any] = ["id": id,
+                                         "limit": 0,
+                                         "offset": -1,
+                                         "skip_duplicate": true]
+
+        if !songs.isEmpty {
+            parameters["songs"] = songs
+        }
+
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, httpMethod: .post, parameters: parameters)
 
         try await api.request()
         return true
