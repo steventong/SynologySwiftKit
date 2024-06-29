@@ -185,7 +185,7 @@ extension AudioStationApi {
                                          "skip_duplicate": true]
 
         if !songs.isEmpty {
-            parameters["songs"] = songs
+            parameters["songs"] = songs.map { $0 }.joined(separator: ",")
         }
 
         let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, httpMethod: .post, parameters: parameters)
