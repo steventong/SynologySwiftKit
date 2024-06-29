@@ -96,7 +96,7 @@ extension AudioStationApi {
      {"data":{"id":"playlist_shared_normal/381"},"success":true}
      */
     public func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async throws -> String? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, httpMethod: .post, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
             "conj_rule": conj_rule,
@@ -159,7 +159,7 @@ extension AudioStationApi {
 
      */
     public func playlistRemoveMissing(id: String) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "removemissing", version: 3, parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "removemissing", version: 3, httpMethod: .post, parameters: [
             "id": id,
         ])
 
@@ -179,7 +179,7 @@ extension AudioStationApi {
      { "success": true }
      */
     public func playlistAddSongs(id: String, songs: [String]) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, httpMethod: .post, parameters: [
             "id": id,
             "limit": 0,
             "offset": -1,
