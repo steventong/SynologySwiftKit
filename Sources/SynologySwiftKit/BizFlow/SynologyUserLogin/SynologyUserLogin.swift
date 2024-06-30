@@ -29,9 +29,7 @@ public actor SynologyUserLogin {
         DeviceConnection.shared.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
 
         // 获取设备地址
-        let connection = try await fetchConnectionUrl(server: server, enableHttps: enableHttps, onLoginStepUpdate: onLoginStepUpdate)
-
-        guard let connection else {
+        guard let connection = try await fetchConnectionUrl(server: server, enableHttps: enableHttps, onLoginStepUpdate: onLoginStepUpdate) else {
             // 操作结束
             onLoginStepUpdate(.STEP_FINISH)
             throw SynologyUserLoginError.connectionUnAvaliable
