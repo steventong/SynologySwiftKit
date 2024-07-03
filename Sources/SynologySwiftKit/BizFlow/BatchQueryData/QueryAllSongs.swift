@@ -14,7 +14,7 @@ public class QueryAllSongs {
     }
 
     public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3,
-                              onTaskStart: @escaping (_ total: Int, _ task: Int) -> Void,
+                              onTaskStart: @escaping (_ total: Int, _ tasks: Int) -> Void,
                               onTaskUpdate: @escaping (_ songs: [Song]) -> Void,
                               onTaskEnd: @escaping (_ success: Bool, _ errorMsg: String) -> Void) {
         Task {
