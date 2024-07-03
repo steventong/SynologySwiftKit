@@ -8,7 +8,6 @@
 import XCTest
 
 class QueryAllSongsTests: XCTestCase {
-    
     func test() async throws {
         UserDefaults.standard.setValue(SecretKey.host, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
         UserDefaults.standard.setValue(ConnectionType.custom_domain.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
@@ -21,8 +20,8 @@ class QueryAllSongsTests: XCTestCase {
                                     onTaskStart: { total, task in
                                         Logger.info("onTaskStart, total = \(total), task = \(task)")
                                     },
-                                    onTaskUpdate: { songs in
-                                        Logger.info("onTaskUpdate, songs = \(songs.count)")
+                                    onTaskUpdate: { songs, current, total in
+                                        Logger.info("onTaskUpdate, songs = \(songs.count), current = \(current), total = \(total)")
                                     },
                                     onTaskEnd: { _, _ in
                                         Logger.info("onTaskEnd")
