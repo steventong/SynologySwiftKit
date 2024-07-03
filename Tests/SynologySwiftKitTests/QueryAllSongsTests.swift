@@ -20,7 +20,7 @@ class QueryAllSongsTests: XCTestCase {
                                     onTaskStart: { total, task in
                                         Logger.info("onTaskStart, total = \(total), task = \(task)")
                                     },
-                                    onTaskUpdate: { songs, current, total in
+                                    onTaskUpdate: { _, songs, current, total, _ in
                                         Logger.info("onTaskUpdate, songs = \(songs.count), current = \(current), total = \(total)")
                                     },
                                     onTaskEnd: { _, _ in

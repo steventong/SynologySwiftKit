@@ -15,7 +15,7 @@ public class QueryAllSongs {
 
     public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3,
                               onTaskStart: @escaping (_ total: Int, _ tasks: Int) -> Void,
-                              onTaskUpdate: @escaping (_ songs: [Song], _ currentCnt: Int, _ totalCnt: Int) -> Void,
+                              onTaskUpdate: @escaping (_ success: Bool, _ songs: [Song], _ currentCnt: Int, _ totalCnt: Int, _ error: String) -> Void,
                               onTaskEnd: @escaping (_ success: Bool, _ errorMsg: String) -> Void) {
         Task {
 //            do {
@@ -41,7 +41,7 @@ public class QueryAllSongs {
                 for taskIndex in 0 ..< threads {
                     taskGroup.addTask {
                         let data = await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total)
-                        onTaskUpdate(data, data.count, total)
+                        onTaskUpdate(data.0, data.1, data.1.count, total, data.2)
                     }
                 }
 
@@ -50,7 +50,7 @@ public class QueryAllSongs {
                 while try await taskGroup.next() != nil && waitTaskIndex < taskCount {
                     taskGroup.addTask { [waitTaskIndex] in
                         let data = await self.querySongList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total)
-                        onTaskUpdate(data, data.count, total)
+                        onTaskUpdate(data.0, data.1, data.1.count, total, data.2)
                     }
                     waitTaskIndex += 1
                 }
@@ -78,16 +78,16 @@ extension QueryAllSongs {
     /**
      querySongList
      */
-    private func querySongList(taskIndex: Int, batchSize: Int, total: Int) async -> [Song] {
+    private func querySongList(taskIndex: Int, batchSize: Int, total: Int) async -> (Bool, [Song], String) {
         Logger.debug("QueryAllSongs.querySongList task, begin querySongList, taskIndex = \(taskIndex), limit = \(batchSize), offset = \(batchSize * taskIndex)")
 
         do {
             let songListResult = try await audioStationApi.songList(limit: batchSize, offset: batchSize * taskIndex)
 
             Logger.debug("QueryAllSongs.querySongList task, finish handle querySongList result, taskIndex = \(taskIndex)")
-            return songListResult.data
+            return (true, songListResult.data, "success")
         } catch {
-            return []
+            return (false, [], error.localizedDescription)
         }
     }
 }
