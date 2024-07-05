@@ -26,10 +26,11 @@ public class CheckDeviceConnection {
                 let connectionUrl = connection.url
                 let connectionType = connection.type
 
+                Logger.info("CheckDeviceConnection, checking exist connection: \(connection)")
+
                 let ping = await pingpong.pingpong(url: connectionUrl)
                 if ping {
                     // 连接可用
-                    DeviceConnection.shared.updateCurrentConnectionUrl(type: connectionType, url: connectionUrl)
                     // 更新API info
                     try await ApiInfoApi.shared.queryApiInfo(cacheEnabled: false)
                     // 查询 audio station 信息
@@ -41,6 +42,8 @@ public class CheckDeviceConnection {
                         onFinish(true, (connectionType, connectionUrl))
                     }
                     return
+                } else {
+                    Logger.error("CheckDeviceConnection, checking exist connection, ping failed")
                 }
 
                 if connectionType == .custom_domain {
@@ -53,13 +56,17 @@ public class CheckDeviceConnection {
             }
 
             // 重新获取 quick connect
-            guard fetchNewServerByQuickConnectId, let loginPreferences = DeviceConnection.shared.getLoginPreferences() else {
+            guard fetchNewServerByQuickConnectId,
+                  let loginServer = DeviceConnection.shared.getLoginServer() else {
+                Logger.error("CheckDeviceConnection, quickconnectId but login server not exist")
                 return
             }
 
             // fetch server connection by qc
             do {
-                if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: loginPreferences.server, enableHttps: loginPreferences.isEnableHttps) {
+                Logger.info("CheckDeviceConnection, checking new connection: \(loginServer)")
+
+                if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: loginServer.server, enableHttps: loginServer.isEnableHttps) {
                     // 新的连接地址信息
                     DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
                     // 更新API info
@@ -70,6 +77,8 @@ public class CheckDeviceConnection {
                         onFinish(true, connection)
                     }
                     return
+                } else {
+                    Logger.error("CheckDeviceConnection, checking new connection failed")
                 }
             } catch {
                 Logger.error("checkConnectionStatus error: \(error)")

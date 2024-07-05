@@ -26,10 +26,10 @@ public class ApiInfoApi {
         }
 
         guard let apiInfo = cachedApiInfo[apiName] else {
+            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName (\(apiName) not exist: \(cachedApiInfo)")
             throw DiskStationApiError.synoApiIsNotExist(apiName)
         }
 
-//        Logger.info("apiInfo, apiName = \(apiName), apiInfo = \(apiInfo)")
         return apiInfo
     }
 

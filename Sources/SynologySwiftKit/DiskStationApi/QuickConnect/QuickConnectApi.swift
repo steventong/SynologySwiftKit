@@ -26,24 +26,25 @@ public actor QuickConnectApi {
 
         // 没有找到设备信息
         guard let serverInfo else {
+            Logger.error("QuickConnectApi.getDeviceConnectionByQuickConnectId query device serverInfo failed")
             throw QuickConnectError.serverInfoNotFound
         }
 
         // 从站点返回中解析设备连接信息
         let connections = handleSynologyServiceApiResult(serverInfo: serverInfo.serverInfo, enableHttps: enableHttps, isRequestTunnel: false)
-        Logger.debug("parse connections from serverInfo: \(connections)")
+        Logger.debug("QuickConnectApi.getDeviceConnectionByQuickConnectId parse connections from serverInfo: \(connections)")
 
         // 测试获取连接信息， 并请求 requestTunnel（如果没有relay类型的地址）
         let connectionUrl = await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: (connnectionType: ConnectionType, url: String)?.self, body: { taskGroup in
             // 子任务：pingpong 获取到的地址, 测试可达性
             taskGroup.addTask {
-                Logger.debug("getDeviceConnectionByQuickConnectionId, add task1, pingpong task")
+                Logger.debug("QuickConnectApi.getDeviceConnectionByQuickConnectId, pingpong task")
                 return await self.pingpongConnections(connections: connections)
             }
 
             // 子任务：requestTunnel
             taskGroup.addTask {
-                Logger.debug("getDeviceConnectionByQuickConnectionId, add task2, request relay connection task")
+                Logger.debug("QuickConnectApi.getDeviceConnectionByQuickConnectId, request_tunnel task")
                 return await self.requestForRelayConnection(connections: connections, synologyServer: serverInfo.synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps)
             }
 

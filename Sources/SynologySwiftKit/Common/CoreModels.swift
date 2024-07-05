@@ -9,11 +9,11 @@ import Foundation
 
 public enum ConnectionType: Int, CaseIterable {
     case lan = 1
-    case ddns = 2
-    case relay = 3
-    case wan = 4
-    case lanv6 = 5
-    case wanv6 = 6
+    case wan = 2
+    case lanv6 = 3
+    case wanv6 = 4
+    case ddns = 5
+    case relay = 6
     //        case lanIPv4
     //        case wan
     //        case wanIPv4
