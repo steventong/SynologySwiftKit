@@ -20,39 +20,30 @@ final class QuickConnectTests: XCTestCase {
     /**
      删除缓存后测试
      */
-    func testGetConnectionByQcIdWithoutCache() async throws {
-        if let bundleIdentifier = Bundle.main.bundleIdentifier {
-            UserDefaults.standard.removePersistentDomain(forName: bundleIdentifier)
-        }
+    func testGetConnection() async throws {
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.SYNOLOGY_SERVER_URL(SecretKey.quickConnectId).keyName)
 
-        if let result = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true) {
-            print(result)
-        }
-    }
-
-    /**
-     带缓存测试
-     */
-    func testGetConnectionByQcIdWithCache() async throws {
-        if let result = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: true) {
-            print(result)
+        if let result = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: SecretKey.quickConnectId, enableHttps: false) {
+            Logger.info("result = \(result)")
+        } else {
+            Logger.info("result = fail")
         }
     }
 
     /**
      不存在的qc id
      */
-    func testGetConnectionByInvalidQC() async throws {
+    func testGetConnection_invalidQC() async throws {
         if let bundleIdentifier = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: bundleIdentifier)
         }
 
         do {
             if let result = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: "FAKE-QUICKCONNECT-ID", enableHttps: true) {
-                print(result)
+                Logger.info("result = \(result)")
             }
         } catch QuickConnectError.serverInfoNotFound {
-            print("serverInfoNotFound")
+            Logger.info("result = fail")
         }
     }
 }

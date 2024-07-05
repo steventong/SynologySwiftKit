@@ -32,7 +32,6 @@ public actor QuickConnectApi {
 
         // 从站点返回中解析设备连接信息
         let connections = handleSynologyServiceApiResult(serverInfo: serverInfo.serverInfo, enableHttps: enableHttps, isRequestTunnel: false)
-        Logger.debug("QuickConnectApi.getDeviceConnectionByQuickConnectId parse connections from serverInfo: \(connections)")
 
         // 测试获取连接信息， 并请求 requestTunnel（如果没有relay类型的地址）
         let connectionUrl = await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: (connnectionType: ConnectionType, url: String)?.self, body: { taskGroup in
@@ -119,13 +118,11 @@ extension QuickConnectApi {
             if let multiServerInfos {
                 // 缓存地址下次使用
                 saveSynologyServerToCache(quickConnectId: quickConnectId, synologyServer: multiServerInfos.synologyServer)
-
-                Logger.debug("get_server_info result, from new synologyServer, currentServerInfo: \(multiServerInfos)")
                 return multiServerInfos
             }
         }
 
-        Logger.debug("get_server_info can not find serverInfo, serverInfo: \(serverInfo)")
+        Logger.info("get_server_info can not find serverInfo, serverInfo is empty. code = \(serverInfo.errno)")
         return nil
     }
 
@@ -160,7 +157,7 @@ extension QuickConnectApi {
      并发多个 get_server_info 请求
      */
     private func invokeSynologyServiceApi(synologyServers: [String], quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
-        Logger.debug("send request: invokeSynologyGetServerInfoOnMultiServers, \(synologyServers)")
+        Logger.debug("send request: \(synologyServers)")
         return await withTaskGroup(of: (synologyServer: String, serverInfo: ServerInfo)?.self, returning: (synologyServer: String, serverInfo: ServerInfo)?.self, body: { taskGroup in
 
             // 子任务
@@ -169,7 +166,7 @@ extension QuickConnectApi {
                     do {
                         let serverInfo = try await self.invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .get_server_info)
                         if serverInfo.errno == 0 {
-                            Logger.debug("get_server_info result, from \(synologyServer), serverInfo: \(serverInfo)")
+                            Logger.debug("get_server_info result success from \(synologyServer)")
                             return (synologyServer, serverInfo)
                         }
                     } catch {
@@ -185,13 +182,10 @@ extension QuickConnectApi {
             // 结果
             for await task in taskGroup {
                 if let task {
-                    // 找到一个即可
-                    Logger.debug("send request done: invokeSynologyGetServerInfoOnMultiServers, task = \(task)")
                     return task
                 }
             }
 
-            Logger.debug("send request failed: invokeSynologyGetServerInfoOnMultiServers")
             return nil
         })
     }
