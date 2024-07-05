@@ -331,7 +331,7 @@ extension QuickConnectApi {
             return [.relay]
         }
 
-        return [.lan, .wan, .ddns, .relay]
+        return [.lan, .wan, .lanv6, .wanv6, .ddns, .relay]
     }
 
     /**
