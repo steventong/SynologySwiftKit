@@ -11,7 +11,9 @@ public enum ConnectionType: Int, CaseIterable {
     case lan = 1
     case ddns = 2
     case relay = 3
-
+    case wan = 4
+    case lanv6 = 5
+    case wanv6 = 6
     //        case lanIPv4
     //        case wan
     //        case wanIPv4
@@ -40,6 +42,12 @@ public enum ConnectionType: Int, CaseIterable {
             .ddns
         case "relay":
             .relay
+        case "wan":
+            .wan
+        case "lanv6":
+            .lanv6
+        case "wanv6":
+            .wanv6
         case "custom_domain":
             .custom_domain
         default:
@@ -58,6 +66,12 @@ public enum ConnectionType: Int, CaseIterable {
             "ddns"
         case .relay:
             "relay"
+        case .wan:
+            "wan"
+        case .lanv6:
+            "lanv6"
+        case .wanv6:
+            "wanv6"
         case .custom_domain:
             "custom_domain"
         }

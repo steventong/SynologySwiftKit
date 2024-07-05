@@ -30,7 +30,7 @@ public actor QuickConnectApi {
         }
 
         // 从站点返回中解析设备连接信息
-        let connections = handleSynologyServiceApiResult(serverInfo: serverInfo.serverInfo, enableHttps: enableHttps, targetType: [.lan, .ddns, .relay])
+        let connections = handleSynologyServiceApiResult(serverInfo: serverInfo.serverInfo, enableHttps: enableHttps, isRequestTunnel: false)
         Logger.debug("parse connections from serverInfo: \(connections)")
 
         // 测试获取连接信息， 并请求 requestTunnel（如果没有relay类型的地址）
@@ -215,26 +215,76 @@ extension QuickConnectApi {
     /**
      解析地址
      */
-    private func handleSynologyServiceApiResult(serverInfo: ServerInfo, enableHttps: Bool, targetType: [ConnectionType]) -> [ConnectionType: [String]] {
+    private func handleSynologyServiceApiResult(serverInfo: ServerInfo, enableHttps: Bool, isRequestTunnel: Bool) -> [ConnectionType: [String]] {
         var connections: [ConnectionType: [String]] = [:]
         let httpScheme = enableHttps ? "https://" : "http://"
+        let targetType = parseConnectTypes(isRequestTunnel: isRequestTunnel)
 
         // 解析 lan 格式地址
         if targetType.contains(.lan) {
             var lanValues: [String] = []
 
-            if let ip = serverInfo.smartdns?.lan?.first,
-               let port = serverInfo.service?.port {
-                lanValues.append("\(httpScheme)\(ip):\(port)")
-            }
+            serverInfo.server?.interface?.forEach({ interface in
+                if let host = interface.ip,
+                   let port = serverInfo.service?.port {
+                    lanValues.append("\(httpScheme)\(host):\(port)")
+                }
+            })
 
-            if let ip = serverInfo.server?.interface?.first?.ip,
-               let port = serverInfo.service?.port {
-                lanValues.append("\(httpScheme)\(ip):\(port)")
-            }
+            serverInfo.smartdns?.lan?.forEach({ host in
+                if let port = serverInfo.service?.port {
+                    lanValues.append("\(httpScheme)\(host):\(port)")
+                }
+            })
 
             if !lanValues.isEmpty {
                 connections[.lan] = lanValues
+            }
+        }
+
+        // wan
+        if targetType.contains(.wan) {
+            var wanValues: [String] = []
+
+            if let host = serverInfo.server?.external?.ip,
+               let port = serverInfo.service?.port {
+                wanValues.append("\(httpScheme)\(host):\(port)")
+            }
+
+            if !wanValues.isEmpty {
+                connections[.wan] = wanValues
+            }
+        }
+
+        // lan v6
+        if targetType.contains(.lanv6) {
+            var lanv6Values: [String] = []
+
+            serverInfo.server?.interface?.forEach({ interface in
+                interface.ipv6?.forEach({ ipv6 in
+                    if let host = ipv6.address,
+                       let port = serverInfo.service?.port {
+                        lanv6Values.append("\(httpScheme)\(host):\(port)")
+                    }
+                })
+            })
+
+            if !lanv6Values.isEmpty {
+                connections[.lanv6] = lanv6Values
+            }
+        }
+
+        // wan v6
+        if targetType.contains(.wanv6) {
+            var wanv6Values: [String] = []
+
+            if let host = serverInfo.server?.external?.ipv6,
+               let port = serverInfo.service?.port {
+                wanv6Values.append("\(httpScheme)\(host):\(port)")
+            }
+
+            if !wanv6Values.isEmpty {
+                connections[.wanv6] = wanv6Values
             }
         }
 
@@ -242,14 +292,14 @@ extension QuickConnectApi {
         if targetType.contains(.ddns) {
             var ddnsValues: [String] = []
 
-            if let ddns = serverInfo.server?.ddns,
+            if let host = serverInfo.server?.ddns,
                let port = serverInfo.service?.port {
-                ddnsValues.append("\(httpScheme)\(ddns):\(port)")
+                ddnsValues.append("\(httpScheme)\(host):\(port)")
             }
 
-            if let ddns = serverInfo.server?.ddns,
+            if let host = serverInfo.server?.ddns,
                let port = serverInfo.service?.ext_port {
-                ddnsValues.append("\(httpScheme)\(ddns):\(port)")
+                ddnsValues.append("\(httpScheme)\(host):\(port)")
             }
 
             if !ddnsValues.isEmpty {
@@ -261,9 +311,9 @@ extension QuickConnectApi {
         if targetType.contains(.relay) {
             var relayValues: [String] = []
 
-            if let relay_dn = serverInfo.service?.relay_dn,
-               let relay_port = serverInfo.service?.relay_port {
-                relayValues.append("\(httpScheme)\(relay_dn):\(relay_port)")
+            if let host = serverInfo.service?.relay_dn,
+               let port = serverInfo.service?.relay_port {
+                relayValues.append("\(httpScheme)\(host):\(port)")
             }
 
             if !relayValues.isEmpty {
@@ -273,6 +323,14 @@ extension QuickConnectApi {
 
         Logger.debug("parse connections, require: \(targetType), result: \(connections)")
         return connections
+    }
+
+    private func parseConnectTypes(isRequestTunnel: Bool) -> [ConnectionType] {
+        if isRequestTunnel {
+            return [.relay]
+        }
+
+        return [.lan, .wan, .ddns, .relay]
     }
 
     /**
@@ -308,7 +366,7 @@ extension QuickConnectApi {
             let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .request_tunnel)
 
             // 从站点返回中解析设备连接信息
-            let connections = handleSynologyServiceApiResult(serverInfo: serverInfo, enableHttps: enableHttps, targetType: [.relay])
+            let connections = handleSynologyServiceApiResult(serverInfo: serverInfo, enableHttps: enableHttps, isRequestTunnel: true)
             if let relay = connections[.relay]?.first {
                 Logger.debug("parse relay connection: \(relay)")
                 return (ConnectionType.relay, relay)
