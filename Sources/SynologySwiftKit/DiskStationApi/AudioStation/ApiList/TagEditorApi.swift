@@ -61,7 +61,7 @@ extension AudioStationApi {
         let api = DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, path: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi", httpMethod: .post, parameters: [
             "action": "apply",
             "requestFrom": "",
-            "data": JsonUtils.toJson(codable: request) ?? "",
+            "data": JsonUtils.toJson(codable: [request]) ?? "",
         ])
         let result = try await api.requestForResult(resultType: TagEditorResult.self)
         if result.success {
