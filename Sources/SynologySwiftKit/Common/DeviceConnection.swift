@@ -59,11 +59,11 @@ public class DeviceConnection {
 
         if let sid, let sidExpireAt {
             session = (sid, sidExpireAt, did, didExpireAt)
-            Logger.warn("[DeviceConnection]getLoginSession from usedefaults, session = \(session!)")
+            Logger.debug("[DeviceConnection]getLoginSession from usedefaults, session = \(session!)")
             return session
         }
 
-        Logger.info("[DeviceConnection]getLoginSession, session from userdefaults is invalid")
+        Logger.warn("[DeviceConnection]getLoginSession, session from userdefaults is invalid")
         return nil
     }
 
