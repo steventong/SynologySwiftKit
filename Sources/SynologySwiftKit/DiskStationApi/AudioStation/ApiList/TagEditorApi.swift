@@ -36,7 +36,7 @@ extension AudioStationApi {
 
      */
     public func tagEditor_load(path: String) async throws -> TagEditorResult? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "load", httpMethod: .post, parameters: [
+        let api = DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, path: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi", httpMethod: .post, parameters: [
             "action": "load",
             "requestFrom": "",
             "audioInfos": "[{\"path\":\"\(path)\"}]",
@@ -58,10 +58,10 @@ extension AudioStationApi {
      requestFrom:
      */
     public func tagEditor_apply(request: TagEditorRequest) async throws -> TagEditorResult? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "apply", httpMethod: .post, parameters: [
+        let api = DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, path: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi", httpMethod: .post, parameters: [
             "action": "apply",
             "requestFrom": "",
-            "audioInfos": JsonUtils.toJson(codable: request) ?? "",
+            "data": request,
         ])
         let result = try await api.requestForResult(resultType: TagEditorResult.self)
         if result.success {

@@ -91,6 +91,10 @@ public enum DiskStationApiDefine: String {
             return ("query.cgi", "query", 1, parameters: [:])
         }
 
+        if let staticApiInfo = staticApiInfo(apiName: apiName) {
+            return staticApiInfo
+        }
+
         let apiInfo = try ApiInfoApi.shared.getApiInfoByApiName(apiName: apiName)
 
         // 适合的版本号
@@ -133,6 +137,18 @@ public enum DiskStationApiDefine: String {
             true
         default:
             false
+        }
+    }
+
+    /**
+     某些特殊的API
+     */
+    func staticApiInfo(apiName: String) -> (path: String, method: String, version: Int, parameters: Parameters)? {
+        switch apiName {
+        case DiskStationApiDefine.SYNO_API_INFO.rawValue:
+            return ("query.cgi", "query", 1, parameters: [:])
+        default:
+            return nil
         }
     }
 

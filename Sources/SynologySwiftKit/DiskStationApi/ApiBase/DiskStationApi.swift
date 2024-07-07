@@ -46,6 +46,24 @@ struct DiskStationApi {
     }
 
     /**
+     custom init
+     */
+    init(api: DiskStationApiDefine, path: String, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
+        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+
+        name = api.apiName
+        method = ""
+        version = 1
+        self.parameters = parameters
+        self.httpMethod = httpMethod
+
+        requireAuthCookieHeader = true
+        requireAuthQueryParameter = false
+
+        apiPath = path
+    }
+
+    /**
      request for result
      */
     public func request() async throws {
