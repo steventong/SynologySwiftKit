@@ -63,4 +63,18 @@ public struct TagEditorData: Codable {
     public var title: String
     public var track: Int
     public var year: Int
+
+    public init(album: String, album_artist: String, artist: String, comment: String, composer: String, disc: Int, genre: String, path: String, title: String, track: Int, year: Int) {
+        self.album = album
+        self.album_artist = album_artist
+        self.artist = artist
+        self.comment = comment
+        self.composer = composer
+        self.disc = disc
+        self.genre = genre
+        self.path = path
+        self.title = title
+        self.track = track
+        self.year = year
+    }
 }
