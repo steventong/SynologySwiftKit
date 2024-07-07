@@ -36,7 +36,7 @@ extension AudioStationApi {
 
      */
     public func tagEditor_load(path: String) async throws -> TagEditorResult? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "load", parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI, method: "load", httpMethod: .post, parameters: [
             "action": "load",
             "requestFrom": "",
             "audioInfos": "[{\"path\":\"\(path)\"}]",
