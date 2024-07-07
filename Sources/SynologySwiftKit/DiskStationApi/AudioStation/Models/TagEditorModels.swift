@@ -31,6 +31,24 @@ public struct TagEditorRequest: Codable {
     public var album_artist: String
     public var composer: String
     public var codePage: String
+
+    public init(audioInfos: [TagEditorData], lyrics: String, coverType: String, coverPath: String, title: String, artist: String, album: String, comment: String, genre: String, track: String, disc: String, year: String, album_artist: String, composer: String, codePage: String) {
+        self.audioInfos = audioInfos
+        self.lyrics = lyrics
+        self.coverType = coverType
+        self.coverPath = coverPath
+        self.title = title
+        self.artist = artist
+        self.album = album
+        self.comment = comment
+        self.genre = genre
+        self.track = track
+        self.disc = disc
+        self.year = year
+        self.album_artist = album_artist
+        self.composer = composer
+        self.codePage = codePage
+    }
 }
 
 public struct TagEditorData: Codable {
