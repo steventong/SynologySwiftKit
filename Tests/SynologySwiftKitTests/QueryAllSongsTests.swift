@@ -16,7 +16,7 @@ class QueryAllSongsTests: XCTestCase {
 
         let queryAllSongs = QueryAllSongs()
 
-        queryAllSongs.queryAllSongs(batchSize: 500, threads: 4,
+        queryAllSongs.queryAllSongs(batchSize: 500, batchNum: 4,
                                     onTaskStart: { total, task in
                                         Logger.info("onTaskStart, total = \(total), task = \(task)")
                                     },

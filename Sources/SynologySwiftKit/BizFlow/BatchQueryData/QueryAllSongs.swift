@@ -13,12 +13,12 @@ public class QueryAllSongs {
     public init() {
     }
 
-    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3,
+    public func queryAllSongs(batchSize: Int = 500,
+                              batchNum: Int = 3,
                               onTaskStart: @escaping (_ total: Int, _ tasks: Int) -> Void,
                               onTaskUpdate: @escaping (_ success: Bool, _ songs: [Song], _ currentCnt: Int, _ totalCnt: Int, _ error: String) -> Void,
                               onTaskEnd: @escaping (_ success: Bool, _ errorMsg: String) -> Void) {
         Task {
-//            do {
             let total = await queryTotalSongCount()
             if total == -1 {
                 onTaskEnd(true, NSLocalizedString("QUERY_SONGS_LIST_FAILED", comment: "QUERY_SONGS_LIST_FAILED"))
@@ -38,7 +38,7 @@ public class QueryAllSongs {
             try await withThrowingTaskGroup(of: Void.self, body: { taskGroup in
                 // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
                 // 首批任务添加
-                for taskIndex in 0 ..< threads {
+                for taskIndex in 0 ..< batchNum {
                     taskGroup.addTask {
                         let data = await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total)
                         onTaskUpdate(data.0, data.1, data.1.count, total, data.2)
@@ -46,13 +46,13 @@ public class QueryAllSongs {
                 }
 
                 // 后续任务追加
-                var waitTaskIndex = threads
-                while try await taskGroup.next() != nil && waitTaskIndex < taskCount {
-                    taskGroup.addTask { [waitTaskIndex] in
-                        let data = await self.querySongList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total)
+                var waitTask = batchNum
+                while try await taskGroup.next() != nil && waitTask < taskCount {
+                    taskGroup.addTask { [waitTask] in
+                        let data = await self.querySongList(taskIndex: waitTask, batchSize: batchSize, total: total)
                         onTaskUpdate(data.0, data.1, data.1.count, total, data.2)
                     }
-                    waitTaskIndex += 1
+                    waitTask += 1
                 }
             })
 
