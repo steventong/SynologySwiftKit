@@ -30,7 +30,7 @@ extension AudioStationApi {
             parameters["sort_direction"] = sort.sort_direction
         }
 
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, parameters: parameters)
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, httpMethod: .post, parameters: parameters)
 
         let result = try await api.requestForData(resultType: SongListResult.self)
         return (result.total, result.songs)
@@ -93,7 +93,7 @@ extension AudioStationApi {
      update song rating, from 1 - 5
      */
     public func songSetRating(id: String, rating: Int) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, httpMethod: .post, parameters: [
             "id": id,
             "rating": rating,
         ])
