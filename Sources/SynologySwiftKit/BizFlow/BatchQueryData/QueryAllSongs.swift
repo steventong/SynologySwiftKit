@@ -13,6 +13,9 @@ public class QueryAllSongs {
     public init() {
     }
 
+    /**
+     查询音乐列表
+     */
     public func queryAllSongs(batchSize: Int = 500,
                               batchNum: Int = 3,
                               onTaskStart: @escaping (_ total: Int, _ tasks: Int) -> Void,
@@ -35,9 +38,9 @@ public class QueryAllSongs {
             onTaskStart(total, taskCount)
 
             // execute task
-            try await withThrowingTaskGroup(of: Void.self, body: { taskGroup in
+            await withTaskGroup(of: Void.self, body: { taskGroup in
                 // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
-                // 首批任务添加
+                // task start
                 for taskIndex in 0 ..< batchNum {
                     taskGroup.addTask {
                         let data = await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total)
@@ -45,9 +48,9 @@ public class QueryAllSongs {
                     }
                 }
 
-                // 后续任务追加
+                // add more tasks
                 var waitTask = batchNum
-                while try await taskGroup.next() != nil && waitTask < taskCount {
+                while await taskGroup.next() != nil && waitTask < taskCount {
                     taskGroup.addTask { [waitTask] in
                         let data = await self.querySongList(taskIndex: waitTask, batchSize: batchSize, total: total)
                         onTaskUpdate(data.0, data.1, data.1.count, total, data.2)
