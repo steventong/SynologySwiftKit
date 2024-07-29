@@ -14,6 +14,18 @@ public class QueryAllSongs {
     }
 
     /**
+     查询音乐的数量
+     */
+    public func queryTotalSongsCount() async -> Int {
+        do {
+            let songs = try await audioStationApi.songList(limit: 1, offset: 0)
+            return songs.total
+        } catch {
+            return -1
+        }
+    }
+
+    /**
      查询音乐列表
      */
     public func queryAllSongs(batchSize: Int = 500,
@@ -22,7 +34,7 @@ public class QueryAllSongs {
                               onTaskUpdate: @escaping (_ success: Bool, _ songs: [Song], _ currentCnt: Int, _ totalCnt: Int, _ error: String) -> Void,
                               onTaskEnd: @escaping (_ success: Bool, _ errorMsg: String) -> Void) {
         Task {
-            let total = await queryTotalSongCount()
+            let total = await queryTotalSongsCount()
             if total == -1 {
                 onTaskEnd(true, NSLocalizedString("QUERY_SONGS_LIST_FAILED", comment: "QUERY_SONGS_LIST_FAILED"))
                 return
@@ -66,18 +78,6 @@ public class QueryAllSongs {
 }
 
 extension QueryAllSongs {
-    /**
-     获取歌曲总数
-     */
-    private func queryTotalSongCount() async -> Int {
-        do {
-            let songs = try await audioStationApi.songList(limit: 1, offset: 0)
-            return songs.total
-        } catch {
-            return -1
-        }
-    }
-
     /**
      querySongList
      */
