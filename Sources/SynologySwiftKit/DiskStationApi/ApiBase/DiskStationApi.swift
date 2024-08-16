@@ -23,7 +23,8 @@ struct DiskStationApi {
     /**
      init
      */
-    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) throws {
+    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10,
+         buildSidOnQuery: Bool? = nil, buildSidOnCookie: Bool? = nil) throws {
         session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
 
         let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version, parameters: parameters)
@@ -34,8 +35,8 @@ struct DiskStationApi {
         self.parameters = apiInfo.parameters
         self.httpMethod = httpMethod
 
-        requireAuthCookieHeader = api.requireAuthCookieHeader
-        requireAuthQueryParameter = api.requireAuthQueryParameter
+        requireAuthCookieHeader = buildSidOnCookie ?? api.requireAuthCookieHeader
+        requireAuthQueryParameter = buildSidOnQuery ?? api.requireAuthQueryParameter
 
         if let customPath = path {
             // customPath 要用/开头

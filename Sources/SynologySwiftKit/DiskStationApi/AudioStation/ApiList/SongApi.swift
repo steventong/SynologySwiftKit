@@ -41,14 +41,14 @@ extension AudioStationApi {
      */
     public func songListUrl(limit: Int, offset: Int) throws -> URL? {
         // 通用参数
-        var parameters: [String: Any] = [
+        let parameters: [String: Any] = [
             "additional": "song_tag,song_audio,song_rating",
             "library": "all",
             "limit": limit,
             "offset": offset,
         ]
 
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, httpMethod: .post, parameters: parameters)
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, httpMethod: .post, parameters: parameters, buildSidOnQuery: true)
 
         return try api.assembleRequestUrl()
     }
