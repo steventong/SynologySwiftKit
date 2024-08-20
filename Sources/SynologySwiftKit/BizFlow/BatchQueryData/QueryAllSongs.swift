@@ -18,7 +18,7 @@ public class QueryAllSongs {
      */
     public func queryTotalSongsCount() async -> Int {
         do {
-            let songs = try await audioStationApi.songList(limit: 1, offset: 0)
+            let songs = try await audioStationApi.songList(limit: 0, offset: 0)
             return songs.total
         } catch {
             return -1
