@@ -11,16 +11,23 @@ extension AudioStationApi {
     /**
      query song list
      */
-    public func songList(limit: Int, offset: Int, song_rating_meq: Int? = nil, sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
+    public func songList(limit: Int, offset: Int,
+                         additional: String? = "song_tag,song_audio,song_rating",
+                         song_rating_meq: Int? = nil,
+                         sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
         // 通用参数
         var parameters: [String: Any] = [
-            "additional": "song_tag,song_audio,song_rating",
             "library": "all",
             "limit": limit,
             "offset": offset,
         ]
 
         // 动态参数
+        if let additional {
+            parameters["additional"] = additional
+//            "additional": "song_tag,song_audio,song_rating",
+        }
+
         if let song_rating_meq {
             parameters["song_rating_meq"] = song_rating_meq
         }
