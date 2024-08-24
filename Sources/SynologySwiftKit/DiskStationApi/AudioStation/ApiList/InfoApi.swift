@@ -48,7 +48,7 @@ extension AudioStationApi {
      */
     private func queryAudioStationInfoFromDsm() async throws -> AudioStationInfo {
         // 从接口查询
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_INFO, method: "getinfo", version: 4)
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_INFO, method: "getinfo", version: 6)
 
         let audioStationInfo = try await api.requestForData(resultType: AudioStationInfo.self)
 
