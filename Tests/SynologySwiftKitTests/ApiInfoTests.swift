@@ -20,8 +20,9 @@ final class ApiInfoTests: XCTestCase {
 
             // 连接可用
             DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+            
             // 更新API info
-            try await ApiInfoApi.shared.queryApiInfo()
+            try await ApiInfoApi.shared.checkSynologyApiInfo()
 
             let apiInfo = try ApiInfoApi.shared.getApiInfoByApiName(apiName: "SYNO.API.Info")
             Logger.info("apiInfo: \(apiInfo)")

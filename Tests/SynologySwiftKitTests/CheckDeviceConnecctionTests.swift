@@ -18,10 +18,12 @@ final class CheckDeviceConnecctionTests: XCTestCase {
         checkDeviceConnection.checkConnectionStatus(fetchNewServerByQuickConnectId: true,
                                                     onFinish: { success, connection in
                                                         Logger.info("testCheckDeviceStatus, success = \(success)")
-            
+
                                                         if let connection = connection {
                                                             Logger.info("testCheckDeviceStatus, connection = \(connection)")
                                                         }
+                                                    }, onLoginRequired: {
+                                                        Logger.info("testCheckDeviceStatus, onLoginRequired")
                                                     })
     }
 }

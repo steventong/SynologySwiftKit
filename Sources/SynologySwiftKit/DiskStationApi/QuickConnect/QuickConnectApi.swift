@@ -81,7 +81,7 @@ extension QuickConnectApi {
     /**
      判断是否是 quickConnect ID
      */
-    public func isQuickConnectId(server: String) -> Bool {
+    func isQuickConnectId(server: String) -> Bool {
         if server.contains(".") {
             return false
         }

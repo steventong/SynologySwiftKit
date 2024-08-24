@@ -20,18 +20,19 @@ public actor SynologyUserLogin {
     /**
      server: quickConnectId 或者是 域名+端口号
      */
-    public func login(server: String, username: String, password: String, otpCode: String? = nil, enableHttps: Bool,
-                      onLoginStepUpdate: @escaping (SynologyUserLoginStep) -> Void,
+    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil,
+                      onProgress: @escaping (SynologyUserLoginStep) -> Void,
                       onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
-        onLoginStepUpdate(.STEP_START)
+        // progress
+        onProgress(.STEP_START)
 
         // 保存登录偏好设置
         DeviceConnection.shared.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
 
         // 获取设备地址
-        guard let connection = try await fetchConnectionUrl(server: server, enableHttps: enableHttps, onLoginStepUpdate: onLoginStepUpdate) else {
+        guard let connection = await fetchConnectionUrl(server: server, enableHttps: enableHttps, onProgress: onProgress) else {
             // 操作结束
-            onLoginStepUpdate(.STEP_FINISH)
+            onProgress(.STEP_FINISH)
             throw SynologyUserLoginError.connectionUnAvaliable
         }
 
@@ -42,13 +43,13 @@ public actor SynologyUserLogin {
         onConnectionFetch(connection.type, connection.url)
 
         // 更新API info
-        try await ApiInfoApi.shared.queryApiInfo(cacheEnabled: false)
+        try await ApiInfoApi.shared.checkSynologyApiInfo(cacheEnabled: false)
 
         // login seever isQuickConnectID
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
 
         // 开始登录
-        onLoginStepUpdate(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
+        onProgress(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
 
         // 登录，如果有异常会抛出，没有异常则成功
         let authResult = try await authApi.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
@@ -57,15 +58,14 @@ public actor SynologyUserLogin {
         DeviceConnection.shared.updateLoginSession(username: username, sid: authResult.sid, did: authResult.did)
 
         Logger.info("SynologyUserLogin, userLogin, result: \(authResult)")
-        onLoginStepUpdate(.USER_LOGIN_SUCCESS(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
+        onProgress(.USER_LOGIN_SUCCESS(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
 
         // 查询 audio station 信息
         let audioStationInfo = try await audioStationApi.queryAudioStationInfo()
         Logger.info("SynologyUserLogin, audioStationInfo: \(audioStationInfo)")
 
         // 操作结束
-        onLoginStepUpdate(.STEP_FINISH)
-
+        onProgress(.STEP_FINISH)
         return authResult
     }
 }
@@ -74,19 +74,27 @@ extension SynologyUserLogin {
     /**
      fetchConnectionUrl 获取地址
      */
-    func fetchConnectionUrl(server: String, enableHttps: Bool, onLoginStepUpdate: @escaping (SynologyUserLoginStep) -> Void) async throws -> (type: ConnectionType, url: String)? {
-        let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
-
-        // quickConnectId 模式下，获取设备地址
-        if isQuickConnectID {
-            onLoginStepUpdate(.QC_FETCH_CONNECTION)
-            // 获取设备地址
-            let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
-            onLoginStepUpdate(.QC_FETCH_CONNECTION_SUCCESS)
-            return connection
+    func fetchConnectionUrl(server: String, enableHttps: Bool, onProgress: @escaping (SynologyUserLoginStep) -> Void) async -> (type: ConnectionType, url: String)? {
+        if await !quickConnectApi.isQuickConnectId(server: server) {
+            // 自定义域名直接返回地址
+            return (.custom_domain, server)
         }
 
-        // 自定义域名直接返回地址
-        return (.custom_domain, server)
+        // quickConnectId 模式下，获取设备地址
+        // 获取设备地址状态
+        onProgress(.QC_FETCH_CONNECTION)
+
+        // 通过quick connect 服务获取地址
+        do {
+            if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps) {
+                // 新的地址
+                onProgress(.QC_FETCH_CONNECTION_SUCCESS)
+                return (connection.type, connection.url)
+            }
+        } catch {
+            Logger.error("SynologyUserLogin, fetchConnectionUrl error \(error)")
+        }
+
+        return nil
     }
 }

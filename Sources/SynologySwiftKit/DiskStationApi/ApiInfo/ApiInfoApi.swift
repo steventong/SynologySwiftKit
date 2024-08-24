@@ -36,9 +36,8 @@ public class ApiInfoApi {
     /**
      queryApiInfo
      */
-    public func queryApiInfo(cacheEnabled: Bool? = true) async throws {
-        // 使用上次的记录, 从缓存获取，有效期一天
-        if cacheEnabled == true, isApiInfoCacheValid(),
+    public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws {
+        if cacheEnabled == true && isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60),
            let cachedApiInfo = getApiInfoFromUserDefaults() {
             Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache: \(cachedApiInfo)")
             self.cachedApiInfo = cachedApiInfo
@@ -107,11 +106,10 @@ extension ApiInfoApi {
     /**
      check time is expired or not (1 day valid)
      */
-    private func isApiInfoCacheValid() -> Bool {
-        if let updateTime = getApiInfoSaveToUserDefaultsTime() {
-            let timeInterval = Date().timeIntervalSince(updateTime)
-            // one day cache valid duration
-            return timeInterval < 24 * 60 * 60
+    private func isApiInfoCacheValid(validTime: Int32?) -> Bool {
+        if let lastUpdateTime = getApiInfoSaveToUserDefaultsTime() {
+            let timeInterval = Date().timeIntervalSince(lastUpdateTime)
+            return Int32(timeInterval) < (validTime ?? 24 * 60 * 60)
         }
 
         return false
