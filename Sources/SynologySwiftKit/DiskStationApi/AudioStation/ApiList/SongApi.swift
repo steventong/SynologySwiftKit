@@ -46,7 +46,7 @@ extension AudioStationApi {
     /**
      build song fetch url
      */
-    public func songListUrl(limit: Int, offset: Int) throws -> URL? {
+    public func songListUrl(limit: Int, offset: Int) throws -> URL {
         // 通用参数
         let parameters: [String: Any] = [
             "additional": "song_tag,song_audio,song_rating",
