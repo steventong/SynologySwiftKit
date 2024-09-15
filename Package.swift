@@ -16,7 +16,7 @@ let package = Package(
             targets: ["SynologySwiftKit"]),
     ],
     dependencies: [
-       .package( url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.9.0")),
+       .package( url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.9.1")),
        .package(url: "https://github.com/SwiftyJSON/SwiftyJSON", .upToNextMajor(from: "5.0.2"))
      ],
     targets: [
