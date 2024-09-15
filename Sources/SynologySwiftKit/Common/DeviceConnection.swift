@@ -28,12 +28,12 @@ public class DeviceConnection {
             let typeRawValuw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             if let type = ConnectionType(rawValue: typeRawValuw) {
                 connection = (type, url)
-                Logger.warn("[DeviceConnection]query Connection from userdefaults, connection = \(connection!)")
+                Logger.info("[DeviceConnection]get connection-url from userdefaults, connection url = \(connection!)")
                 return connection
             }
         }
 
-        Logger.error("[DeviceConnection]query Connection fail, connection is nil")
+        Logger.info("[DeviceConnection]can not get saved connection-url info in userdefaults.")
         return nil
     }
 
