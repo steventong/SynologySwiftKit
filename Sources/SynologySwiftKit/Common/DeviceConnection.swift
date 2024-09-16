@@ -59,7 +59,6 @@ public class DeviceConnection {
 
         if let sid, let sidExpireAt {
             session = (sid, sidExpireAt, did, didExpireAt)
-            Logger.debug("[DeviceConnection]getLoginSession from usedefaults, session = \(session!)")
             return session
         }
 

@@ -279,6 +279,7 @@ extension DiskStationApi {
             return connectionURL
         }
 
+        Logger.error("DiskStationApi.apiUrl, connectionURL is invalid")
         throw DiskStationApiError.requestHostNotPressentError
     }
 
