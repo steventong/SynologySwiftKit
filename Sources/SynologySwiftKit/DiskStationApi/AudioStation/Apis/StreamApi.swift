@@ -11,7 +11,7 @@ extension AudioStationApi {
     /**
      文件扩展名
      */
-    public func songStreamFormat(fileExtension: String? = nil, quality: SongStreamQuality) -> String {
+    public func songStreamFormat(fileExtension: String, quality: SongStreamQuality) -> String {
         switch fileExtension {
         case "m4a":
             "m4a"
@@ -23,7 +23,7 @@ extension AudioStationApi {
     /**
      传输方式
      */
-    public func songStreamMethod(fileExtension: String? = nil, quality: SongStreamQuality) -> String {
+    public func songStreamMethod(fileExtension: String, quality: SongStreamQuality) -> String {
         switch fileExtension {
         case "m4a":
             "stream"
@@ -37,8 +37,8 @@ extension AudioStationApi {
      m4a: /webapi/AudioStation/stream.cgi/0.m4a?api=SYNO.AudioStation.Stream&version=2&method=stream&id=music_593
      */
     public func songStreamUrl(id: String, fileExtension: String? = nil, quality: SongStreamQuality) throws -> URL {
-        let streamFormat = songStreamFormat(fileExtension: fileExtension, quality: quality)
-        let streamMethod = songStreamFormat(fileExtension: fileExtension, quality: quality)
+        let streamFormat = songStreamFormat(fileExtension: fileExtension ?? "", quality: quality)
+        let streamMethod = songStreamMethod(fileExtension: fileExtension ?? "", quality: quality)
         let songFileName = "/\(id).\(streamFormat)"
 
         if streamMethod == "stream" {
