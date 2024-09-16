@@ -9,19 +9,43 @@ import Foundation
 
 extension AudioStationApi {
     /**
+     文件扩展名
+     */
+    public func songStreamFormat(fileExtension: String? = nil, quality: SongStreamQuality) -> String {
+        switch fileExtension {
+        case "m4a":
+            "m4a"
+        default:
+            quality.format
+        }
+    }
+
+    /**
+     传输方式
+     */
+    public func songStreamMethod(fileExtension: String? = nil, quality: SongStreamQuality) -> String {
+        switch fileExtension {
+        case "m4a":
+            "stream"
+        default:
+            quality == .ORIGINAL ? "stream" : "transcode"
+        }
+    }
+
+    /**
      构建音乐播放地址
      m4a: /webapi/AudioStation/stream.cgi/0.m4a?api=SYNO.AudioStation.Stream&version=2&method=stream&id=music_593
      */
     public func songStreamUrl(id: String, fileExtension: String? = nil, quality: SongStreamQuality) throws -> URL {
-        if fileExtension == "m4a" {
-            return try buildStreamURL(id: id, path: "/\(id).m4a", method: "stream")
+        let streamFormat = songStreamFormat(fileExtension: fileExtension, quality: quality)
+        let streamMethod = songStreamFormat(fileExtension: fileExtension, quality: quality)
+        let songFileName = "/\(id).\(streamFormat)"
+
+        if streamMethod == "stream" {
+            return try buildStreamURL(id: id, path: songFileName, method: streamMethod)
+        } else {
+            return try buildStreamURL(id: id, path: songFileName, method: streamMethod, format: streamFormat, bitrate: quality.bitrate)
         }
-
-        // others ...
-        let songFileName = "/\(id).\(quality.format)"
-        let method = quality == .ORIGINAL ? "stream" : "transcode"
-
-        return try buildStreamURL(id: id, path: songFileName, method: method, format: quality.format, bitrate: quality.bitrate)
     }
 
     /**
