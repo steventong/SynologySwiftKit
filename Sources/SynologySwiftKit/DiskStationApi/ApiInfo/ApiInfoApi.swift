@@ -39,7 +39,7 @@ public class ApiInfoApi {
     public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws {
         if cacheEnabled == true && isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60),
            let cachedApiInfo = getApiInfoFromUserDefaults() {
-            Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache: \(cachedApiInfo)")
+            Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache, api cnt: \(cachedApiInfo.count)")
             self.cachedApiInfo = cachedApiInfo
             return
         }
