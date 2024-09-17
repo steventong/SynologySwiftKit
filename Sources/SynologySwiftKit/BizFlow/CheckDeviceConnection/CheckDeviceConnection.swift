@@ -8,9 +8,12 @@
 import Foundation
 
 public class CheckDeviceConnection {
+    static let shared = CheckDeviceConnection()
+
     let quickConnectApi = QuickConnectApi()
     let deviceConnection = DeviceConnection()
     let audioStationApi = AudioStationApi()
+    let dsmInfoApi = DsmInfoApi()
     let pingpong = PingPong()
 
     public init() {
@@ -100,6 +103,31 @@ public class CheckDeviceConnection {
 
             DispatchQueue.main.async {
                 onFinish(false, nil)
+            }
+        }
+    }
+
+    /**
+     query dsmInfo
+     */
+    public func queryDsmInfoApi(success: @escaping (DsmInfo) -> Void, failed: @escaping () -> Void, sessionInvalid: @escaping () -> Void) {
+        Task {
+            do {
+                // 登录状态成功后，设备信息
+                if let synoDeviceDsmInfo = try await self.dsmInfoApi.queryDmsInfo() {
+                    Logger.info("CheckDeviceConnection#queryDsmInfoApi, fetch dsm info: \(synoDeviceDsmInfo)")
+
+                    return success(synoDeviceDsmInfo)
+                } else {
+                    Logger.error("CheckDeviceConnection#queryDsmInfoApi, fetch dsm info failed")
+                    return failed()
+                }
+            } catch DiskStationApiError.invalidSession {
+                Logger.error("CheckDeviceConnection#queryDsmInfoApi, fetch dsm info error, invalidSession")
+                return sessionInvalid()
+            } catch {
+                Logger.error("CheckDeviceConnection#queryDsmInfoApi, fetch dsm info error, error: \(error)")
+                return failed()
             }
         }
     }
