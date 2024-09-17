@@ -8,7 +8,7 @@
 import Foundation
 
 public class CheckDeviceConnection {
-    static let shared = CheckDeviceConnection()
+    public static let shared = CheckDeviceConnection()
 
     let quickConnectApi = QuickConnectApi()
     let deviceConnection = DeviceConnection()
