@@ -12,18 +12,14 @@ final class CheckDeviceConnecctionTests: XCTestCase {
     /**
      testCheckDeviceStatus
      */
-    func testCheckDeviceStatus() async throws {
-        let checkDeviceConnection = CheckDeviceConnection()
-
-        checkDeviceConnection.checkConnectionStatus(fetchNewServerByQuickConnectId: true,
-                                                    onFinish: { success, connection in
-                                                        Logger.info("testCheckDeviceStatus, success = \(success)")
-
-                                                        if let connection = connection {
-                                                            Logger.info("testCheckDeviceStatus, connection = \(connection)")
-                                                        }
-                                                    }, onLoginRequired: {
-                                                        Logger.info("testCheckDeviceStatus, onLoginRequired")
-                                                    })
+    @MainActor
+    func testCheckDeviceStatus() throws {
+        CheckDeviceConnection.shared.checkConnectionStatus(onSuccess: { type, url in
+            Logger.info("testCheckDeviceStatus, onSuccess, connection = \(type) \(url)")
+        }, onFailed: {
+            Logger.info("testCheckDeviceStatus, onFailed")
+        }, onLoginRequired: {
+            Logger.info("testCheckDeviceStatus, onLoginRequired")
+        })
     }
 }

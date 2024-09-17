@@ -36,12 +36,12 @@ public class ApiInfoApi {
     /**
      queryApiInfo
      */
-    public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws {
+    public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws -> Bool {
         if cacheEnabled == true && isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60),
            let cachedApiInfo = getApiInfoFromUserDefaults() {
             Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache, api cnt: \(cachedApiInfo.count)")
             self.cachedApiInfo = cachedApiInfo
-            return
+            return true
         }
 
         cachedApiInfo = try await queryApiInfoFromDsm()
@@ -49,6 +49,7 @@ public class ApiInfoApi {
 
         // save to userdefaults
         saveApiInfoToUserDefaults(apiInfo: cachedApiInfo)
+        return true
     }
 }
 
