@@ -36,7 +36,7 @@ public class CheckDeviceConnection {
                 let pingOK = await pingpong.pingpong(url: connection.url)
                 if pingOK {
                     // 成功回调
-                    onSuccess(connection.type, connection.url)
+                    return onSuccess(connection.type, connection.url)
                 } else if connection.type == .custom_domain {
                     // 域名ping一次失败，结束
                     return onFailed()
@@ -61,11 +61,11 @@ public class CheckDeviceConnection {
 
                     self.queryAudioStationInfo(success: { _ in
                         // 成功回调
-                        onSuccess(connection.type, connection.url)
+                        return onSuccess(connection.type, connection.url)
                     }, failed: {
-                        onFailed()
+                        return onFailed()
                     }, sessionInvalid: {
-                        onLoginRequired()
+                        return onLoginRequired()
                     })
                 } else {
                     Logger.error("CheckDeviceConnection#checkConnectionStatus, checking new connection failed")

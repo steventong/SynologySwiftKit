@@ -22,7 +22,7 @@ public class ApiInfoApi {
         if cachedApiInfo.isEmpty,
            let cachedApiInfo = getApiInfoFromUserDefaults() {
             self.cachedApiInfo = cachedApiInfo
-            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName, load from cache: \(cachedApiInfo)")
+            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName, load from cache: \(cachedApiInfo.count)")
         }
 
         guard let apiInfo = cachedApiInfo[apiName] else {
