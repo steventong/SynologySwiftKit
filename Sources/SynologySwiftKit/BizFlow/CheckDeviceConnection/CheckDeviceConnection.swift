@@ -22,7 +22,6 @@ public class CheckDeviceConnection {
     /**
      check device connection status
      */
-    @MainActor
     public func checkConnectionStatus(fetchNewServerByQuickConnectId: Bool = false,
                                       onSuccess: @escaping (_ type: ConnectionType, _ url: String) -> Void,
                                       onFailed: @escaping () -> Void,
@@ -84,7 +83,6 @@ public class CheckDeviceConnection {
     /**
      query dsmInfo
      */
-    @MainActor
     public func queryDsmInfoApi(success: @escaping (DsmInfo) -> Void, failed: @escaping () -> Void, sessionInvalid: @escaping () -> Void) {
         Task {
             do {
@@ -107,7 +105,6 @@ public class CheckDeviceConnection {
         }
     }
 
-    @MainActor
     public func queryAudioStationInfo(success: @escaping (AudioStationInfo) -> Void, failed: @escaping () -> Void, sessionInvalid: @escaping () -> Void) {
         Task {
             do {
