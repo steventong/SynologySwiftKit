@@ -6,3 +6,10 @@
 //
 
 import Foundation
+
+extension DeleteApi {
+    
+    struct DeleteTask: Decodable {
+        var taskid: String?
+    }
+}

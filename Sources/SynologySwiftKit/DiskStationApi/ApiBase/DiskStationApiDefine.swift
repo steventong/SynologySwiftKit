@@ -75,6 +75,8 @@ public enum DiskStationApiDefine: String {
     case SYNO_AUDIO_STATION_VOICEASSISTANT_STREAM = "SYNO.AudioStation.VoiceAssistant.Stream"
     case SYNO_AUDIO_STATION_WEBPLAYER = "SYNO.AudioStation.WebPlayer"
 
+    case SYNO_FILE_STATION_DELETE = "SYNO.FileStation.Delete"
+    
     /**
      api name
      */
