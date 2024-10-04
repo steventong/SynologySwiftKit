@@ -7,10 +7,7 @@
 
 import Foundation
 
-public class DeleteApi {
-    public init() {
-    }
-
+extension FileStationApi {
     /**
      delete file
 

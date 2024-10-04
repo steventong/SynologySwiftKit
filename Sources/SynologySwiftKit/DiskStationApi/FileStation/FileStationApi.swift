@@ -7,8 +7,7 @@
 
 import Foundation
 
-extension FileStationApi {
-    struct DeleteTask: Decodable {
-        var taskid: String?
+public class FileStationApi {
+    public init() {
     }
 }
