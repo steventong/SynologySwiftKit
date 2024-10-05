@@ -10,6 +10,7 @@ import Foundation
 
 class AlamofireLoggerMonitor: EventMonitor {
     func request<Value>(_ request: DataRequest, didParseResponse response: DataResponse<Value, AFError>) {
-        Logger.info(response.debugDescription)
+        debugPrint(response)
+//        Logger.debug(response.debugDescription)
     }
 }
