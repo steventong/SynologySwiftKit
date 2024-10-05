@@ -23,7 +23,7 @@ extension FileStationApi {
 
      */
     public func delete(path: [String]) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_FILE_STATION_DELETE, method: "start", version: 2, parameters: [
+        let api = try DiskStationApi(api: .SYNO_FILE_STATION_DELETE, method: "start", version: 2, httpMethod: .post, parameters: [
             "accurate_progress": true,
         ])
 
