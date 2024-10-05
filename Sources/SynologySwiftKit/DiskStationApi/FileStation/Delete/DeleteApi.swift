@@ -12,7 +12,9 @@ extension FileStationApi {
      delete file
 
      https://xxx/webapi/entry.cgi
-
+     
+     application/x-www-form-urlencoded; charset=UTF-8
+  
      api: SYNO.FileStation.Delete
      method: start
      version: 2

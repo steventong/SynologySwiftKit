@@ -149,9 +149,6 @@ extension DiskStationApi {
             headers.add(name: "Cookie", value: cookie)
         }
 
-        headers.add(name: "Content-Type", value: "application/json; charset=utf-8")
-        headers.add(name: "Accept-Charset", value: "utf-8")
-
         // send request & get response
         let response = try await sendRequest(httpMethod: httpMethod, apiUrl: apiUrl, headers: headers, parameters: parameters, resultType: resultType)
 
@@ -259,7 +256,7 @@ extension DiskStationApi {
     private func sendRequest<Value: Decodable>(httpMethod: HTTPMethod, apiUrl: URL, headers: HTTPHeaders? = nil, parameters: Parameters,
                                                resultType: Value.Type = Value.self) async throws -> DataResponse<Value, AFError> {
         if httpMethod == .post {
-            return await session.request(apiUrl, method: .post, parameters: parameters, encoding: JSONEncoding.default, headers: headers)
+            return await session.request(apiUrl, method: .post, parameters: parameters, encoding: URLEncoding.default, headers: headers)
                 .serializingDecodable(resultType)
                 .response
         } else {
