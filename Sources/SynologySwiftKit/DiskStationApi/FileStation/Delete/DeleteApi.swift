@@ -24,20 +24,15 @@ extension FileStationApi {
      {"data":{"taskid":"FileStation_1727917133BA0AA933"},"success":true}
 
      */
-    public func delete(path: [String]) async throws -> Bool {
-        let jsonData = try JSONSerialization.data(withJSONObject: path, options: [])
-        if let jsonString = String(data: jsonData, encoding: .utf8) {
-            let api = try DiskStationApi(api: .SYNO_FILE_STATION_DELETE, method: "start", version: 2, httpMethod: .post, parameters: [
-                "accurate_progress": true,
-                "path": jsonString,
-            ])
+    public func delete(path: String) async throws -> Bool {
+        let api = try DiskStationApi(api: .SYNO_FILE_STATION_DELETE, method: "start", version: 2, httpMethod: .post, parameters: [
+            "accurate_progress": true,
+            "path": "[\"\(path)\"]",
+        ])
 
-            let delete = try await api.requestForData(resultType: DeleteTask.self)
+        let delete = try await api.requestForData(resultType: DeleteTask.self)
 
-            Logger.info("delete: \(path), result = \(delete)")
-            return delete.taskid != nil
-        }
-
-        return false
+        Logger.info("delete: \(path), result = \(delete)")
+        return delete.taskid != nil
     }
 }
