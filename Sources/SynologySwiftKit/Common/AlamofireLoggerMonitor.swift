@@ -11,5 +11,8 @@ import Foundation
 class AlamofireLoggerMonitor: EventMonitor {
     func request<Value>(_ request: DataRequest, didParseResponse response: DataResponse<Value, AFError>) {
         Logger.debug(response.debugDescription)
+        if let metrics = response.metrics {
+            debugPrint(metrics)
+        }
     }
 }
