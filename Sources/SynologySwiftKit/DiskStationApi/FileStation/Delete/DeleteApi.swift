@@ -12,9 +12,9 @@ extension FileStationApi {
      delete file
 
      https://xxx/webapi/entry.cgi
-     
+
      application/x-www-form-urlencoded; charset=UTF-8
-  
+
      api: SYNO.FileStation.Delete
      method: start
      version: 2
@@ -25,14 +25,19 @@ extension FileStationApi {
 
      */
     public func delete(path: [String]) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_FILE_STATION_DELETE, method: "start", version: 2, httpMethod: .post, parameters: [
-            "accurate_progress": true,
-            "path": path,
-        ])
+        let jsonData = try JSONSerialization.data(withJSONObject: path, options: [])
+        if let jsonString = String(data: jsonData, encoding: .utf8) {
+            let api = try DiskStationApi(api: .SYNO_FILE_STATION_DELETE, method: "start", version: 2, httpMethod: .post, parameters: [
+                "accurate_progress": true,
+                "path": jsonString,
+            ])
 
-        let delete = try await api.requestForData(resultType: DeleteTask.self)
+            let delete = try await api.requestForData(resultType: DeleteTask.self)
 
-        Logger.info("delete: \(path), result = \(delete)")
-        return delete.taskid != nil
+            Logger.info("delete: \(path), result = \(delete)")
+            return delete.taskid != nil
+        }
+
+        return false
     }
 }
