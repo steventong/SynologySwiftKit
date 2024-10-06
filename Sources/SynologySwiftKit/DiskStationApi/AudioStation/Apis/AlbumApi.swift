@@ -11,7 +11,16 @@ extension AudioStationApi {
     /**
      album list
 
+     https://:5001/webapi/AudioStation/album.cgi
+
+     limit: 1000
+     method: list
+     library: shared
      api: SYNO.AudioStation.Album
+     additional: avg_rating
+     version: 3
+     sort_by: name
+     sort_direction: ASC
 
      {
          "data": {
@@ -36,13 +45,23 @@ extension AudioStationApi {
      }
 
      */
-    public func albumList(library: String, limit: Int, sort: (sort_by: String, sort_direction: String)?) async throws -> (total: Int, data: [Album]) {
+    public func albumList(limit: Int = 1000, offset: Int = 0,
+                          library: String = "shared",
+                          filter: String? = nil, keyword: String? = nil,
+                          sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Album]) {
         var parameters: [String: Any] = [
             "limit": limit,
-            "offset": 0,
-            "library": "shared",
-            "additional": "avg_rating",
+            "offset": offset,
+            "library": library,
         ]
+
+        if let filter {
+            parameters["filter"] = filter
+        }
+
+        if let keyword {
+            parameters["keyword"] = keyword
+        }
 
         if let sort {
             parameters["sort_by"] = sort.sort_by
