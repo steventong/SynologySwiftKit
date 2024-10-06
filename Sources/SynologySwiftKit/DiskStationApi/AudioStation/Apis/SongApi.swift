@@ -11,13 +11,13 @@ extension AudioStationApi {
     /**
      query song list
      */
-    public func songList(limit: Int, offset: Int,
+    public func songList(limit: Int = 100, offset: Int = 0, library: String = "all",
                          additional: String? = "song_tag,song_audio,song_rating",
                          song_rating_meq: Int? = nil,
                          sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
         // 通用参数
         var parameters: [String: Any] = [
-            "library": "all",
+            "library": library,
             "limit": limit,
             "offset": offset,
         ]
@@ -25,7 +25,6 @@ extension AudioStationApi {
         // 动态参数
         if let additional {
             parameters["additional"] = additional
-//            "additional": "song_tag,song_audio,song_rating",
         }
 
         if let song_rating_meq {
