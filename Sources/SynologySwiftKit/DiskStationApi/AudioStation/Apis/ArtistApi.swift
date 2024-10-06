@@ -14,14 +14,17 @@ extension AudioStationApi {
     public func artistList(limit: Int = 1000, offset: Int = 0,
                            library: String = "shared",
                            filter: String? = nil, keyword: String? = nil,
-                           sort_by: String = "name", sort_direction: String = "ASC") async throws -> (total: Int, data: [Artist]) {
+                           sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Artist]) {
         var parameters: [String: Any] = [
             "library": library,
             "limit": limit,
             "offset": offset,
-            "sort_by": sort_by,
-            "sort_direction": sort_direction,
         ]
+
+        if let sort {
+            parameters["sort_by"] = sort.sort_by
+            parameters["sort_direction"] = sort.sort_direction
+        }
 
         if let filter {
             parameters["filter"] = filter
