@@ -46,7 +46,7 @@ extension AudioStationApi {
 
      */
     public func albumList(limit: Int = 1000, offset: Int = 0,
-                          library: String = "shared",
+                          library: String = "shared", additional: String? = nil,
                           filter: String? = nil, keyword: String? = nil,
                           sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Album]) {
         var parameters: [String: Any] = [
@@ -54,6 +54,10 @@ extension AudioStationApi {
             "offset": offset,
             "library": library,
         ]
+
+        if let additional {
+            parameters["additional"] = additional
+        }
 
         if let filter {
             parameters["filter"] = filter
@@ -68,7 +72,7 @@ extension AudioStationApi {
             parameters["sort_direction"] = sort.sort_direction
         }
 
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_ALBUM, method: "list", version: 3, parameters: parameters)
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_ALBUM, method: "list", version: 3, httpMethod: .post, parameters: parameters)
 
         let result = try await api.requestForData(resultType: AlbumListResult.self)
         return (result.total, result.albums)
