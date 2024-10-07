@@ -7,13 +7,33 @@
 
 import Foundation
 
+/**
+ TODO: check library: shared, persional
+ */
 extension AudioStationApi {
     /**
      query song list
+
+     https://:5001/webapi/AudioStation/song.cgi
+
+     limit: 100000
+     method: list
+     library: shared
+     api: SYNO.AudioStation.Song
+     additional: song_tag,song_audio,song_rating
+     artist: 方大同
+     album: 【贝壳音乐 环绕5.1】
+     album_artist:
+     version: 3
+     sort_by: song_rating
+     sort_direction: DESC
+     composer: 金玟岐
+     genre: 流行歌曲
      */
-    public func songList(limit: Int = 100, offset: Int = 0, library: String = "all",
+    public func songList(limit: Int = 100, offset: Int = 0, library: String = "shared",
                          additional: String? = "song_tag,song_audio,song_rating",
-                         song_rating_meq: Int? = nil,
+                         artist: String? = nil, album: String? = nil, album_artist: String? = nil,
+                         composer: String? = nil, genre: String? = nil, song_rating_meq: Int? = nil,
                          sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
         // 通用参数
         var parameters: [String: Any] = [
@@ -45,11 +65,11 @@ extension AudioStationApi {
     /**
      build song fetch url
      */
-    public func songListUrl(limit: Int, offset: Int) throws -> URL {
+    public func songListUrl(limit: Int, offset: Int, library: String = "shared") throws -> URL {
         // 通用参数
         let parameters: [String: Any] = [
             "additional": "song_tag,song_audio,song_rating",
-            "library": "all",
+            "library": library,
             "limit": limit,
             "offset": offset,
         ]
