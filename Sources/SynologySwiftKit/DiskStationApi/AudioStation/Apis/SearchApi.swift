@@ -76,6 +76,7 @@ extension AudioStationApi {
      */
     public func searchList(keyword: String, library: String = "shared",
                            limit: Int = 10, offset: Int = 0,
+                           additional: String = "song_tag,song_audio,song_rating",
                            sort: (sort_by: String, sort_direction: String) = ("title", "ASC")) async throws -> (albumTotal: Int, albums: [Album], artistTotal: Int, artists: [Artist], songTotal: Int, songs: [Song]) {
         let parameters: [String: Any] = [
             "keyword": keyword,
@@ -84,8 +85,7 @@ extension AudioStationApi {
             "offset": offset,
             "sort_by": sort.sort_by,
             "sort_direction": sort.sort_direction,
-            "additional": "song_tag,song_audio,song_rating",
-//            "additional": "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
+            "additional": additional,
         ]
 
         let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SEARCH, method: "list", version: 1, httpMethod: .post, parameters: parameters)
