@@ -85,6 +85,7 @@ extension AudioStationApi {
             "sort_by": sort.sort_by,
             "sort_direction": sort.sort_direction,
             "additional": "song_tag,song_audio,song_rating",
+//            "additional": "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
         ]
 
         let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_SEARCH, method: "list", version: 1, httpMethod: .post, parameters: parameters)
