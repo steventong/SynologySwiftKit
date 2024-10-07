@@ -31,9 +31,9 @@ extension AudioStationApi {
      genre: 流行歌曲
      */
     public func songList(limit: Int = 100, offset: Int = 0, library: String = "shared",
-                         additional: String? = "song_tag,song_audio,song_rating",
                          artist: String? = nil, album: String? = nil, album_artist: String? = nil,
                          composer: String? = nil, genre: String? = nil, song_rating_meq: Int? = nil,
+                         additional: String? = "song_tag,song_audio,song_rating",
                          sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
         // 通用参数
         var parameters: [String: Any] = [
@@ -43,12 +43,32 @@ extension AudioStationApi {
         ]
 
         // 动态参数
-        if let additional {
-            parameters["additional"] = additional
+        if let artist {
+            parameters["artist"] = artist
+        }
+
+        if let album {
+            parameters["album"] = album
+        }
+
+        if let album_artist {
+            parameters["album_artist"] = album_artist
+        }
+
+        if let composer {
+            parameters["composer"] = composer
+        }
+
+        if let genre {
+            parameters["genre"] = genre
         }
 
         if let song_rating_meq {
             parameters["song_rating_meq"] = song_rating_meq
+        }
+
+        if let additional {
+            parameters["additional"] = additional
         }
 
         if let sort {
