@@ -25,13 +25,16 @@ extension AudioStationApi {
     /**
      query playlist songs
      */
-    public func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async throws -> (total: Int, data: [Song]) {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, parameters: [
+    public func playlistSongList(id: String, library: String,
+                                 additional: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
+                                 limit: Int, offset: Int,
+                                 sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, httpMethod: .post, parameters: [
             "id": id,
-            "library": "all",
-            "additional": "songs,songs_song_tag,songs_song_audio,songs_song_rating",
-            "songs_limit": songsLimit,
-            "songs_offset": songsOffset,
+            "library": library,
+            "additional": additional,
+            "songs_limit": limit,
+            "songs_offset": offset,
         ])
 
         let result = try await api.requestForData(resultType: PlaylistGetInfoResult.self)
