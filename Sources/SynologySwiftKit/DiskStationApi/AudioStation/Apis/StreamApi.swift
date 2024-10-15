@@ -9,30 +9,6 @@ import Foundation
 
 extension AudioStationApi {
     /**
-     文件扩展名
-     */
-    public func songStreamFormat(fileExtension: String, quality: SongStreamQuality) -> String {
-        switch fileExtension {
-        case "m4a":
-            "m4a"
-        default:
-            quality.format
-        }
-    }
-
-    /**
-     传输方式
-     */
-    public func songStreamMethod(fileExtension: String, quality: SongStreamQuality) -> String {
-        switch fileExtension {
-        case "m4a":
-            "stream"
-        default:
-            quality == .ORIGINAL ? "stream" : "transcode"
-        }
-    }
-
-    /**
      构建音乐播放地址
      m4a: /webapi/AudioStation/stream.cgi/0.m4a?api=SYNO.AudioStation.Stream&version=2&method=stream&id=music_593
      */
@@ -42,8 +18,10 @@ extension AudioStationApi {
         let songFileName = "/\(id).\(streamFormat)"
 
         if streamMethod == "stream" {
+            // 原始格式播放
             return try buildStreamURL(id: id, path: songFileName, method: streamMethod)
         } else {
+            // 转码播放
             return try buildStreamURL(id: id, path: songFileName, method: streamMethod, format: streamFormat, bitrate: quality.bitrate)
         }
     }
@@ -54,6 +32,34 @@ extension AudioStationApi {
     public func songStreamUrl(song: Song, quality: SongStreamQuality) throws -> URL {
         // todo
         return URL(string: "")!
+    }
+
+    /**
+     文件扩展名
+     */
+    public func songStreamFormat(fileExtension: String, quality: SongStreamQuality) -> String {
+        switch fileExtension.lowercased() {
+        case "m4a":
+            "m4a"
+        case "ogg":
+            "ogg"
+        default:
+            quality.format
+        }
+    }
+
+    /**
+     传输方式
+     */
+    public func songStreamMethod(fileExtension: String, quality: SongStreamQuality) -> String {
+        switch fileExtension.lowercased() {
+        case "m4a":
+            "stream"
+        case "ogg":
+            "stream"
+        default:
+            quality == .ORIGINAL ? "stream" : "transcode"
+        }
     }
 }
 
