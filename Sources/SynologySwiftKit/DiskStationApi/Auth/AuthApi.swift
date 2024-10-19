@@ -78,7 +78,7 @@ extension AuthApi {
     /**
      getDeviceName
      */
-    private func getDeviceName() -> String {
+    public func getDeviceName() -> String {
         let deviceNameKey = UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_NAME.keyName
         if let deviceName = UserDefaults.standard.string(forKey: deviceNameKey) {
             return deviceName
