@@ -303,6 +303,12 @@ extension DiskStationApi {
             }
 
             return "id=\(sid)"
+        } else if let sid = parameters["sid"] {
+            if let did = parameters["did"] {
+                return "id=\(sid); did=\(did)"
+            } else {
+                return "id=\(sid)"
+            }
         }
 
         return nil
