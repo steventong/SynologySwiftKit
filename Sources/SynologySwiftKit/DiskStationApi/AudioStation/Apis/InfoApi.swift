@@ -11,7 +11,7 @@ extension AudioStationApi {
     /**
      queryAudioStationInfo
      */
-    public func queryAudioStationInfo(cacheEnabled: Bool? = false) async throws -> AudioStationInfo {
+    public func queryAudioStationInfo(cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
         // 使用上次的记录, 从缓存获取，有效期一天
         if cacheEnabled == true,
            isAudioStationInfoCacheValid(),
@@ -19,7 +19,7 @@ extension AudioStationApi {
             return cachedAudioStationInfo
         }
 
-        let audioStationInfo = try await queryAudioStationInfoFromDsm()
+        let audioStationInfo = try await queryAudioStationInfoFromDsm(sid: sid, did: did)
         Logger.debug("SynologySwiftKit.InfoApi, queryAudioStationInfo, query from api: \(audioStationInfo)")
 
         // save to userdefaults
@@ -46,9 +46,16 @@ extension AudioStationApi {
     /**
      queryAudioStationInfoFromDsm
      */
-    private func queryAudioStationInfoFromDsm() async throws -> AudioStationInfo {
+    private func queryAudioStationInfoFromDsm(sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
+        var parameters: [String: Any] = [:]
+        if let sid {
+            parameters["sid"] = sid
+            parameters["did"] = did
+        }
+
         // 从接口查询
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_INFO, method: "getinfo", version: 6)
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_INFO, method: "getinfo", version: 6, httpMethod: .post,
+                                     parameters: parameters, buildSidOnQuery: false, buildSidOnCookie: false)
 
         let audioStationInfo = try await api.requestForData(resultType: AudioStationInfo.self)
 
