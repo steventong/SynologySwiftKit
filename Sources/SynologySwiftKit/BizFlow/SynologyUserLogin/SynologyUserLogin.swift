@@ -24,7 +24,7 @@ public actor SynologyUserLogin {
                       onProgress: @escaping (SynologyUserLoginStep) -> Void,
                       onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
         // progress
-        onProgress(.STEP_START)
+        onProgress(.STEP_START(server: server))
 
         // 保存登录偏好设置
         DeviceConnection.shared.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
@@ -76,7 +76,7 @@ public actor SynologyUserLogin {
                       onProgress: @escaping (SynologyUserLoginStep) -> Void,
                       onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
         // progress
-        onProgress(.STEP_START)
+        onProgress(.STEP_START(server: server))
 
         // 保存登录偏好设置
         DeviceConnection.shared.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
