@@ -55,7 +55,7 @@ extension AudioStationApi {
 
         // 从接口查询
         let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_INFO, method: "getinfo", version: 6, httpMethod: .post,
-                                     parameters: parameters, buildSidOnQuery: false, buildSidOnCookie: false)
+                                     parameters: parameters, buildSidOnQuery: sid == nil, buildSidOnCookie: sid == nil)
 
         let audioStationInfo = try await api.requestForData(resultType: AudioStationInfo.self)
 
