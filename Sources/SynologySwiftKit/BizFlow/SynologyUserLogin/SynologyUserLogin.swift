@@ -103,8 +103,8 @@ public actor SynologyUserLogin {
         // 开始登录
         onProgress(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
 
-        // 登录，如果有异常会抛出，没有异常则成功
-        let audioStationInfo = try await audioStationApi.queryAudioStationInfo()
+        // 通过接口检查登录，如果有异常会抛出，没有异常则成功
+        let audioStationInfo = try await audioStationApi.queryAudioStationInfo(sid: sid, did: did)
 
         // 登录成功
         DeviceConnection.shared.updateLoginSession(username: username, sid: sid, did: did)
