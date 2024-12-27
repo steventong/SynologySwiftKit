@@ -273,7 +273,7 @@ extension DiskStationApi {
      */
     private func apiUrl(apiPath: String) throws -> URL {
         if let connection = DeviceConnection.shared.getCurrentConnectionUrl(),
-           let connectionURL = URL(string: "\(connection.url)\(apiPath)") {
+           let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
 

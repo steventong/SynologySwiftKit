@@ -94,6 +94,7 @@ extension QuickConnectApi {
         }
 
         struct Service: Decodable {
+            let id: String? // dsm dsm_https
             let port: Int?
             let ext_port: Int?
             let pingpong: String?
