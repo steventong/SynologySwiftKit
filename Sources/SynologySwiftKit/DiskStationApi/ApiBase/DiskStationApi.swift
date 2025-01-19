@@ -25,7 +25,14 @@ struct DiskStationApi {
      */
     init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10,
          buildSidOnQuery: Bool? = nil, buildSidOnCookie: Bool? = nil) throws {
-        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+        // 根据地址初始化。
+        if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
+           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
+           let url = URL(string: connectionUrl.url) {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+        } else {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+        }
 
         let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version, parameters: parameters)
 
@@ -50,7 +57,14 @@ struct DiskStationApi {
      custom init
      */
     init(api: DiskStationApiDefine, path: String, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
-        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+        // 根据地址初始化。
+        if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
+           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
+           let url = URL(string: connectionUrl.url) {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+        } else {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+        }
 
         name = api.apiName
         method = ""
