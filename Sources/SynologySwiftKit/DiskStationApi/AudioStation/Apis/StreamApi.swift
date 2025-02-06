@@ -79,12 +79,14 @@ extension AudioStationApi {
      是否支持转码播放
      */
     private func isSupportTranscoding() -> Bool {
-        // 基本的机器都支持转码，应该从nas的接口获取 transcode_capability
+        // 基本的机器都支持转码?
+        // TODO 应该从nas的接口获取 transcode_capability
         true
     }
 
     /**
      是否支持直接传音频流？
+     <p>DS audio 支持以下格式（其余格式无法播放）：AAC、AIF、AIFF、M4A、M4B、MP3、WAV、APE、FLAC、Ogg Vorbis、WMA、WMA VBR、WMA PRO。</p>
      */
     private func isStreamAudio(path: String, bitrate: Int, frequency: Int) -> Bool {
         if frequency > 48000 {

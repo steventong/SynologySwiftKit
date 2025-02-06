@@ -257,7 +257,8 @@ extension QuickConnectApi {
 
             serverInfo.server?.interface?.forEach({ interface in
                 interface.ipv6?.forEach({ ipv6 in
-                    if let host = ipv6.address,
+                    if ipv6.addr_type == 0,
+                       let host = ipv6.address,
                        let port = serverInfo.service?.port {
                         lanv6Values.append("\(httpScheme)\(host):\(port)")
                     }
@@ -273,8 +274,26 @@ extension QuickConnectApi {
         if targetType.contains(.wanv6) {
             var wanv6Values: [String] = []
 
+            // 解析 ipv6地址+exp_port
+            serverInfo.server?.interface?.forEach({ interface in
+                interface.ipv6?.forEach({ ipv6 in
+                    if ipv6.addr_type == 0,
+                       let host = ipv6.address,
+                       let port = serverInfo.service?.ext_port {
+                        wanv6Values.append("\(httpScheme)\(host):\(port)")
+                    }
+                })
+            })
+
+            // 解析其他ipv6地址 + port
             if let host = serverInfo.server?.external?.ipv6,
                let port = serverInfo.service?.port {
+                wanv6Values.append("\(httpScheme)\(host):\(port)")
+            }
+
+            // 解析其他ipv6地址 + ext_port
+            if let host = serverInfo.server?.external?.ipv6,
+               let port = serverInfo.service?.ext_port {
                 wanv6Values.append("\(httpScheme)\(host):\(port)")
             }
 
