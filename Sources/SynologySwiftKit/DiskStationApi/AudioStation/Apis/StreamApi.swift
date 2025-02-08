@@ -112,16 +112,16 @@ extension AudioStationApi {
         }
 
         // 根据文件类型来判断
-        if frequency > 48000 {
-            Logger.info("采样率大于48k，使用转码，path: \(path), frequency: \(frequency)")
-            return .TRANSCODE
-        }
+//        if frequency > 48000 {
+//            Logger.info("采样率大于48k，使用转码，path: \(path), frequency: \(frequency)")
+//            return .TRANSCODE
+//        }
 
         let _path = path.lowercased()
 
-        if _path.hasSuffix(".mp3") {
-            return .TRANSCODE
-        }
+//        if _path.hasSuffix(".mp3") {
+//            return .TRANSCODE
+//        }
 
 //        if _path.hasSuffix(".3gp") || _path.hasSuffix(".mp4") {
 //            Logger.info("特定格式，使用转码，path: \(path), .3gp/.mp4")
@@ -134,7 +134,7 @@ extension AudioStationApi {
 //        }
 
         if _path.hasSuffix(".m4a") {
-            Logger.info("特定格式，使用串流，path: \(path), .m4a")
+            Logger.info("特定格式：.m4a，使用串流，path: \(path)")
             return .STREAM
         }
 
