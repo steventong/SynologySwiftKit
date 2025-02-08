@@ -138,6 +138,10 @@ extension AudioStationApi {
             return .STREAM
         }
 
+        if _path.hasSuffix(".dsf") || _path.hasSuffix(".dff") {
+            Logger.info("特定格式：.dsf/.dff，使用转码，path: \(path)")
+            return .TRANSCODE
+        }
 //
 //        if _path.hasSuffix(".m4b") {
 //            return true
