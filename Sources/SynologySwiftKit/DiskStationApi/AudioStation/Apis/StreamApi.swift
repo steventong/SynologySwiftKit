@@ -142,11 +142,21 @@ extension AudioStationApi {
             Logger.info("特定格式：.dsf/.dff，使用转码，path: \(path)")
             return .TRANSCODE
         }
-//
+
+        if _path.hasSuffix(".ogg") {
+            Logger.info("特定格式：.ogg，使用转码，path: \(path)")
+            return .TRANSCODE
+        }
+
+        if _path.hasSuffix(".mkv") {
+            Logger.info("特定格式：.mkv，使用转码，path: \(path)")
+            return .TRANSCODE
+        }
+
 //        if _path.hasSuffix(".m4b") {
 //            return true
 //        }
-//
+
         if _path.hasSuffix(".aac") {
             return .TRANSCODE
         }
@@ -155,9 +165,6 @@ extension AudioStationApi {
 //            return true
 //        }
 //
-//        if _path.hasSuffix(".ogg") {
-//            return true
-//        }
 //
 //        if _path.hasSuffix(".mkv") {
 //            return false
