@@ -143,9 +143,9 @@ extension AudioStationApi {
 //            return true
 //        }
 //
-//        if _path.hasSuffix(".aac") {
-//            return true
-//        }
+        if _path.hasSuffix(".aac") {
+            return .TRANSCODE
+        }
 //
 //        if _path.hasSuffix(".flac") {
 //            return true
@@ -216,7 +216,7 @@ extension AudioStationApi {
     private func buildStreamUrl(fileExtension: String, parameters: inout [String: Any]) throws -> URL {
         parameters["format"] = fileExtension
 
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, path: "/0.\(fileExtension)", method: "stream", version: 1, parameters: parameters)
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_STREAM, path: "/0\(fileExtension)", method: "stream", version: 1, parameters: parameters)
         return try api.assembleRequestUrl()
     }
 
