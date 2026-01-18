@@ -191,9 +191,7 @@ public struct ApiDefinition {
 Sources/SynologySwiftKit/
 ├── BizFlow/
 ├── Common/
-├── Core/Networking/ (空目录)
-├── DiskStationApi/
-└── Network/ (空目录)
+└── DiskStationApi/
 ```
 
 **建议**:
