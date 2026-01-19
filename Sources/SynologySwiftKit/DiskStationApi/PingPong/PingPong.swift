@@ -1,25 +1,23 @@
 //
-//  File.swift
-//
+//  PingPong.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
 //
 
-import Alamofire
 import Foundation
 
 class PingPong {
-    let session: Session
+    private let httpClient: HTTPClient
 
     init() {
-        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: 3.6)
+        httpClient = HTTPClient(timeout: 3.6)
     }
 
-    /**
-      pingpong url
-     */
+    /// 并发测试多个连接地址的可达性
+    /// - Parameter connections: 连接类型到地址列表的映射
+    /// - Returns: 可达的连接类型到地址的映射
     func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
-        // 多个地址并发查询
         return await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: [ConnectionType: String].self, body: { taskGroup in
             // 子任务
             connections.forEach { connection in
@@ -47,52 +45,28 @@ class PingPong {
         })
     }
 
-    /**
-     pingpong test
-     https://host:port/webman/pingpong.cgi?action=cors&quickconnect=true
-     */
+    /// 测试单个 URL 的可达性
+    /// - Parameter url: 要测试的 URL
+    /// - Returns: 是否可达
     func pingpong(url: String) async -> Bool {
-        Logger.debug("send request: pingpong \(url)")
         let requestUrl = buildPingPongUrl(url: url)
 
-        do {
-            let result = try await session
-                .request(requestUrl)
-                .serializingDecodable(PingPongResult.self)
-                .value
-
-            return result.success
-        } catch {
-            switch error {
-            case let AFError.sessionTaskFailed(error: sessionError):
-                let sessionError = sessionError as NSError
-                switch sessionError.domain {
-                case NSURLErrorDomain:
-                    switch sessionError.code {
-                    case NSURLErrorSecureConnectionFailed:
-                        // 发生了SSL错误，无法建立与该服务器的安全连接。
-                        print("pingpong ssl error: \(error)")
-                    default:
-                        print("pingpong error: \(error)")
-                    }
-                default:
-                    print("pingpong error: \(error)")
-                }
-                print("pingpong error: \(error)")
-            default:
-                print("pingpong error: \(error)")
-            }
+        guard let url = URL(string: requestUrl) else {
+            Logger.debug("send request: pingpong invalid url \(requestUrl)")
+            return false
         }
 
-        Logger.debug("send request: pingpong fail \(url)")
-        return false
+        do {
+            let result: PingPongResult = try await httpClient.get(url: url)
+            return result.success
+        } catch {
+            return false
+        }
     }
 }
 
 extension PingPong {
-    /**
-     buildPingPongUrl
-     */
+    /// 构建 PingPong URL
     private func buildPingPongUrl(url: String) -> String {
         return "\(url)/webman/pingpong.cgi?action=cors&quickconnect=true"
     }

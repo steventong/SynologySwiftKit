@@ -1,30 +1,25 @@
 //
-//  File.swift
-//
+//  QuickConnectApi.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/24.
 //
 
-import Alamofire
 import Foundation
 
 public actor QuickConnectApi {
-    let session: Session
+    private let httpClient: HTTPClient
     let pingpong = PingPong()
 
     public init() {
-        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: 10)
+        httpClient = HTTPClient(timeout: 10)
     }
 
-    /**
-     获取设备地址
-     */
+    /// 通过 QuickConnect ID 获取设备连接地址
     public func getDeviceConnectionByQuickConnectId(quickConnectId: String, enableHttps: Bool, save: Bool? = false) async throws -> (type: ConnectionType, url: String)? {
         // 获取 serverInfo 信息
-        // 从群晖服务API接口获取serverInfo信息，包含 get_server_info和request_tunnel，返回可用的地址。
         let serverInfo = try await queryAvaliableServerInfo(quickConnectId: quickConnectId, enableHttps: enableHttps)
 
-        // 没有找到设备信息
         guard let serverInfo else {
             Logger.error("QuickConnectApi.getDeviceConnectionByQuickConnectId query device serverInfo failed")
             throw QuickConnectError.serverInfoNotFound
@@ -33,7 +28,7 @@ public actor QuickConnectApi {
         // 从站点返回中解析设备连接信息
         let connections = handleSynologyServiceApiResult(serverInfo: serverInfo.serverInfo, enableHttps: enableHttps, isRequestTunnel: false)
 
-        // 测试获取连接信息， 并请求 requestTunnel（如果没有relay类型的地址）
+        // 测试获取连接信息，并请求 requestTunnel（如果没有 relay 类型的地址）
         let connectionUrl = await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: (connnectionType: ConnectionType, url: String)?.self, body: { taskGroup in
             // 子任务：pingpong 获取到的地址, 测试可达性
             taskGroup.addTask {
@@ -78,45 +73,31 @@ public actor QuickConnectApi {
 }
 
 extension QuickConnectApi {
-    /**
-     判断是否是 quickConnect ID
-     */
+    /// 判断是否是 QuickConnect ID
     func isQuickConnectId(server: String) -> Bool {
         if server.contains(".") {
             return false
         }
-
         return true
     }
 
-    /**
-     获取 serverInfo
-     */
+    /// 获取 serverInfo
     private func queryAvaliableServerInfo(quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
-        // 通过 quick connect Id 查询机器的地址连接信息
         let synologyServer = fetchSynologyServerFromCache(quickConnectId: quickConnectId)
 
-        // 通过 get_server_info 查询 quickConnectId 机器信息和连接信息
-        // 获取设备连接信息
         let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .get_server_info)
 
-        // 成功返回
         if serverInfo.errno == 0 {
             Logger.debug("quickConnectId: \(quickConnectId), find avaliable serverInfo: \(serverInfo)")
             return (synologyServer, serverInfo)
         }
 
-        // 解析机器信息和连接信息 serverInfos - 服务区域不正确（errno = 4，suberrno = 2），换区域重新请求 get_server_info
-        // errno = 4，suberrno = 0 也是要在其他站点
-        // 第一次请求的结果处理：需要处理sites信息，转发到其他站点
-        // 不将errno 作为判断条件，只要是有sites，就查询其他站点。
+        // 需要处理 sites 信息，转发到其他站点
         if let synologyServers = serverInfo.sites, !synologyServers.isEmpty {
             Logger.debug("quickConnectId: \(quickConnectId), find avaliable serverInfo on sites: \(synologyServers), errno = \(serverInfo.errno), suberrno=\(serverInfo.suberrno ?? -999)")
 
-            // 在新的区域站点调用 get_server_info
             let multiServerInfos = try await invokeSynologyServiceApi(synologyServers: synologyServers, quickConnectId: quickConnectId, enableHttps: enableHttps)
             if let multiServerInfos {
-                // 缓存地址下次使用
                 saveSynologyServerToCache(quickConnectId: quickConnectId, synologyServer: multiServerInfos.synologyServer)
                 return multiServerInfos
             }
@@ -126,9 +107,7 @@ extension QuickConnectApi {
         return nil
     }
 
-    /**
-     fetch synology server host
-     */
+    /// 从缓存获取 synology server
     private func fetchSynologyServerFromCache(quickConnectId: String) -> String {
         let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
 
@@ -141,9 +120,7 @@ extension QuickConnectApi {
         return SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER
     }
 
-    /**
-     保存 synology server
-     */
+    /// 保存 synology server 到缓存
     private func saveSynologyServerToCache(quickConnectId: String, synologyServer: String) {
         let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
 
@@ -153,14 +130,11 @@ extension QuickConnectApi {
         Logger.debug("persist user-defaults: \(key)=\(synologyServer)")
     }
 
-    /**
-     并发多个 get_server_info 请求
-     */
+    /// 并发多个 get_server_info 请求
     private func invokeSynologyServiceApi(synologyServers: [String], quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
         Logger.debug("send request: \(synologyServers)")
         return await withTaskGroup(of: (synologyServer: String, serverInfo: ServerInfo)?.self, returning: (synologyServer: String, serverInfo: ServerInfo)?.self, body: { taskGroup in
 
-            // 子任务
             for synologyServer in synologyServers {
                 taskGroup.addTask {
                     do {
@@ -171,7 +145,6 @@ extension QuickConnectApi {
                         }
                     } catch {
                         Logger.debug("invokeSynologyGetServerInfo error: \(error)")
-                        print(error)
                     }
 
                     Logger.debug("get_server_info failed, from \(synologyServer)")
@@ -179,7 +152,6 @@ extension QuickConnectApi {
                 }
             }
 
-            // 结果
             for await task in taskGroup {
                 if let task {
                     return task
@@ -190,26 +162,20 @@ extension QuickConnectApi {
         })
     }
 
-    /**
-     发起 get_server_info 请求
-     */
+    /// 发起 get_server_info 请求
     private func invokeSynologyServiceApi(synologyServer: String, quickConnectId: String, enableHttps: Bool, command: QuickConnectServerCommand) async throws -> ServerInfo {
-        // https
-        // dsm_portal_https dsm_portal
-        // dsm_https dsm
         let requestParams = SynoGetServerInfoRequest(id: enableHttps ? .dsm_https : .dsm, command: command, serverID: quickConnectId)
 
-        // request
         let synologyServerUrl = buildSynologyServerUrl(server: synologyServer)
-        let getServerInfo = session.request(synologyServerUrl, method: .post, parameters: requestParams, encoder: JSONParameterEncoder.default)
-            .serializingDecodable(ServerInfo.self)
-
-        return try await getServerInfo.value
+        
+        guard let url = URL(string: synologyServerUrl) else {
+            throw QuickConnectError.invalidUrl
+        }
+        
+        return try await httpClient.postJSON(url: url, body: requestParams)
     }
 
-    /**
-     解析地址
-     */
+    /// 解析地址
     private func handleSynologyServiceApiResult(serverInfo: ServerInfo, enableHttps: Bool, isRequestTunnel: Bool) -> [ConnectionType: [String]] {
         var connections: [ConnectionType: [String]] = [:]
         let httpScheme = enableHttps ? "https://" : "http://"
@@ -274,7 +240,6 @@ extension QuickConnectApi {
         if targetType.contains(.wanv6) {
             var wanv6Values: [String] = []
 
-            // 解析 ipv6地址+exp_port
             serverInfo.server?.interface?.forEach({ interface in
                 interface.ipv6?.forEach({ ipv6 in
                     if ipv6.addr_type == 0,
@@ -285,13 +250,11 @@ extension QuickConnectApi {
                 })
             })
 
-            // 解析其他ipv6地址 + port
             if let host = serverInfo.server?.external?.ipv6,
                let port = serverInfo.service?.port {
                 wanv6Values.append("\(httpScheme)\(host):\(port)")
             }
 
-            // 解析其他ipv6地址 + ext_port
             if let host = serverInfo.server?.external?.ipv6,
                let port = serverInfo.service?.ext_port {
                 wanv6Values.append("\(httpScheme)\(host):\(port)")
@@ -347,13 +310,10 @@ extension QuickConnectApi {
         return [.lan, .wan, .lanv6, .wanv6, .ddns, .relay]
     }
 
-    /**
-     pingpong
-     */
+    /// pingpong
     private func pingpongConnections(connections: [ConnectionType: [String]]) async -> (ConnectionType, String)? {
         let avaliablePingpong = await pingpong.pingpong(connections: connections)
         if !avaliablePingpong.isEmpty {
-            // 优先返回的顺序
             for connectionType in ConnectionType.ordered {
                 if let url = avaliablePingpong[connectionType] {
                     return (connectionType, url)
@@ -364,22 +324,17 @@ extension QuickConnectApi {
         return nil
     }
 
-    /**
-     relay connection
-     */
+    /// relay connection
     private func requestForRelayConnection(connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String, enableHttps: Bool) async -> (ConnectionType, String)? {
-        // 包含 relay
         if connections.keys.contains(.relay) {
             return nil
         }
 
-        // 如果不包含 relay，发出 requestTunnel, synology relay server
         Logger.debug("relay connection is not present, send request_tunnel request, synologyServer = \(synologyServer)")
 
         do {
             let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .request_tunnel)
 
-            // 从站点返回中解析设备连接信息
             let connections = handleSynologyServiceApiResult(serverInfo: serverInfo, enableHttps: enableHttps, isRequestTunnel: true)
             if let relay = connections[.relay]?.first {
                 Logger.debug("parse relay connection: \(relay)")
@@ -387,15 +342,12 @@ extension QuickConnectApi {
             }
         } catch {
             Logger.debug("parse relay connection error: \(error)")
-            print(error)
         }
 
         return nil
     }
 
-    /**
-     buildSynologyServerUrl
-     */
+    /// buildSynologyServerUrl
     private func buildSynologyServerUrl(server: String) -> String {
         return "https://\(server)/Serv.php"
     }

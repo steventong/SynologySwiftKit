@@ -5,7 +5,6 @@
 //  Created by Steven on 2024/4/27.
 //
 
-import Alamofire
 import Foundation
 
 public class ApiInfoApi {

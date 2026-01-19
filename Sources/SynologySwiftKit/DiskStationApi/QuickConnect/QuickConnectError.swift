@@ -10,6 +10,7 @@ import Foundation
 public enum QuickConnectError: LocalizedError {
     case serverInfoNotFound
     case connectionInfoNotFound
+    case invalidUrl
 
     var errorDescription: String {
         switch self {
@@ -17,6 +18,8 @@ public enum QuickConnectError: LocalizedError {
             return "server info not avaliable"
         case .connectionInfoNotFound:
             return "device connection info not avaliable"
+        case .invalidUrl:
+            return "invalid url"
         }
     }
 }

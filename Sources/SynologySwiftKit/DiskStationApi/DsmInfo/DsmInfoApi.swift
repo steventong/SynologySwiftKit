@@ -5,7 +5,7 @@
 //  Created by Steven on 2024/5/12.
 //
 
-import Alamofire
+import Foundation
 
 public class DsmInfoApi {
     public init() {

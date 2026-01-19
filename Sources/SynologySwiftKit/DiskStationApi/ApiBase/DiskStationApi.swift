@@ -1,37 +1,34 @@
 //
-//  File.swift
-//
+//  DiskStationApi.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
 //
 
-import Alamofire
 import Foundation
 
 struct DiskStationApi {
-    let session: Session
+    let session: URLSession
 
     let name: String
     let method: String
     let version: Int
-    let parameters: Parameters
+    let parameters: [String: Any]
     let httpMethod: HTTPMethod
     let apiPath: String
     let requireAuthCookieHeader: Bool
     let requireAuthQueryParameter: Bool
 
-    /**
-     init
-     */
-    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10,
+    /// 初始化 API 请求
+    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: [String: Any] = [:], timeout: TimeInterval = 10,
          buildSidOnQuery: Bool? = nil, buildSidOnCookie: Bool? = nil) throws {
-        // 根据地址初始化。
+        // 根据地址初始化
         if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
            connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
            let url = URL(string: connectionUrl.url) {
-            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
         } else {
-            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
         }
 
         let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version, parameters: parameters)
@@ -53,17 +50,15 @@ struct DiskStationApi {
         }
     }
 
-    /**
-     custom init
-     */
-    init(api: DiskStationApiDefine, path: String, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
-        // 根据地址初始化。
+    /// 自定义路径初始化
+    init(api: DiskStationApiDefine, path: String, httpMethod: HTTPMethod = .get, parameters: [String: Any] = [:], timeout: TimeInterval = 10) {
+        // 根据地址初始化
         if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
            connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
            let url = URL(string: connectionUrl.url) {
-            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
         } else {
-            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
         }
 
         name = api.apiName
@@ -78,214 +73,158 @@ struct DiskStationApi {
         apiPath = path
     }
 
-    /**
-     request for result
-     */
+    /// 发送请求（无返回值）
     public func request() async throws {
-        // 发送请求
-        let _ = try await apiRequest(resultType: DiskStationApiResult<DiskStationApiEmptyData>.self,
-                                     checkResultIsSuccess: { response in
-                                         // 默认校验 result 需要满足 success = true
-                                         response.success
-                                     },
-                                     parseErrorCode: { response in
-                                         // 异常时，取 error.code
-                                         response.errorCode
-                                     })
-        // 忽略结果
+        let _ = try await sendApiRequest(resultType: DiskStationApiResult<DiskStationApiEmptyData>.self,
+                                         checkResultIsSuccess: { response in
+                                             response.success
+                                         },
+                                         parseErrorCode: { response in
+                                             response.errorCode
+                                         })
     }
 
-    /**
-     request for result data
-     return data, the result is must success
-     **/
+    /// 发送请求并返回数据
     public func requestForData<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
-        // 发送请求
-        let apiResult = try await apiRequest(resultType: DiskStationApiResult<Value>.self,
-                                             checkResultIsSuccess: { response in
-                                                 // 默认校验 result 需要满足 success = true
-                                                 response.success
-                                             },
-                                             parseErrorCode: { response in
-                                                 // 异常时，取 error.code
-                                                 response.errorCode
-                                             })
+        let apiResult = try await sendApiRequest(resultType: DiskStationApiResult<Value>.self,
+                                                 checkResultIsSuccess: { response in
+                                                     response.success
+                                                 },
+                                                 parseErrorCode: { response in
+                                                     response.errorCode
+                                                 })
 
-        // 结果不能为空
         guard let data = apiResult.data else {
             throw DiskStationApiError.responseBodyEmptyError
         }
 
-        // 获取结果
         return data
     }
 
-    /**
-     request for result data, not check result success status
-     **/
+    /// 发送请求并返回原始结果（不检查 success 状态）
     public func requestForResult<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
-        // 发送请求, 不校验结果
-        let apiResult = try await apiRequest(resultType: Value.self,
-                                             checkResultIsSuccess: { _ in
-                                                 // 不校验结果
-                                                 true
-                                             },
-                                             parseErrorCode: { _ in
-                                                 // 当前请求方式下，不会出现异常码
-                                                 nil
-                                             })
-        // 结果
+        let apiResult = try await sendApiRequest(resultType: Value.self,
+                                                 checkResultIsSuccess: { _ in true },
+                                                 parseErrorCode: { _ in nil })
         return apiResult
     }
 
-    /**
-     build request Url not invoke api
-     */
+    /// 构建请求 URL（不发送请求）
     public func assembleRequestUrl() throws -> URL {
-        // 构造地址并返回，不请求
         return try buildApiUrlWithQueryParameters()
     }
 }
 
+// MARK: - Private Methods
+
 extension DiskStationApi {
-    /**
-     request
-     */
-    private func apiRequest<Value: Decodable>(resultType: Value.Type = Value.self,
-                                              checkResultIsSuccess: (Value) -> Bool,
-                                              parseErrorCode: (Value) -> Int?) async throws -> Value {
-        let apiUrl = try apiUrl(apiPath: apiPath)
+    /// 发送 API 请求
+    private func sendApiRequest<Value: Decodable>(resultType: Value.Type = Value.self,
+                                                  checkResultIsSuccess: (Value) -> Bool,
+                                                  parseErrorCode: (Value) -> Int?) async throws -> Value {
+        let apiUrl = try buildApiUrl(apiPath: apiPath)
 
-        // build cookie
-        var headers: HTTPHeaders = []
-        // auth header: Cookie
+        // 构建请求头
+        var headers: [String: String] = [:]
         if let cookie = try buildAuthCookieHeader() {
-            headers.add(name: "Cookie", value: cookie)
+            headers["Cookie"] = cookie
         }
 
-        // send request & get response
-        let response = try await sendRequest(httpMethod: httpMethod, apiUrl: apiUrl, headers: headers, parameters: parameters, resultType: resultType)
+        // 发送请求
+        let response = try await sendApiRequest(httpMethod: httpMethod, apiUrl: apiUrl, headers: headers, parameters: parameters, resultType: resultType)
 
-        // 解决请求过程中抛出的异常。业务返回值异常不在这里处理
-        if let error = response.error {
-            try handleApiErrors(error: error)
+        // 检查业务状态
+        if checkResultIsSuccess(response) {
+            return response
         }
 
-        // empty result
-        guard let responseData = response.value else {
-            throw DiskStationApiError.responseBodyEmptyError
-        }
-
-        // handle success data
-        if checkResultIsSuccess(responseData) == true {
-            // 解析 set-cookie
-            // parseResponseCookieHeader(setCookieValue: response.response?.value(forHTTPHeaderField: "Set-Cookie"))
-            return responseData
-        }
-
-        // handle error result
-        guard let errorCode = parseErrorCode(responseData) else {
+        // 处理错误
+        guard let errorCode = parseErrorCode(response) else {
             throw DiskStationApiError.apiBizError(-1, "Unknown error, fetch errorCode fail")
         }
 
-        /**
-         100 Unknown error.
-         101 No parameter of API, method or version.
-         102 The requested API does not exist.
-         103 The requested method does not exist.
-         104 The requested version does not support the functionality.
-         105 The logged in session does not have permission.
-         106 Session timeout.
-         107 Session interrupted by duplicated login.
-         108 Failed to upload the file.
-         109 The network connection is unstable or the system is busy.
-         110 The network connection is unstable or the system is busy.
-         111 The network connection is unstable or the system is busy.
-         112 Preserve for other purpose.
-         113 Preserve for other purpose.
-         114 Lost parameters for this API.
-         115 Not allowed to upload a file.
-         116 Not allowed to perform for a demo site.
-         117 The network connection is unstable or the system is busy.
-         118 The network connection is unstable or the system is busy.
-         119 Invalid session.
-         120-149 Preserve for other purpose.
-         150 Request source IP does not match the login IP.
-         */
-        switch errorCode {
-        case 100:
-            throw DiskStationApiError.apiBizError(errorCode, "Unknown error.")
-        case 101:
-            throw DiskStationApiError.apiBizError(errorCode, "No parameter of API, method or version.")
-        case 102:
-            throw DiskStationApiError.apiBizError(errorCode, "The requested API does not exist.")
-        case 103:
-            throw DiskStationApiError.apiBizError(errorCode, "The requested method does not exist.")
-        case 104:
-            throw DiskStationApiError.apiBizError(errorCode, "The requested version does not support the functionality.")
-        case 105:
-            throw DiskStationApiError.invalidSession(errorCode, "The logged in session does not have permission.")
-        case 106:
-            throw DiskStationApiError.invalidSession(errorCode, "Session timeout.")
-        case 107:
-            throw DiskStationApiError.invalidSession(errorCode, "Session interrupted by duplicated login.")
-        case 108:
-            throw DiskStationApiError.apiBizError(errorCode, "Failed to upload the file.")
-        case 109:
-            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
-        case 110:
-            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
-        case 111:
-            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
-        case 112:
-            throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
-        case 113:
-            throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
-        case 114:
-            throw DiskStationApiError.apiBizError(errorCode, "Lost parameters for this API.")
-        case 115:
-            throw DiskStationApiError.apiBizError(errorCode, "Not allowed to upload a file.")
-        case 116:
-            throw DiskStationApiError.apiBizError(errorCode, "Not allowed to perform for a demo site.")
-        case 117:
-            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
-        case 118:
-            throw DiskStationApiError.apiBizError(errorCode, "The network connection is unstable or the system is busy.")
-        case 119:
-            throw DiskStationApiError.invalidSession(errorCode, "Invalid session.")
-        case 150:
-            throw DiskStationApiError.apiBizError(errorCode, "Request source IP does not match the login IP.")
-        default:
-            if errorCode >= 120 && errorCode <= 149 {
-                throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
-            } else {
-                throw DiskStationApiError.apiBizError(errorCode, "errorCode = \(errorCode)")
-            }
-        }
+        // 根据错误码抛出对应异常
+        try handleErrorCode(errorCode)
+
+        // 这行不会执行，handleErrorCode 总是 throw
+        throw DiskStationApiError.apiBizError(errorCode, "errorCode = \(errorCode)")
     }
 
-    /**
-     send http request
-     */
-    private func sendRequest<Value: Decodable>(httpMethod: HTTPMethod, apiUrl: URL, headers: HTTPHeaders? = nil, parameters: Parameters,
-                                               resultType: Value.Type = Value.self) async throws -> DataResponse<Value, AFError> {
+    /// 发送 HTTP 请求
+    private func sendApiRequest<Value: Decodable>(httpMethod: HTTPMethod, apiUrl: URL, headers: [String: String]? = nil,
+                                                  parameters: [String: Any], resultType: Value.Type = Value.self) async throws -> Value {
+        var request: URLRequest
+        var requestUrl: URL = apiUrl
+
         if httpMethod == .post {
-            return await session.request(apiUrl, method: .post, parameters: parameters, encoding: URLEncoding.default, headers: headers)
-                .serializingDecodable(resultType)
-                .response
+            request = URLRequest(url: apiUrl)
+            request.httpMethod = httpMethod.rawValue
+            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.httpBody = parameters.urlEncodedData
         } else {
-            // build querys for GET
+            // GET 请求：参数放在 URL 上
             let apiUrlWithQueryParameters = try buildApiUrlWithQueryParameters()
-            return await session.request(apiUrlWithQueryParameters, method: .get, headers: headers)
-                .serializingDecodable(resultType)
-                .response
+            requestUrl = apiUrlWithQueryParameters
+            request = URLRequest(url: apiUrlWithQueryParameters)
+            request.httpMethod = httpMethod.rawValue
+        }
+
+        // 添加请求头
+        headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+
+        // 记录请求日志
+        NetworkLogger.logRequest(
+            url: requestUrl,
+            method: httpMethod.rawValue,
+            headers: headers,
+            body: request.httpBody
+        )
+
+        let startTime = Date()
+
+        do {
+            let (data, response) = try await session.data(for: request)
+            let duration = Date().timeIntervalSince(startTime)
+
+            // 检查 HTTP 响应
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw DiskStationApiError.responseBodyEmptyError
+            }
+
+            // 记录响应日志
+            NetworkLogger.logResponse(
+                url: requestUrl,
+                statusCode: httpResponse.statusCode,
+                headers: httpResponse.allHeaderFields,
+                data: data,
+                duration: duration
+            )
+
+            // 解析响应
+            do {
+                return try JSONDecoder().decode(Value.self, from: data)
+            } catch {
+                Logger.error("JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")")
+                throw DiskStationApiError.responseBodyEmptyError
+            }
+        } catch let error as DiskStationApiError {
+            let duration = Date().timeIntervalSince(startTime)
+            NetworkLogger.logError(url: requestUrl, error: error, duration: duration)
+            throw error
+        } catch let urlError as URLError {
+            let duration = Date().timeIntervalSince(startTime)
+            NetworkLogger.logError(url: requestUrl, error: urlError, duration: duration)
+            try handleURLError(urlError)
+            throw DiskStationApiError.commonUrlError(urlError.localizedDescription)
+        } catch {
+            let duration = Date().timeIntervalSince(startTime)
+            NetworkLogger.logError(url: requestUrl, error: error, duration: duration)
+            throw DiskStationApiError.commonUrlError(error.localizedDescription)
         }
     }
 
-    /**
-     api url
-     */
-    private func apiUrl(apiPath: String) throws -> URL {
+    /// 构建 API URL
+    private func buildApiUrl(apiPath: String) throws -> URL {
         if let connection = DeviceConnection.shared.getCurrentConnectionUrl(),
            let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
@@ -295,16 +234,7 @@ extension DiskStationApi {
         throw DiskStationApiError.requestHostNotPressentError
     }
 
-    /**
-      api version
-     */
-    private func apiVersion(apiName: String, apiVersion: Int) -> Int {
-        return apiVersion
-    }
-
-    /**
-     build sid cookie
-     */
+    /// 构建 Cookie 请求头
     private func buildAuthCookieHeader() throws -> String? {
         if requireAuthCookieHeader {
             guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
@@ -328,11 +258,9 @@ extension DiskStationApi {
         return nil
     }
 
-    /**
-     build request Url not invoke api
-     */
+    /// 构建带查询参数的 URL
     private func buildApiUrlWithQueryParameters() throws -> URL {
-        let apiUrl = try apiUrl(apiPath: apiPath)
+        let apiUrl = try buildApiUrl(apiPath: apiPath)
 
         var parameters = parameters
         parameters["api"] = name
@@ -343,13 +271,12 @@ extension DiskStationApi {
             parameters["_sid"] = sid
         }
 
-        // 使用 URLComponents 构建带有查询参数的 URL
         guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
             Logger.error("DiskStationApi.buildRequestUrl, apiUrl is invalid: \(apiUrl) ")
             throw DiskStationApiError.requestHostNotPressentError
         }
 
-        // 对参数的键进行自定义排序：普通键在前，_开头的键在后，并且各自按字母顺序排序
+        // 对参数的键进行自定义排序：普通键在前，_开头的键在后
         components.queryItems = parameters.sorted {
             if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") {
                 return false
@@ -362,7 +289,6 @@ extension DiskStationApi {
             URLQueryItem(name: $0.key, value: "\($0.value)")
         }
 
-        // 返回构建好的 URL
         guard let requestUrl = components.url else {
             Logger.error("DiskStationApi.buildRequestUrl, requestUrl is invalid: \(components) ")
             throw DiskStationApiError.requestHostNotPressentError
@@ -371,6 +297,7 @@ extension DiskStationApi {
         return requestUrl
     }
 
+    /// 构建查询参数中的 sid
     private func buildAuthQueryParameter() throws -> String? {
         if requireAuthQueryParameter {
             guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
@@ -384,36 +311,60 @@ extension DiskStationApi {
         return nil
     }
 
-    /**
-     handle error
-     */
-    private func handleApiErrors(error: AFError) throws {
-        switch error {
-        case let .sessionTaskFailed(error: sessionError):
-            let sessionError = sessionError as NSError
-            switch sessionError.domain {
-            case NSURLErrorDomain:
-                // error code 对照 https://juejin.cn/post/6844903838059593741
-                switch sessionError.code {
-                case NSURLErrorSecureConnectionFailed:
-                    // 发生了SSL错误，无法建立与该服务器的安全连接。
-                    throw DiskStationApiError.sslConnectionFailed(sessionError.localizedDescription)
-                case NSURLErrorCannotFindHost:
-                    // 未能找到使用指定主机名的服务器。
-                    throw DiskStationApiError.canNotFindHostError(sessionError.localizedDescription)
-                default:
-                    // 没有识别出的异常
-                    throw DiskStationApiError.commonUrlError(sessionError.localizedDescription)
-                }
-            default:
-                // 没有识别出的异常
-                Logger.error("DiskStationApi.handleApiErrors NSURLErrorDomain unknown domain, error \(error)")
-                throw DiskStationApiError.commonUrlError(sessionError.localizedDescription)
-            }
+    /// 处理 URL 错误
+    private func handleURLError(_ error: URLError) throws {
+        switch error.code {
+        case .secureConnectionFailed:
+            throw DiskStationApiError.sslConnectionFailed(error.localizedDescription)
+        case .cannotFindHost:
+            throw DiskStationApiError.canNotFindHostError(error.localizedDescription)
         default:
-            // 没有识别出的异常
-            Logger.error("DiskStationApi.handleApiErrors unknown error , error \(error)")
             throw DiskStationApiError.commonUrlError(error.localizedDescription)
         }
+    }
+
+    /// 处理业务错误码
+    private func handleErrorCode(_ errorCode: Int) throws {
+        // 错误码映射表
+        let errorMessages: [Int: String] = [
+            100: "Unknown error.",
+            101: "No parameter of API, method or version.",
+            102: "The requested API does not exist.",
+            103: "The requested method does not exist.",
+            104: "The requested version does not support the functionality.",
+            108: "Failed to upload the file.",
+            109: "The network connection is unstable or the system is busy.",
+            110: "The network connection is unstable or the system is busy.",
+            111: "The network connection is unstable or the system is busy.",
+            112: "Preserve for other purpose.",
+            113: "Preserve for other purpose.",
+            114: "Lost parameters for this API.",
+            115: "Not allowed to upload a file.",
+            116: "Not allowed to perform for a demo site.",
+            117: "The network connection is unstable or the system is busy.",
+            118: "The network connection is unstable or the system is busy.",
+            150: "Request source IP does not match the login IP.",
+        ]
+
+        // Session 相关错误码
+        let sessionErrorCodes: Set<Int> = [105, 106, 107, 119]
+        let sessionErrorMessages: [Int: String] = [
+            105: "The logged in session does not have permission.",
+            106: "Session timeout.",
+            107: "Session interrupted by duplicated login.",
+            119: "Invalid session.",
+        ]
+
+        if sessionErrorCodes.contains(errorCode) {
+            let message = sessionErrorMessages[errorCode] ?? "Session error"
+            throw DiskStationApiError.invalidSession(errorCode, message)
+        }
+
+        if errorCode >= 120 && errorCode <= 149 {
+            throw DiskStationApiError.apiBizError(errorCode, "Preserve for other purpose.")
+        }
+
+        let message = errorMessages[errorCode] ?? "errorCode = \(errorCode)"
+        throw DiskStationApiError.apiBizError(errorCode, message)
     }
 }
