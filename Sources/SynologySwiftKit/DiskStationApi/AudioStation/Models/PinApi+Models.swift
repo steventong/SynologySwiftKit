@@ -12,8 +12,9 @@ import Foundation
 /// 固定项目
 /// Pinned item
 public struct PinItem: Codable {
+    
     /// 固定项 ID
-    public let id: String?
+    public let id: String
     /// 固定项类型（album）
     public let type: String
     /// 显示名称
