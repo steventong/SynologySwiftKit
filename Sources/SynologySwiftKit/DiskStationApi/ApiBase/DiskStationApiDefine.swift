@@ -87,7 +87,9 @@ public enum DiskStationApiDefine: String {
     /**
      api version
      */
-    func apiInfo(apiName: String, method: String, version: Int, parameters: [String: Any]) throws -> (path: String, method: String, version: Int, parameters: [String: Any]) {
+    func apiInfo(apiName: String, method: String, version: Int, parameters: [String: Any]) throws
+        -> (path: String, method: String, version: Int, parameters: [String: Any])
+    {
         // api query 直接返回
         if apiName == DiskStationApiDefine.SYNO_API_INFO.rawValue {
             return ("query.cgi", "query", 1, parameters: [:])
@@ -145,7 +147,9 @@ public enum DiskStationApiDefine: String {
     /**
      某些特殊的API
      */
-    func staticApiInfo(apiName: String) -> (path: String, method: String, version: Int, parameters: [String: Any])? {
+    func staticApiInfo(apiName: String) -> (
+        path: String, method: String, version: Int, parameters: [String: Any]
+    )? {
         switch apiName {
         case DiskStationApiDefine.SYNO_API_INFO.rawValue:
             return ("query.cgi", "query", 1, parameters: [:])

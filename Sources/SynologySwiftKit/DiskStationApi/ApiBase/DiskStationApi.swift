@@ -20,18 +20,14 @@ struct DiskStationApi {
     let requireAuthQueryParameter: Bool
 
     /// 初始化 API 请求
-    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: [String: Any] = [:], timeout: TimeInterval = 10,
+    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1,
+         httpMethod: HTTPMethod = .get, parameters: [String: Any] = [:],
+         timeout: TimeInterval = 10,
          buildSidOnQuery: Bool? = nil, buildSidOnCookie: Bool? = nil) throws {
-        // 根据地址初始化
-        if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
-           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
-           let url = URL(string: connectionUrl.url) {
-            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
-        } else {
-            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
-        }
+        session = Self.createSession(timeout: timeout)
 
-        let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version, parameters: parameters)
+        let apiInfo = try api.apiInfo(
+            apiName: api.apiName, method: method, version: version, parameters: parameters)
 
         name = api.apiName
         self.method = apiInfo.method
@@ -51,15 +47,9 @@ struct DiskStationApi {
     }
 
     /// 自定义路径初始化
-    init(api: DiskStationApiDefine, path: String, httpMethod: HTTPMethod = .get, parameters: [String: Any] = [:], timeout: TimeInterval = 10) {
-        // 根据地址初始化
-        if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
-           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
-           let url = URL(string: connectionUrl.url) {
-            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
-        } else {
-            session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
-        }
+    init(api: DiskStationApiDefine, path: String, httpMethod: HTTPMethod = .get,
+         parameters: [String: Any] = [:], timeout: TimeInterval = 10) {
+        session = Self.createSession(timeout: timeout)
 
         name = api.apiName
         method = ""
@@ -75,24 +65,27 @@ struct DiskStationApi {
 
     /// 发送请求（无返回值）
     public func request() async throws {
-        let _ = try await sendApiRequest(resultType: DiskStationApiResult<DiskStationApiEmptyData>.self,
-                                         checkResultIsSuccess: { response in
-                                             response.success
-                                         },
-                                         parseErrorCode: { response in
-                                             response.errorCode
-                                         })
+        let _ = try await sendApiRequest(
+            resultType: DiskStationApiResult<DiskStationApiEmptyData>.self,
+            checkResultIsSuccess: { response in
+                response.success
+            },
+            parseErrorCode: { response in
+                response.errorCode
+            })
     }
 
     /// 发送请求并返回数据
-    public func requestForData<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
-        let apiResult = try await sendApiRequest(resultType: DiskStationApiResult<Value>.self,
-                                                 checkResultIsSuccess: { response in
-                                                     response.success
-                                                 },
-                                                 parseErrorCode: { response in
-                                                     response.errorCode
-                                                 })
+    public func requestForData<Value: Decodable>(resultType: Value.Type = Value.self) async throws
+        -> Value {
+        let apiResult = try await sendApiRequest(
+            resultType: DiskStationApiResult<Value>.self,
+            checkResultIsSuccess: { response in
+                response.success
+            },
+            parseErrorCode: { response in
+                response.errorCode
+            })
 
         guard let data = apiResult.data else {
             throw DiskStationApiError.responseBodyEmptyError
@@ -103,9 +96,10 @@ struct DiskStationApi {
 
     /// 发送请求并返回原始结果（不检查 success 状态）
     public func requestForResult<Value: Decodable>(resultType: Value.Type = Value.self) async throws -> Value {
-        let apiResult = try await sendApiRequest(resultType: Value.self,
-                                                 checkResultIsSuccess: { _ in true },
-                                                 parseErrorCode: { _ in nil })
+        let apiResult = try await sendApiRequest(
+            resultType: Value.self,
+            checkResultIsSuccess: { _ in true },
+            parseErrorCode: { _ in nil })
         return apiResult
     }
 
@@ -118,10 +112,24 @@ struct DiskStationApi {
 // MARK: - Private Methods
 
 extension DiskStationApi {
+    /// 创建 URLSession（根据连接地址配置 SSL 信任）
+    /// Create URLSession (configure SSL trust based on connection URL)
+    private static func createSession(timeout: TimeInterval) -> URLSession {
+        if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
+           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
+           let url = URL(string: connectionUrl.url) {
+            return URLSessionFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+        } else {
+            return URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
+        }
+    }
+
     /// 发送 API 请求
-    private func sendApiRequest<Value: Decodable>(resultType: Value.Type = Value.self,
-                                                  checkResultIsSuccess: (Value) -> Bool,
-                                                  parseErrorCode: (Value) -> Int?) async throws -> Value {
+    private func sendApiRequest<Value: Decodable>(
+        resultType: Value.Type = Value.self,
+        checkResultIsSuccess: (Value) -> Bool,
+        parseErrorCode: (Value) -> Int?
+    ) async throws -> Value {
         let apiUrl = try buildApiUrl(apiPath: apiPath)
 
         // 构建请求头
@@ -131,7 +139,9 @@ extension DiskStationApi {
         }
 
         // 发送请求
-        let response = try await sendApiRequest(httpMethod: httpMethod, apiUrl: apiUrl, headers: headers, parameters: parameters, resultType: resultType)
+        let response = try await sendApiRequest(
+            httpMethod: httpMethod, apiUrl: apiUrl, headers: headers, parameters: parameters,
+            resultType: resultType)
 
         // 检查业务状态
         if checkResultIsSuccess(response) {
@@ -151,15 +161,18 @@ extension DiskStationApi {
     }
 
     /// 发送 HTTP 请求
-    private func sendApiRequest<Value: Decodable>(httpMethod: HTTPMethod, apiUrl: URL, headers: [String: String]? = nil,
-                                                  parameters: [String: Any], resultType: Value.Type = Value.self) async throws -> Value {
+    private func sendApiRequest<Value: Decodable>(
+        httpMethod: HTTPMethod, apiUrl: URL, headers: [String: String]? = nil,
+        parameters: [String: Any], resultType: Value.Type = Value.self
+    ) async throws -> Value {
         var request: URLRequest
         var requestUrl: URL = apiUrl
 
         if httpMethod == .post {
             request = URLRequest(url: apiUrl)
             request.httpMethod = httpMethod.rawValue
-            request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+            request.setValue(
+                "application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
             request.httpBody = parameters.urlEncodedData
         } else {
             // GET 请求：参数放在 URL 上
@@ -204,7 +217,9 @@ extension DiskStationApi {
             do {
                 return try JSONDecoder().decode(Value.self, from: data)
             } catch {
-                Logger.error("JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")")
+                Logger.error(
+                    "JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")"
+                )
                 throw DiskStationApiError.responseBodyEmptyError
             }
         } catch let error as DiskStationApiError {
@@ -237,12 +252,18 @@ extension DiskStationApi {
     /// 构建 Cookie 请求头
     private func buildAuthCookieHeader() throws -> String? {
         if requireAuthCookieHeader {
-            guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
-                Logger.error("接口: \(name) \(method) 必须配置 sid/did cookie，但 session 不存在。（DiskStationApi.buildAuthCookieHeader）")
+            guard
+                let sid = UserDefaults.standard.string(
+                    forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
+            else {
+                Logger.error(
+                    "接口: \(name) \(method) 必须配置 sid/did cookie，但 session 不存在。（DiskStationApi.buildAuthCookieHeader）"
+                )
                 throw DiskStationApiError.invalidSession(0, "session invalid, sid not exist")
             }
 
-            if let did = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName) {
+            if let did = UserDefaults.standard.string(
+                forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName) {
                 return "id=\(sid); did=\(did)"
             }
 
@@ -300,8 +321,13 @@ extension DiskStationApi {
     /// 构建查询参数中的 sid
     private func buildAuthQueryParameter() throws -> String? {
         if requireAuthQueryParameter {
-            guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
-                Logger.error("接口: \(name) \(method) 必须配置 sid 参数，但 session 不存在。（DiskStationApi.buildAuthQueryParameter）")
+            guard
+                let sid = UserDefaults.standard.string(
+                    forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
+            else {
+                Logger.error(
+                    "接口: \(name) \(method) 必须配置 sid 参数，但 session 不存在。（DiskStationApi.buildAuthQueryParameter）"
+                )
                 throw DiskStationApiError.invalidSession(0, "session invalid, sid not exist")
             }
 
@@ -366,5 +392,21 @@ extension DiskStationApi {
 
         let message = errorMessages[errorCode] ?? "errorCode = \(errorCode)"
         throw DiskStationApiError.apiBizError(errorCode, message)
+    }
+}
+
+// MARK: - DiskStationApi Extension
+
+extension DiskStationApi {
+    /// 请求并自动解析响应，失败时抛出 SynologyError
+    /// Request and parse response, throw SynologyError on failure
+    ///
+    /// 使用示例：
+    /// ```swift
+    /// let result: PinOperationResult = try await api.fetch()
+    /// ```
+    public func fetch<T: Decodable>() async throws -> T {
+        let response = try await requestForResult(resultType: SynologyResponse<T>.self)
+        return try response.unwrap()
     }
 }

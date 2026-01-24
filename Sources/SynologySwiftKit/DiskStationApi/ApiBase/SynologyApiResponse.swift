@@ -91,19 +91,4 @@ public struct SynologyError: Error, Decodable, LocalizedError, CustomStringConve
     }
 }
 
-// MARK: - DiskStationApi Extension
 
-extension DiskStationApi {
-    
-    /// 请求并自动解析响应，失败时抛出 SynologyError
-    /// Request and parse response, throw SynologyError on failure
-    ///
-    /// 使用示例：
-    /// ```swift
-    /// let result: PinOperationResult = try await api.fetch()
-    /// ```
-    public func fetch<T: Decodable>() async throws -> T {
-        let response = try await requestForResult(resultType: SynologyResponse<T>.self)
-        return try response.unwrap()
-    }
-}
