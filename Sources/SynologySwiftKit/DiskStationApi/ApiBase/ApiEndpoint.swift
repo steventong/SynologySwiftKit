@@ -19,7 +19,8 @@ import Foundation
 /// )
 /// ```
 public struct ApiEndpoint {
-    public let apiDefinition: ApiDefinition
+    
+    public let api: ApiDefinition
     public let method: String
     public let version: Int
     public let httpMethod: HTTPMethod
@@ -32,17 +33,17 @@ public struct ApiEndpoint {
 
     /// API 名称
     public var apiName: String {
-        apiDefinition.name
+        api.name
     }
 
     /// 是否需要认证 Cookie
     public var requireAuthCookie: Bool {
-        apiDefinition.requiresAuth
+        api.requiresAuth
     }
 
     /// 是否需要 Query 中携带 sid
     public var requireQuerySid: Bool {
-        apiDefinition.requiresQuerySid
+        api.requiresQuerySid
     }
 
     /// 是否为自定义路径
@@ -52,48 +53,44 @@ public struct ApiEndpoint {
 
     /// 标准初始化
     /// Standard initialization
-    public init(
-        api: ApiDefinition,
-        method: String,
-        version: Int = 1,
-        httpMethod: HTTPMethod = .get,
-        parameters: [String: Any] = [:],
-        timeout: TimeInterval = 10,
-        path: String? = nil,
-        sidOnQuery: Bool? = nil,
-        sidOnCookie: Bool? = nil
-    ) {
-        self.apiDefinition = api
+    public init(api: ApiDefinition,
+                method: String,
+                version: Int = 1,
+                httpMethod: HTTPMethod = .get,
+                parameters: [String: Any] = [:],
+                timeout: TimeInterval = 10,
+                path: String? = nil,
+                sidOnQuery: Bool? = nil,
+                sidOnCookie: Bool? = nil) {
+        self.api = api
         self.method = method
         self.version = version
         self.httpMethod = httpMethod
         self.parameters = parameters
         self.timeout = timeout
         self.path = path
-        self.customPath = nil
+        customPath = nil
         self.sidOnQuery = sidOnQuery
         self.sidOnCookie = sidOnCookie
     }
 
     /// 自定义路径初始化
     /// Custom path initialization
-    public init(
-        api: ApiDefinition,
-        customPath: String,
-        httpMethod: HTTPMethod = .get,
-        parameters: [String: Any] = [:],
-        timeout: TimeInterval = 10
-    ) {
-        self.apiDefinition = api
-        self.method = ""
-        self.version = 1
+    public init(api: ApiDefinition,
+                customPath: String,
+                httpMethod: HTTPMethod = .get,
+                parameters: [String: Any] = [:],
+                timeout: TimeInterval = 10) {
+        self.api = api
+        method = ""
+        version = 1
         self.httpMethod = httpMethod
         self.parameters = parameters
         self.timeout = timeout
-        self.path = nil
+        path = nil
         self.customPath = customPath
-        self.sidOnQuery = nil
-        self.sidOnCookie = nil
+        sidOnQuery = nil
+        sidOnCookie = nil
     }
 }
 
@@ -102,36 +99,30 @@ public struct ApiEndpoint {
 extension ApiEndpoint {
     /// 创建 GET 请求端点
     /// Create GET request endpoint
-    public static func get(
-        api: ApiDefinition,
-        method: String,
-        version: Int = 1,
-        parameters: [String: Any] = [:]
-    ) -> ApiEndpoint {
+    public static func get(api: ApiDefinition,
+                           method: String,
+                           version: Int = 1,
+                           parameters: [String: Any] = [:]) -> ApiEndpoint {
         ApiEndpoint(
             api: api, method: method, version: version, httpMethod: .get, parameters: parameters)
     }
 
     /// 创建 POST 请求端点
     /// Create POST request endpoint
-    public static func post(
-        api: ApiDefinition,
-        method: String,
-        version: Int = 1,
-        parameters: [String: Any] = [:]
-    ) -> ApiEndpoint {
+    public static func post(api: ApiDefinition,
+                            method: String,
+                            version: Int = 1,
+                            parameters: [String: Any] = [:]) -> ApiEndpoint {
         ApiEndpoint(
             api: api, method: method, version: version, httpMethod: .post, parameters: parameters)
     }
 
     /// 创建自定义路径端点
     /// Create custom path endpoint
-    public static func custom(
-        api: ApiDefinition,
-        path: String,
-        httpMethod: HTTPMethod = .post,
-        parameters: [String: Any] = [:]
-    ) -> ApiEndpoint {
+    public static func custom(api: ApiDefinition,
+                              path: String,
+                              httpMethod: HTTPMethod = .post,
+                              parameters: [String: Any] = [:]) -> ApiEndpoint {
         ApiEndpoint(api: api, customPath: path, httpMethod: httpMethod, parameters: parameters)
     }
 }
