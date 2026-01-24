@@ -15,11 +15,12 @@ import Foundation
 /// 使用示例 / Usage example:
 /// ```swift
 /// let result: PinListResult = try await apiClient.request(
-///     ApiEndpoint(api: .SYNO_AUDIO_STATION_PIN, method: "list", parameters: ["limit": 10])
+///     ApiEndpoint(api: SynologyApi.AudioStation.pin, method: "list", parameters: ["limit": 10])
 /// )
 /// ```
 public struct ApiEndpoint {
-    public let api: DiskStationApiDefine
+    public let api: DiskStationApiDefine?
+    public let apiDefinition: ApiDefinition?
     public let method: String
     public let version: Int
     public let httpMethod: HTTPMethod
@@ -30,8 +31,51 @@ public struct ApiEndpoint {
     public let sidOnCookie: Bool?
     public let isCustomPath: Bool
 
-    /// 标准 API 初始化
-    /// Standard API initialization
+    /// API 名称（兼容新旧两种方式）
+    public var apiName: String {
+        apiDefinition?.name ?? api?.apiName ?? ""
+    }
+
+    /// 是否需要认证 Cookie
+    public var requireAuthCookie: Bool {
+        if let def = apiDefinition { return def.requiresAuth }
+        return api?.requireAuthCookieHeader ?? true
+    }
+
+    /// 是否需要 Query 中携带 sid
+    public var requireQuerySid: Bool {
+        if let def = apiDefinition { return def.requiresQuerySid }
+        return api?.requireAuthQueryParameter ?? false
+    }
+
+    /// 使用新 ApiDefinition 初始化（推荐）
+    /// Initialize with new ApiDefinition (recommended)
+    public init(
+        api: ApiDefinition,
+        method: String,
+        version: Int = 1,
+        httpMethod: HTTPMethod = .get,
+        parameters: [String: Any] = [:],
+        timeout: TimeInterval = 10,
+        sidOnQuery: Bool? = nil,
+        sidOnCookie: Bool? = nil
+    ) {
+        self.api = nil
+        self.apiDefinition = api
+        self.method = method
+        self.version = version
+        self.httpMethod = httpMethod
+        self.parameters = parameters
+        self.timeout = timeout
+        self.path = nil
+        self.sidOnQuery = sidOnQuery
+        self.sidOnCookie = sidOnCookie
+        self.isCustomPath = false
+    }
+
+    /// 标准 API 初始化（兼容旧枚举）
+    /// Standard API initialization (legacy enum compatibility)
+    @available(*, deprecated, message: "Use ApiDefinition instead")
     public init(
         api: DiskStationApiDefine,
         method: String,
@@ -44,6 +88,7 @@ public struct ApiEndpoint {
         sidOnCookie: Bool? = nil
     ) {
         self.api = api
+        self.apiDefinition = nil
         self.method = method
         self.version = version
         self.httpMethod = httpMethod
@@ -65,6 +110,7 @@ public struct ApiEndpoint {
         timeout: TimeInterval = 10
     ) {
         self.api = api
+        self.apiDefinition = nil
         self.method = ""
         self.version = 1
         self.httpMethod = httpMethod

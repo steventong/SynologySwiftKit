@@ -20,11 +20,14 @@ public final class PinApi {
 
     /// 获取固定列表
     /// Get pinned items list
-    public func list(limit: Int = -1, offset: Int = 0) async throws -> (total: Int, items: [PinItem]) {
+    public func list(limit: Int = -1, offset: Int = 0) async throws -> (
+        total: Int, items: [PinItem]
+    ) {
         let result: PinListResult = try await apiClient.request(
-            ApiEndpoint(api: .SYNO_AUDIO_STATION_PIN,
-                        method: "list",
-                        parameters: ["offset": offset, "limit": limit]
+            ApiEndpoint(
+                api: SynologyApi.AudioStation.pin,
+                method: "list",
+                parameters: ["offset": offset, "limit": limit]
             )
         )
         return (result.total, result.items)
@@ -38,7 +41,7 @@ public final class PinApi {
                 "type": type.rawValue,
                 "criteria": criteria.toDictionary(),
                 "name": name,
-            ],
+            ]
         ]
 
         let itemsJSON = try JSONSerialization.data(withJSONObject: item)
@@ -46,7 +49,7 @@ public final class PinApi {
 
         let result: PinOperationResult = try await apiClient.request(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_PIN,
+                api: SynologyApi.AudioStation.pin,
                 method: "pin",
                 httpMethod: .post,
                 parameters: ["items": itemsString]
@@ -64,7 +67,7 @@ public final class PinApi {
 
         return try await apiClient.request(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_PIN,
+                api: SynologyApi.AudioStation.pin,
                 method: "unpin",
                 httpMethod: .post,
                 parameters: ["items": itemsString]
