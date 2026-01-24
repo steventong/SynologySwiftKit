@@ -19,8 +19,8 @@ import Foundation
 /// ```
 public struct SynologyResponse<T: Decodable>: Decodable {
     public let success: Bool
+    public let error: SynologyError?
     public let data: T?
-    public let error: SynologyErrorInfo?
     
     /// 获取 data，失败时抛出错误
     /// Get data or throw error if failed
@@ -28,34 +28,20 @@ public struct SynologyResponse<T: Decodable>: Decodable {
         if success, let data = data {
             return data
         }
+        
         if let error = error {
-            throw SynologyError(code: error.code, errors: error.errors ?? [])
+            throw error
         }
+        
         throw SynologyError.unknown
     }
-    
-    /// 获取可选 data，失败时抛出错误
-    public func unwrapOptional() throws -> T? {
-        if success {
-            return data
-        }
-        if let error = error {
-            throw SynologyError(code: error.code, errors: error.errors ?? [])
-        }
-        throw SynologyError.unknown
-    }
-}
-
-/// Synology 错误信息
-public struct SynologyErrorInfo: Decodable {
-    public let code: Int
-    public let errors: [Int]?
 }
 
 // MARK: - Synology Error
 
 /// Synology API 错误
-public struct SynologyError: Error, LocalizedError, CustomStringConvertible {
+/// 同时支持 JSON 解码和 Error 协议
+public struct SynologyError: Error, Decodable, LocalizedError, CustomStringConvertible {
     /// 主错误码
     public let code: Int
     /// 子错误码列表
@@ -63,6 +49,26 @@ public struct SynologyError: Error, LocalizedError, CustomStringConvertible {
     
     /// 未知错误
     public static let unknown = SynologyError(code: -1, errors: [])
+    
+    // MARK: - Decodable
+    
+    enum CodingKeys: String, CodingKey {
+        case code
+        case errors
+    }
+    
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        code = try container.decode(Int.self, forKey: .code)
+        errors = try container.decodeIfPresent([Int].self, forKey: .errors) ?? []
+    }
+    
+    public init(code: Int, errors: [Int] = []) {
+        self.code = code
+        self.errors = errors
+    }
+    
+    // MARK: - Convenience
     
     /// 第一个错误码（优先返回 errors 中的第一个，否则返回主 code）
     public var primaryCode: Int {
@@ -73,6 +79,8 @@ public struct SynologyError: Error, LocalizedError, CustomStringConvertible {
     public func hasError(_ errorCode: Int) -> Bool {
         code == errorCode || errors.contains(errorCode)
     }
+    
+    // MARK: - Error Protocol
     
     public var errorDescription: String? {
         "Synology API Error (code: \(code), errors: \(errors))"
@@ -97,11 +105,5 @@ extension DiskStationApi {
     public func fetch<T: Decodable>() async throws -> T {
         let response = try await requestForResult(resultType: SynologyResponse<T>.self)
         return try response.unwrap()
-    }
-    
-    /// 请求并自动解析响应（可选返回），失败时抛出 SynologyError
-    public func fetchOptional<T: Decodable>() async throws -> T? {
-        let response = try await requestForResult(resultType: SynologyResponse<T>.self)
-        return try response.unwrapOptional()
     }
 }

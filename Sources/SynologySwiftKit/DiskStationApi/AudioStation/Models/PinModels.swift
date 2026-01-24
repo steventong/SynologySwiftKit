@@ -19,35 +19,6 @@ public enum PinType: String, Codable {
     case genre
 }
 
-// MARK: - Pin Error
-
-/// Pin API 错误
-/// Pin API Error
-public enum PinApiError: Int, Error, LocalizedError {
-    case unknown = 0
-    case invalidParameter = 1001
-    case operationFailed = 1002
-    case alreadyPinned = 1006
-    
-    public var errorDescription: String? {
-        switch self {
-        case .unknown:
-            return "Unknown error"
-        case .invalidParameter:
-            return "Invalid parameter"
-        case .operationFailed:
-            return "Operation failed"
-        case .alreadyPinned:
-            return "Item already pinned"
-        }
-    }
-    
-    /// 从错误码创建错误
-    public static func from(code: Int) -> PinApiError {
-        return PinApiError(rawValue: code) ?? .unknown
-    }
-}
-
 // MARK: - Pin Criteria
 
 /// 固定项筛选条件
