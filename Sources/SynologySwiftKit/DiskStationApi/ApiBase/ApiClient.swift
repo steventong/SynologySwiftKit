@@ -15,7 +15,7 @@ import Foundation
 /// 使用示例 / Usage example:
 /// ```swift
 /// let result: PinListResult = try await ApiClient.shared.request(
-///     ApiEndpoint(api: .SYNO_AUDIO_STATION_PIN, method: "list", parameters: ["limit": 10])
+///     ApiEndpoint(api: SynologyApi.AudioStation.pin, method: "list", parameters: ["limit": 10])
 /// )
 /// ```
 final class ApiClient: ApiClientProviding {
@@ -134,9 +134,10 @@ final class ApiClient: ApiClientProviding {
         name: String, method: String, version: Int, parameters: [String: Any], apiPath: String,
         requireAuthCookie: Bool, requireAuthQuery: Bool
     ) {
+        // 自定义路径端点
         if endpoint.isCustomPath {
             return (
-                name: endpoint.api.apiName,
+                name: endpoint.apiName,
                 method: "",
                 version: 1,
                 parameters: endpoint.parameters,
@@ -150,29 +151,32 @@ final class ApiClient: ApiClientProviding {
             throw SynologyError.api(.hostNotConfigured)
         }
 
-        let apiInfo = try endpoint.api.apiInfo(
-            apiName: endpoint.api.apiName,
-            method: endpoint.method,
-            version: endpoint.version,
-            parameters: endpoint.parameters,
-            apiInfoProvider: apiInfoProvider
-        )
+        // 获取 API 信息
+        let apiName = endpoint.apiName
+        let fetchedApiInfo = try apiInfoProvider.getApiInfoByApiName(apiName: apiName)
+        let apiVersion = min(
+            max(fetchedApiInfo.minVersion, endpoint.version), fetchedApiInfo.maxVersion)
+        let mergedParameters = endpoint.parameters.merging([
+            "api": apiName,
+            "version": apiVersion,
+            "method": endpoint.method,
+        ]) { current, _ in current }
 
         let apiPath: String
         if let customPath = endpoint.path {
-            apiPath = "/webapi/\(apiInfo.path)\(customPath)"
+            apiPath = "/webapi/\(fetchedApiInfo.path)\(customPath)"
         } else {
-            apiPath = "/webapi/\(apiInfo.path)"
+            apiPath = "/webapi/\(fetchedApiInfo.path)"
         }
 
         return (
-            name: endpoint.api.apiName,
-            method: apiInfo.method,
-            version: apiInfo.version,
-            parameters: apiInfo.parameters,
+            name: apiName,
+            method: endpoint.method,
+            version: apiVersion,
+            parameters: mergedParameters,
             apiPath: apiPath,
-            requireAuthCookie: endpoint.sidOnCookie ?? endpoint.api.requireAuthCookieHeader,
-            requireAuthQuery: endpoint.sidOnQuery ?? endpoint.api.requireAuthQueryParameter
+            requireAuthCookie: endpoint.sidOnCookie ?? endpoint.requireAuthCookie,
+            requireAuthQuery: endpoint.sidOnQuery ?? endpoint.requireQuerySid
         )
     }
 

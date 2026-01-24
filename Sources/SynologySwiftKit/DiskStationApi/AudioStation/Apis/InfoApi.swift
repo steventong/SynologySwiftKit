@@ -61,7 +61,7 @@ extension AudioStationApi {
 
         let audioStationInfo: AudioStationInfo = try await apiClient.requestForData(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_INFO,
+                api: SynologyApi.AudioStation.info,
                 method: "getinfo",
                 version: 6,
                 httpMethod: .post,

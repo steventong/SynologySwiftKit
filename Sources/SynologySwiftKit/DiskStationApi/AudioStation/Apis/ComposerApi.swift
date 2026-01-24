@@ -32,7 +32,7 @@ extension AudioStationApi {
 
         let result: ComposerListResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_COMPOSER, method: "list", version: 2, httpMethod: .post,
+                api: SynologyApi.AudioStation.composer, method: "list", version: 2, httpMethod: .post,
                 parameters: parameters),
             resultType: ComposerListResult.self
         )

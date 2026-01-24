@@ -11,7 +11,7 @@ extension AudioStationApi {
     public func tagEditor_load(path: String) async throws -> TagEditorResult? {
         let result: TagEditorResult = try await apiClient.requestForResult(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI,
+                api: SynologyApi.AudioStation.tagEditorUI,
                 customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
                 httpMethod: .post,
                 parameters: [
@@ -28,7 +28,7 @@ extension AudioStationApi {
     public func tagEditor_apply(request: TagEditorRequest) async throws -> TagEditorResult? {
         let result: TagEditorResult = try await apiClient.requestForResult(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_TAG_EDITOR_UI,
+                api: SynologyApi.AudioStation.tagEditorUI,
                 customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
                 httpMethod: .post,
                 parameters: [

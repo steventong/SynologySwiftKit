@@ -139,6 +139,9 @@ public enum SynologyApi {
         /// 标签
         public static let tag = ApiDefinition(name: "SYNO.AudioStation.Tag")
 
+        /// 标签编辑器 UI（非标准 API）
+        public static let tagEditorUI = ApiDefinition(name: "tagEditorUI")
+
         /// 网页播放器
         public static let webPlayer = ApiDefinition(name: "SYNO.AudioStation.WebPlayer")
 
@@ -176,19 +179,5 @@ public enum SynologyApi {
     public enum FileStation {
         /// 删除
         public static let delete = ApiDefinition(name: "SYNO.FileStation.Delete")
-    }
-}
-
-// MARK: - Backward Compatibility
-
-extension DiskStationApiDefine {
-    /// 转换为新的 ApiDefinition
-    /// Convert to new ApiDefinition
-    public var asApiDefinition: ApiDefinition {
-        ApiDefinition(
-            name: self.rawValue,
-            requiresAuth: self.requireAuthCookieHeader,
-            requiresQuerySid: self.requireAuthQueryParameter
-        )
     }
 }

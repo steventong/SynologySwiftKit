@@ -19,7 +19,7 @@ extension AudioStationApi {
     ) {
         let result: SearchResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_SEARCH, method: "list", httpMethod: .post,
+                api: SynologyApi.AudioStation.search, method: "list", httpMethod: .post,
                 parameters: [
                     "keyword": keyword,
                     "library": library,

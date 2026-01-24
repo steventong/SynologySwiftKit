@@ -19,65 +19,41 @@ import Foundation
 /// )
 /// ```
 public struct ApiEndpoint {
-    public let api: DiskStationApiDefine?
-    public let apiDefinition: ApiDefinition?
+    public let apiDefinition: ApiDefinition
     public let method: String
     public let version: Int
     public let httpMethod: HTTPMethod
     public let parameters: [String: Any]
     public let timeout: TimeInterval
     public let path: String?
+    public let customPath: String?
     public let sidOnQuery: Bool?
     public let sidOnCookie: Bool?
-    public let isCustomPath: Bool
 
-    /// API 名称（兼容新旧两种方式）
+    /// API 名称
     public var apiName: String {
-        apiDefinition?.name ?? api?.apiName ?? ""
+        apiDefinition.name
     }
 
     /// 是否需要认证 Cookie
     public var requireAuthCookie: Bool {
-        if let def = apiDefinition { return def.requiresAuth }
-        return api?.requireAuthCookieHeader ?? true
+        apiDefinition.requiresAuth
     }
 
     /// 是否需要 Query 中携带 sid
     public var requireQuerySid: Bool {
-        if let def = apiDefinition { return def.requiresQuerySid }
-        return api?.requireAuthQueryParameter ?? false
+        apiDefinition.requiresQuerySid
     }
 
-    /// 使用新 ApiDefinition 初始化（推荐）
-    /// Initialize with new ApiDefinition (recommended)
+    /// 是否为自定义路径
+    public var isCustomPath: Bool {
+        customPath != nil
+    }
+
+    /// 标准初始化
+    /// Standard initialization
     public init(
         api: ApiDefinition,
-        method: String,
-        version: Int = 1,
-        httpMethod: HTTPMethod = .get,
-        parameters: [String: Any] = [:],
-        timeout: TimeInterval = 10,
-        sidOnQuery: Bool? = nil,
-        sidOnCookie: Bool? = nil
-    ) {
-        self.api = nil
-        self.apiDefinition = api
-        self.method = method
-        self.version = version
-        self.httpMethod = httpMethod
-        self.parameters = parameters
-        self.timeout = timeout
-        self.path = nil
-        self.sidOnQuery = sidOnQuery
-        self.sidOnCookie = sidOnCookie
-        self.isCustomPath = false
-    }
-
-    /// 标准 API 初始化（兼容旧枚举）
-    /// Standard API initialization (legacy enum compatibility)
-    @available(*, deprecated, message: "Use ApiDefinition instead")
-    public init(
-        api: DiskStationApiDefine,
         method: String,
         version: Int = 1,
         httpMethod: HTTPMethod = .get,
@@ -87,39 +63,37 @@ public struct ApiEndpoint {
         sidOnQuery: Bool? = nil,
         sidOnCookie: Bool? = nil
     ) {
-        self.api = api
-        self.apiDefinition = nil
+        self.apiDefinition = api
         self.method = method
         self.version = version
         self.httpMethod = httpMethod
         self.parameters = parameters
         self.timeout = timeout
         self.path = path
+        self.customPath = nil
         self.sidOnQuery = sidOnQuery
         self.sidOnCookie = sidOnCookie
-        self.isCustomPath = false
     }
 
     /// 自定义路径初始化
     /// Custom path initialization
-    init(
-        api: DiskStationApiDefine,
+    public init(
+        api: ApiDefinition,
         customPath: String,
         httpMethod: HTTPMethod = .get,
         parameters: [String: Any] = [:],
         timeout: TimeInterval = 10
     ) {
-        self.api = api
-        self.apiDefinition = nil
+        self.apiDefinition = api
         self.method = ""
         self.version = 1
         self.httpMethod = httpMethod
         self.parameters = parameters
         self.timeout = timeout
-        self.path = customPath
+        self.path = nil
+        self.customPath = customPath
         self.sidOnQuery = nil
         self.sidOnCookie = nil
-        self.isCustomPath = true
     }
 }
 
@@ -128,8 +102,8 @@ public struct ApiEndpoint {
 extension ApiEndpoint {
     /// 创建 GET 请求端点
     /// Create GET request endpoint
-    static func get(
-        api: DiskStationApiDefine,
+    public static func get(
+        api: ApiDefinition,
         method: String,
         version: Int = 1,
         parameters: [String: Any] = [:]
@@ -140,8 +114,8 @@ extension ApiEndpoint {
 
     /// 创建 POST 请求端点
     /// Create POST request endpoint
-    static func post(
-        api: DiskStationApiDefine,
+    public static func post(
+        api: ApiDefinition,
         method: String,
         version: Int = 1,
         parameters: [String: Any] = [:]
@@ -152,8 +126,8 @@ extension ApiEndpoint {
 
     /// 创建自定义路径端点
     /// Create custom path endpoint
-    static func custom(
-        api: DiskStationApiDefine,
+    public static func custom(
+        api: ApiDefinition,
         path: String,
         httpMethod: HTTPMethod = .post,
         parameters: [String: Any] = [:]

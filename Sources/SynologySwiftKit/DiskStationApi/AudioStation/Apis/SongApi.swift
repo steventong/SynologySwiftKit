@@ -57,7 +57,7 @@ extension AudioStationApi {
 
         let result: SongListResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, httpMethod: .post,
+                api: SynologyApi.AudioStation.song, method: "list", version: 3, httpMethod: .post,
                 parameters: parameters),
             resultType: SongListResult.self
         )
@@ -77,7 +77,7 @@ extension AudioStationApi {
 
         return try apiClient.buildUrl(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_SONG, method: "list", version: 3, httpMethod: .post,
+                api: SynologyApi.AudioStation.song, method: "list", version: 3, httpMethod: .post,
                 parameters: parameters, sidOnQuery: true)
         )
     }
@@ -88,7 +88,7 @@ extension AudioStationApi {
     public func songGetInfo(id: String) async throws -> Song? {
         let result: SongInfo = try await apiClient.requestForData(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_SONG, method: "getinfo", version: 2,
+                api: SynologyApi.AudioStation.song, method: "getinfo", version: 2,
                 parameters: [
                     "id": id,
                     "additional": "song_tag,song_audio,song_rating",
@@ -104,7 +104,7 @@ extension AudioStationApi {
     public func songSetRating(id: String, rating: Int) async throws -> Bool {
         try await apiClient.request(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_SONG, method: "setrating", version: 2, httpMethod: .post,
+                api: SynologyApi.AudioStation.song, method: "setrating", version: 2, httpMethod: .post,
                 parameters: [
                     "id": id,
                     "rating": rating,

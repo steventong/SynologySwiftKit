@@ -14,7 +14,7 @@ extension AudioStationApi {
     public func songCoverURL(songId: String) throws -> URL {
         try apiClient.buildUrl(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_COVER, method: "getsongcover",
+                api: SynologyApi.AudioStation.cover, method: "getsongcover",
                 parameters: [
                     "library": "all",
                     "id": songId,
@@ -28,7 +28,7 @@ extension AudioStationApi {
     public func albumCoverURL(albumName: String, albumArtistName: String) throws -> URL {
         try apiClient.buildUrl(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3,
+                api: SynologyApi.AudioStation.cover, method: "getcover", version: 3,
                 parameters: [
                     "library": "all",
                     "album_name": albumName,
@@ -43,7 +43,7 @@ extension AudioStationApi {
     public func artistCoverURL(artistName: String) throws -> URL {
         try apiClient.buildUrl(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3,
+                api: SynologyApi.AudioStation.cover, method: "getcover", version: 3,
                 parameters: [
                     "library": "all",
                     "artist_name": artistName,
@@ -57,7 +57,7 @@ extension AudioStationApi {
     public func composerCoverURL(composerName: String) throws -> URL {
         try apiClient.buildUrl(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3,
+                api: SynologyApi.AudioStation.cover, method: "getcover", version: 3,
                 parameters: [
                     "version": 3,
                     "library": "all",

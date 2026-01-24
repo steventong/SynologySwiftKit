@@ -11,7 +11,7 @@ extension AudioStationApi {
     public func lyricsGetLyrics(id: String) async throws -> String? {
         let lyrics: Lyrics = try await apiClient.requestForData(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_LYRICS, method: "getlyrics",
+                api: SynologyApi.AudioStation.lyrics, method: "getlyrics",
                 parameters: [
                     "library": "all",
                     "id": id,

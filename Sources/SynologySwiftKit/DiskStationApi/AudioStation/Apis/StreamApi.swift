@@ -243,7 +243,7 @@ extension AudioStationApi {
         parameters["format"] = fileExtension
         return try apiClient.buildUrl(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_STREAM, method: "stream", parameters: parameters,
+                api: SynologyApi.AudioStation.stream, method: "stream", parameters: parameters,
                 path: "/0\(fileExtension)")
         )
     }
@@ -258,7 +258,7 @@ extension AudioStationApi {
         parameters["bitrate"] = getTransCodeBitrate(quality: quality)
         return try apiClient.buildUrl(
             ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_STREAM, method: "transcode", parameters: parameters,
+                api: SynologyApi.AudioStation.stream, method: "transcode", parameters: parameters,
                 path: "/0.mp3")
         )
     }
