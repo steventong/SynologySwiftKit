@@ -14,7 +14,7 @@ extension FileStationApi {
     /// - Parameter path: 文件路径
     /// - Returns: 是否成功启动删除任务
     public func delete(path: String) async throws -> Bool {
-        let delete: DeleteTask = try await apiClient.requestForData(
+        let delete: DeleteTask = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.FileStation.DELETE, method: "start", version: 2, httpMethod: .post,
                 parameters: [

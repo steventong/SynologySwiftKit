@@ -17,7 +17,7 @@ extension AudioStationApi {
         albumTotal: Int, albums: [Album], artistTotal: Int, artists: [Artist], songTotal: Int,
         songs: [Song]
     ) {
-        let result: SearchResult = try await apiClient.requestForData(
+        let result: SearchResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SEARCH, method: "list", httpMethod: .post,
                 parameters: [

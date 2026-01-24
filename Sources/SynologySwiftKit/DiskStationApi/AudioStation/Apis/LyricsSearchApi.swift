@@ -9,7 +9,7 @@ import Foundation
 
 extension AudioStationApi {
     public func lyricsSearchSearchLyrics(title: String, artist: String) async throws -> String? {
-        let lyrics: Lyrics = try await apiClient.requestForData(
+        let lyrics: Lyrics = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics",
                 parameters: [

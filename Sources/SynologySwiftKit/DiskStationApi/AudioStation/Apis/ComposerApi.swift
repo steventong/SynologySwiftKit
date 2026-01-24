@@ -30,7 +30,7 @@ extension AudioStationApi {
             parameters["sort_direction"] = sort.sort_direction
         }
 
-        let result: ComposerListResult = try await apiClient.requestForData(
+        let result: ComposerListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.COMPOSER, method: "list", version: 2, httpMethod: .post,
                 parameters: parameters),

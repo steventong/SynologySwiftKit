@@ -30,7 +30,7 @@ extension AudioStationApi {
             parameters["sort_direction"] = sort.sort_direction
         }
 
-        let result: GenreListResult = try await apiClient.requestForData(
+        let result: GenreListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.GENRE, method: "list", version: 3, httpMethod: .post,
                 parameters: parameters),

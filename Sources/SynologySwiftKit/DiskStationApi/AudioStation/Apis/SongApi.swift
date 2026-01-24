@@ -55,7 +55,7 @@ extension AudioStationApi {
             parameters["sort_direction"] = sort.sort_direction
         }
 
-        let result: SongListResult = try await apiClient.requestForData(
+        let result: SongListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post,
                 parameters: parameters),
@@ -86,7 +86,7 @@ extension AudioStationApi {
      query song info
      */
     public func songGetInfo(id: String) async throws -> Song? {
-        let result: SongInfo = try await apiClient.requestForData(
+        let result: SongInfo = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "getinfo", version: 2,
                 parameters: [

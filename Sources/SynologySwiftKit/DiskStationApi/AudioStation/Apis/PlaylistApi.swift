@@ -13,7 +13,7 @@ extension AudioStationApi {
      */
     public func playlistList(limit: Int, offset: Int) async throws -> (total: Int, data: [Playlist])
     {
-        let result: PlaylistListResult = try await apiClient.requestForData(
+        let result: PlaylistListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "list",
                 parameters: [
@@ -35,7 +35,7 @@ extension AudioStationApi {
         limit: Int, offset: Int,
         sort: (sort_by: String, sort_direction: String)? = nil
     ) async throws -> (total: Int, data: [Song]) {
-        let result: PlaylistGetInfoResult = try await apiClient.requestForData(
+        let result: PlaylistGetInfoResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "getinfo", version: 3, httpMethod: .post,
                 parameters: [
@@ -59,7 +59,7 @@ extension AudioStationApi {
     public func playlist_create(name: String, library: String, songs: String?) async throws
         -> String
     {
-        let result: PlaylistCreateResult = try await apiClient.requestForData(
+        let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3, httpMethod: .post,
                 parameters: [
@@ -78,7 +78,7 @@ extension AudioStationApi {
     public func playlistCreateSmart(
         name: String, shared: Bool, conj_rule: String, rules_json: String
     ) async throws -> String? {
-        let result: PlaylistCreateResult = try await apiClient.requestForData(
+        let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "createsmart", version: 2,
                 httpMethod: .post,
@@ -97,7 +97,7 @@ extension AudioStationApi {
      重命名播放列表
      */
     public func playlist_rename(id: String, newName: String) async throws -> String? {
-        let result: PlaylistRenameResult = try await apiClient.requestForData(
+        let result: PlaylistRenameResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "rename", version: 3, httpMethod: .post,
                 parameters: [
@@ -113,7 +113,7 @@ extension AudioStationApi {
      删除播放列表
      */
     public func playlist_delete(id: String) async throws -> Bool {
-        let result: PlaylistDeleteResult = try await apiClient.requestForData(
+        let result: PlaylistDeleteResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "delete", version: 3, httpMethod: .post,
                 parameters: ["id": id]),

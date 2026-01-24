@@ -24,7 +24,7 @@ public actor AuthApi {
         let deviceId = getDeviceId()
 
         do {
-            let authResult: AuthResult = try await apiClient.requestForData(
+            let authResult: AuthResult = try await apiClient.request(
                 ApiEndpoint(
                     api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
                     parameters: [

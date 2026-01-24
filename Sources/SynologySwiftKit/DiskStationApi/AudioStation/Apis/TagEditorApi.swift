@@ -9,7 +9,7 @@ import Foundation
 
 extension AudioStationApi {
     public func tagEditor_load(path: String) async throws -> TagEditorResult? {
-        let result: TagEditorResult = try await apiClient.requestForResult(
+        let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.TAG_EDITOR_UI,
                 customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
@@ -20,13 +20,13 @@ extension AudioStationApi {
                     "audioInfos": "[{\"path\":\"\(path)\"}]",
                 ]
             ),
-            resultType: TagEditorResult.self
+            rawResponse: true
         )
         return result.success ? result : nil
     }
 
     public func tagEditor_apply(request: TagEditorRequest) async throws -> TagEditorResult? {
-        let result: TagEditorResult = try await apiClient.requestForResult(
+        let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.TAG_EDITOR_UI,
                 customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
@@ -37,7 +37,7 @@ extension AudioStationApi {
                     "data": JsonUtils.toJson(codable: [request]) ?? "",
                 ]
             ),
-            resultType: TagEditorResult.self
+            rawResponse: true
         )
         return result.success ? result : nil
     }

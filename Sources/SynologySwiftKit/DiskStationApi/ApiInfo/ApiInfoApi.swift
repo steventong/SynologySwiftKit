@@ -73,7 +73,7 @@ public class ApiInfoApi: ApiInfoProviding {
 
 extension ApiInfoApi {
     private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
-        let apiInfo: [String: ApiInfoNode] = try await apiClient.requestForData(
+        let apiInfo: [String: ApiInfoNode] = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.Core.INFO, method: "query", parameters: ["query": "all"]),
             resultType: [String: ApiInfoNode].self
         )

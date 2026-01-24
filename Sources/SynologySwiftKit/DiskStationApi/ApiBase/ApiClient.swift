@@ -19,7 +19,6 @@ import Foundation
 /// )
 /// ```
 final class ApiClient: ApiClientProviding {
-
     // MARK: - Dependencies
 
     /// 设备连接提供者
@@ -43,16 +42,34 @@ final class ApiClient: ApiClientProviding {
 
     /// 发送请求并解码响应
     /// Send request and decode response
-    func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
-        let response = try await requestForResult(endpoint, resultType: SynologyResponse<T>.self)
-        return try response.unwrap()
+    /// 通用请求方法
+    public func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool = false)
+        async throws -> T
+    {
+        if rawResponse {
+            // 返回原始响应
+            return try await sendApiRequest(
+                endpoint: endpoint,
+                resultType: T.self,
+                checkResultIsSuccess: { _ in true },
+                parseErrorCode: { _ in nil }
+            )
+        } else {
+            // 解包数据 (默认)
+            let response = try await sendApiRequest(
+                endpoint: endpoint,
+                resultType: SynologyResponse<T>.self,
+                checkResultIsSuccess: { $0.success },
+                parseErrorCode: { $0.error?.code }
+            )
+            return try response.unwrap()
+        }
     }
 
     /// 发送请求（无返回值）
     /// Send request without return value
     func request(_ endpoint: ApiEndpoint) async throws {
-        let _: SynologyResponse<EmptyData> = try await requestForResult(
-            endpoint, resultType: SynologyResponse<EmptyData>.self)
+        let _: EmptyData = try await request(endpoint, rawResponse: false)
     }
 
     /// 发送请求并返回 Result 类型（带数据）
@@ -75,38 +92,6 @@ final class ApiClient: ApiClientProviding {
         } catch {
             return .failure(error)
         }
-    }
-
-    /// 发送请求并返回数据部分
-    /// Send request and return data part
-    func requestForData<T: Decodable>(_ endpoint: ApiEndpoint, resultType: T.Type = T.self)
-        async throws -> T
-    {
-        let apiResult = try await sendApiRequest(
-            endpoint: endpoint,
-            resultType: DiskStationApiResult<T>.self,
-            checkResultIsSuccess: { $0.success },
-            parseErrorCode: { $0.errorCode }
-        )
-
-        guard let data = apiResult.data else {
-            throw SynologyError.network(.responseEmpty)
-        }
-
-        return data
-    }
-
-    /// 发送请求并返回原始结果（不检查 success 状态）
-    /// Send request and return raw result (without checking success status)
-    func requestForResult<T: Decodable>(_ endpoint: ApiEndpoint, resultType: T.Type = T.self)
-        async throws -> T
-    {
-        try await sendApiRequest(
-            endpoint: endpoint,
-            resultType: T.self,
-            checkResultIsSuccess: { _ in true },
-            parseErrorCode: { _ in nil }
-        )
     }
 
     /// 构建请求 URL（不发送请求）

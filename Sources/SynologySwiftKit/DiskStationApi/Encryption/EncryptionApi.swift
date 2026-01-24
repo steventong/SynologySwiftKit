@@ -18,7 +18,7 @@ public class EncryptionApi {
     }
 
     public func getApiInfoEncryption() async throws -> ApiInfoEncryption {
-        let apiInfoEncryption: ApiInfoEncryption = try await apiClient.requestForData(
+        let apiInfoEncryption: ApiInfoEncryption = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.Core.ENCRYPTION, method: "getinfo"),
             resultType: ApiInfoEncryption.self
         )

@@ -59,7 +59,7 @@ extension AudioStationApi {
             parameters["did"] = did
         }
 
-        let audioStationInfo: AudioStationInfo = try await apiClient.requestForData(
+        let audioStationInfo: AudioStationInfo = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.INFO,
                 method: "getinfo",

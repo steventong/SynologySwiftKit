@@ -9,7 +9,7 @@ import Foundation
 
 extension AudioStationApi {
     public func folderList(id: String?) async throws -> (total: Int, data: [Folder]) {
-        let result: FolderListResult = try await apiClient.requestForData(
+        let result: FolderListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.FOLDER, method: "list",
                 parameters: [
