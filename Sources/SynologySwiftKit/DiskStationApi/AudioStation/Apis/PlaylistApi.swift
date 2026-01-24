@@ -15,7 +15,7 @@ extension AudioStationApi {
     {
         let result: PlaylistListResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "list",
+                api: SynologyApi.AudioStation.PLAYLIST, method: "list",
                 parameters: [
                     "library": "all",
                     "limit": limit,
@@ -37,7 +37,7 @@ extension AudioStationApi {
     ) async throws -> (total: Int, data: [Song]) {
         let result: PlaylistGetInfoResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "getinfo", version: 3, httpMethod: .post,
+                api: SynologyApi.AudioStation.PLAYLIST, method: "getinfo", version: 3, httpMethod: .post,
                 parameters: [
                     "id": id,
                     "library": library,
@@ -61,7 +61,7 @@ extension AudioStationApi {
     {
         let result: PlaylistCreateResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "create", version: 3, httpMethod: .post,
+                api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3, httpMethod: .post,
                 parameters: [
                     "name": name,
                     "library": library,
@@ -80,7 +80,7 @@ extension AudioStationApi {
     ) async throws -> String? {
         let result: PlaylistCreateResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "createsmart", version: 2,
+                api: SynologyApi.AudioStation.PLAYLIST, method: "createsmart", version: 2,
                 httpMethod: .post,
                 parameters: [
                     "name": name,
@@ -99,7 +99,7 @@ extension AudioStationApi {
     public func playlist_rename(id: String, newName: String) async throws -> String? {
         let result: PlaylistRenameResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "rename", version: 3, httpMethod: .post,
+                api: SynologyApi.AudioStation.PLAYLIST, method: "rename", version: 3, httpMethod: .post,
                 parameters: [
                     "id": id,
                     "new_name": newName,
@@ -115,7 +115,7 @@ extension AudioStationApi {
     public func playlist_delete(id: String) async throws -> Bool {
         let result: PlaylistDeleteResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "delete", version: 3, httpMethod: .post,
+                api: SynologyApi.AudioStation.PLAYLIST, method: "delete", version: 3, httpMethod: .post,
                 parameters: ["id": id]),
             resultType: PlaylistDeleteResult.self
         )
@@ -128,7 +128,7 @@ extension AudioStationApi {
     public func playlistRemoveMissing(id: String) async throws -> Bool {
         try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "removemissing", version: 3,
+                api: SynologyApi.AudioStation.PLAYLIST, method: "removemissing", version: 3,
                 httpMethod: .post, parameters: ["id": id])
         )
         return true
@@ -150,7 +150,7 @@ extension AudioStationApi {
 
         try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.playlist, method: "updatesongs", version: 3,
+                api: SynologyApi.AudioStation.PLAYLIST, method: "updatesongs", version: 3,
                 httpMethod: .post, parameters: parameters)
         )
         return true

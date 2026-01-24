@@ -11,7 +11,7 @@ extension AudioStationApi {
     public func folderList(id: String?) async throws -> (total: Int, data: [Folder]) {
         let result: FolderListResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.folder, method: "list",
+                api: SynologyApi.AudioStation.FOLDER, method: "list",
                 parameters: [
                     "version": 3,
                     "id": id ?? "",

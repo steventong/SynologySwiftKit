@@ -32,7 +32,7 @@ extension AudioStationApi {
 
         let result: GenreListResult = try await apiClient.requestForData(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.genre, method: "list", version: 3, httpMethod: .post,
+                api: SynologyApi.AudioStation.GENRE, method: "list", version: 3, httpMethod: .post,
                 parameters: parameters),
             resultType: GenreListResult.self
         )

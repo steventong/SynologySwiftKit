@@ -25,7 +25,7 @@ public final class PinApi {
     ) {
         let result: PinListResult = try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.pin,
+                api: SynologyApi.AudioStation.PIN,
                 method: "list",
                 parameters: ["offset": offset, "limit": limit]
             )
@@ -41,7 +41,7 @@ public final class PinApi {
                 "type": type.rawValue,
                 "criteria": criteria.toDictionary(),
                 "name": name,
-            ]
+            ],
         ]
 
         let itemsJSON = try JSONSerialization.data(withJSONObject: item)
@@ -49,7 +49,7 @@ public final class PinApi {
 
         let result: PinOperationResult = try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.pin,
+                api: SynologyApi.AudioStation.PIN,
                 method: "pin",
                 httpMethod: .post,
                 parameters: ["items": itemsString]
@@ -67,7 +67,7 @@ public final class PinApi {
 
         return try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.pin,
+                api: SynologyApi.AudioStation.PIN,
                 method: "unpin",
                 httpMethod: .post,
                 parameters: ["items": itemsString]

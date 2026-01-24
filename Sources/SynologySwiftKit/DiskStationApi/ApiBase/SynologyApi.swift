@@ -15,7 +15,7 @@ import Foundation
 /// 使用示例 / Usage:
 /// ```swift
 /// let endpoint = ApiEndpoint(
-///     api: SynologyApi.AudioStation.song,
+///     api: SynologyApi.AudioStation.SONG,
 ///     method: "list",
 ///     parameters: ["limit": 100]
 /// )
@@ -57,25 +57,25 @@ public enum SynologyApi {
     /// 核心 API
     public enum Core {
         /// API 信息查询
-        public static let info = ApiDefinition(
+        public static let INFO = ApiDefinition(
             name: "SYNO.API.Info",
             requiresAuth: false
         )
 
         /// 认证 API
-        public static let auth = ApiDefinition(
+        public static let AUTH = ApiDefinition(
             name: "SYNO.API.Auth",
             requiresAuth: false
         )
 
         /// 加密 API
-        public static let encryption = ApiDefinition(
+        public static let ENCRYPTION = ApiDefinition(
             name: "SYNO.API.Encryption",
             requiresAuth: false
         )
 
         /// DSM 信息
-        public static let dsmInfo = ApiDefinition(name: "SYNO.DSM.Info")
+        public static let DSM_INFO = ApiDefinition(name: "SYNO.DSM.Info")
     }
 
     // MARK: - AudioStation APIs
@@ -83,92 +83,92 @@ public enum SynologyApi {
     /// AudioStation API
     public enum AudioStation {
         /// 音频站信息
-        public static let info = ApiDefinition(name: "SYNO.AudioStation.Info")
+        public static let INFO = ApiDefinition(name: "SYNO.AudioStation.Info")
 
         /// 歌曲
-        public static let song = ApiDefinition(name: "SYNO.AudioStation.Song")
+        public static let SONG = ApiDefinition(name: "SYNO.AudioStation.Song")
 
         /// 专辑
-        public static let album = ApiDefinition(name: "SYNO.AudioStation.Album")
+        public static let ALBUM = ApiDefinition(name: "SYNO.AudioStation.Album")
 
         /// 艺术家
-        public static let artist = ApiDefinition(name: "SYNO.AudioStation.Artist")
+        public static let ARTIST = ApiDefinition(name: "SYNO.AudioStation.Artist")
 
         /// 流派
-        public static let genre = ApiDefinition(name: "SYNO.AudioStation.Genre")
+        public static let GENRE = ApiDefinition(name: "SYNO.AudioStation.Genre")
 
         /// 作曲家
-        public static let composer = ApiDefinition(name: "SYNO.AudioStation.Composer")
+        public static let COMPOSER = ApiDefinition(name: "SYNO.AudioStation.Composer")
 
         /// 播放列表
-        public static let playlist = ApiDefinition(name: "SYNO.AudioStation.Playlist")
+        public static let PLAYLIST = ApiDefinition(name: "SYNO.AudioStation.Playlist")
 
         /// 浏览播放列表
         public static let browsePlaylist = ApiDefinition(name: "SYNO.AudioStation.Browse.Playlist")
 
         /// 文件夹
-        public static let folder = ApiDefinition(name: "SYNO.AudioStation.Folder")
+        public static let FOLDER = ApiDefinition(name: "SYNO.AudioStation.Folder")
 
         /// 封面（需要 sid 在 URL）
-        public static let cover = ApiDefinition(
+        public static let COVER = ApiDefinition(
             name: "SYNO.AudioStation.Cover",
             requiresQuerySid: true
         )
 
         /// 流媒体（需要 sid 在 URL）
-        public static let stream = ApiDefinition(
+        public static let STREAM = ApiDefinition(
             name: "SYNO.AudioStation.Stream",
             requiresQuerySid: true
         )
 
         /// 下载
-        public static let download = ApiDefinition(name: "SYNO.AudioStation.Download")
+        public static let DOWNLOAD = ApiDefinition(name: "SYNO.AudioStation.Download")
 
         /// 搜索
-        public static let search = ApiDefinition(name: "SYNO.AudioStation.Search")
+        public static let SEARCH = ApiDefinition(name: "SYNO.AudioStation.Search")
 
         /// 歌词
-        public static let lyrics = ApiDefinition(name: "SYNO.AudioStation.Lyrics")
+        public static let LYRICS = ApiDefinition(name: "SYNO.AudioStation.Lyrics")
 
         /// 歌词搜索
-        public static let lyricsSearch = ApiDefinition(name: "SYNO.AudioStation.LyricsSearch")
+        public static let LYRICS_SEARCH = ApiDefinition(name: "SYNO.AudioStation.LyricsSearch")
 
         /// 收藏（Pin）
-        public static let pin = ApiDefinition(name: "SYNO.AudioStation.Pin")
+        public static let PIN = ApiDefinition(name: "SYNO.AudioStation.Pin")
 
         /// 标签
-        public static let tag = ApiDefinition(name: "SYNO.AudioStation.Tag")
+        public static let TAG = ApiDefinition(name: "SYNO.AudioStation.Tag")
 
         /// 标签编辑器 UI（非标准 API）
-        public static let tagEditorUI = ApiDefinition(name: "tagEditorUI")
+        public static let TAG_EDITOR_UI = ApiDefinition(name: "tagEditorUI")
 
         /// 网页播放器
-        public static let webPlayer = ApiDefinition(name: "SYNO.AudioStation.WebPlayer")
+        public static let WEB_PLAYER = ApiDefinition(name: "SYNO.AudioStation.WebPlayer")
 
         /// 电台
-        public static let radio = ApiDefinition(name: "SYNO.AudioStation.Radio")
+        public static let RADIO = ApiDefinition(name: "SYNO.AudioStation.Radio")
 
         /// 远程播放器
-        public static let remotePlayer = ApiDefinition(name: "SYNO.AudioStation.RemotePlayer")
+        public static let REMOTE_PLAYER = ApiDefinition(name: "SYNO.AudioStation.RemotePlayer")
 
         /// 远程播放器状态
-        public static let remotePlayerStatus = ApiDefinition(
+        public static let REMOTE_PLAYER_STATUS = ApiDefinition(
             name: "SYNO.AudioStation.RemotePlayerStatus")
 
         /// 媒体服务器
-        public static let mediaServer = ApiDefinition(name: "SYNO.AudioStation.MediaServer")
+        public static let MEDIA_SERVER = ApiDefinition(name: "SYNO.AudioStation.MediaServer")
 
         /// 代理
-        public static let proxy = ApiDefinition(name: "SYNO.AudioStation.Proxy")
+        public static let PROXY = ApiDefinition(name: "SYNO.AudioStation.Proxy")
 
         /// 语音助手
         public enum VoiceAssistant {
-            public static let browse = ApiDefinition(
+            public static let BROWSE = ApiDefinition(
                 name: "SYNO.AudioStation.VoiceAssistant.Browse")
-            public static let challenge = ApiDefinition(
+            public static let CHALLENGE = ApiDefinition(
                 name: "SYNO.AudioStation.VoiceAssistant.Challenge")
-            public static let info = ApiDefinition(name: "SYNO.AudioStation.VoiceAssistant.Info")
-            public static let stream = ApiDefinition(
+            public static let INFO = ApiDefinition(name: "SYNO.AudioStation.VoiceAssistant.Info")
+            public static let STREAM = ApiDefinition(
                 name: "SYNO.AudioStation.VoiceAssistant.Stream")
         }
     }
@@ -178,6 +178,6 @@ public enum SynologyApi {
     /// FileStation API
     public enum FileStation {
         /// 删除
-        public static let delete = ApiDefinition(name: "SYNO.FileStation.Delete")
+        public static let DELETE = ApiDefinition(name: "SYNO.FileStation.Delete")
     }
 }

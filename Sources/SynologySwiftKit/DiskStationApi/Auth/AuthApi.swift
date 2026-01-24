@@ -26,7 +26,7 @@ public actor AuthApi {
         do {
             let authResult: AuthResult = try await apiClient.requestForData(
                 ApiEndpoint(
-                    api: SynologyApi.Core.auth, method: "login", version: 6, httpMethod: .post,
+                    api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
                     parameters: [
                         "account": username,
                         "passwd": password,
@@ -55,7 +55,7 @@ public actor AuthApi {
 
     public func logout() async throws {
         try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.Core.auth, method: "logout", version: 6, timeout: 3)
+            ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
         )
     }
 }

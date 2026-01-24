@@ -19,7 +19,7 @@ public class DsmInfoApi {
 
     public func queryDmsInfo() async throws -> DsmInfo? {
         let dsmInfo: DsmInfo = try await apiClient.requestForData(
-            ApiEndpoint(api: SynologyApi.Core.dsmInfo, method: "getinfo", version: 2),
+            ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2),
             resultType: DsmInfo.self
         )
         Logger.info("dsmInfo: \(dsmInfo)")
