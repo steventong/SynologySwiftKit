@@ -12,7 +12,6 @@ import Foundation
 /// AudioStation 固定 API（依赖注入）
 /// AudioStation Pin API (dependency injection)
 public final class PinApi {
-
     private let apiClient: ApiClientProviding
 
     public init(apiClient: ApiClientProviding) {
@@ -21,14 +20,11 @@ public final class PinApi {
 
     /// 获取固定列表
     /// Get pinned items list
-    public func list(limit: Int = -1, offset: Int = 0) async throws -> (
-        total: Int, items: [PinItem]
-    ) {
+    public func list(limit: Int = -1, offset: Int = 0) async throws -> (total: Int, items: [PinItem]) {
         let result: PinListResult = try await apiClient.request(
-            ApiEndpoint(
-                api: .SYNO_AUDIO_STATION_PIN,
-                method: "list",
-                parameters: ["offset": offset, "limit": limit]
+            ApiEndpoint(api: .SYNO_AUDIO_STATION_PIN,
+                        method: "list",
+                        parameters: ["offset": offset, "limit": limit]
             )
         )
         return (result.total, result.items)
@@ -42,7 +38,7 @@ public final class PinApi {
                 "type": type.rawValue,
                 "criteria": criteria.toDictionary(),
                 "name": name,
-            ]
+            ],
         ]
 
         let itemsJSON = try JSONSerialization.data(withJSONObject: item)
@@ -80,7 +76,6 @@ public final class PinApi {
 // MARK: - Convenience Methods
 
 extension PinApi {
-
     /// 固定文件夹
     public func pinFolder(folderId: String, name: String) async throws -> PinItem? {
         try await pin(type: .folder, name: name, criteria: .folder(folderId))
