@@ -33,84 +33,96 @@ dependencies: [
 
 ---
 
-### 1.2 🔴 依赖注入替代单例模式
+### 1.2 ✅ ~~依赖注入替代单例模式~~ (已完成 - 彻底移除单例)
 
-**文件**: `DeviceConnection.swift`, `ApiInfoApi.swift`, `DiskStationApi.swift`  
-**现状**: 大量使用 `shared` 单例，导致测试困难、耦合度高。
+**文件**: `DeviceConnection.swift`, `ApiInfoApi.swift`, `ApiClient.swift`, `CheckDeviceConnection.swift`  
+**现状**: ✅ 已彻底移除所有 `.shared` 单例，实施完整依赖注入。
+
+**已实现**:
+- ✅ 创建了 `SynologyClient` 统一服务容器
+- ✅ 创建 `DeviceConnectionProviding` 协议
+- ✅ 创建 `ApiClientProviding` 协议  
+- ✅ 创建 `ApiInfoProviding` 协议
+- ✅ **彻底移除** `DeviceConnection.shared`, `ApiClient.shared`, `ApiInfoApi.shared`, `CheckDeviceConnection.shared`
+- ✅ `SynologyUserLogin` 和 `CheckDeviceConnection` 完全使用依赖注入
+- ✅ 所有 AudioStation API 类使用注入的 `apiClient`
+- ✅ 解决了 `ApiClient` ↔ `ApiInfoApi` 循环依赖（延迟注入模式）
 
 ```swift
-// 当前代码
-DeviceConnection.shared.getCurrentConnectionUrl()
-ApiInfoApi.shared.getApiInfoByApiName(apiName:)
+// 新的使用方式
+let client = SynologyClient()
+try await client.audioStation.songList(limit: 100)
+client.deviceConnection.updateLoginSession(...)
 ```
 
-**建议**: 使用协议 + 依赖注入：
-
-```swift
-// 定义协议
-public protocol DeviceConnectionProviding {
-    func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)?
-    func getLoginSession() -> SessionInfo?
-}
-
-// 默认实现
-public final class DeviceConnection: DeviceConnectionProviding { ... }
-
-// 注入使用
-struct DiskStationApi {
-    private let connectionProvider: DeviceConnectionProviding
-    
-    init(connectionProvider: DeviceConnectionProviding = DeviceConnection.shared, ...) {
-        self.connectionProvider = connectionProvider
-    }
-}
-```
+> [⚠️ WARNING]
+> **Breaking Change**: 旧的 `.shared` 单例损问已不再可用，必须迁移到 `SynologyClient`。
 
 ---
 
-### 1.3 🔴 创建统一的 API Client 层
+### 1.3 ✅ ~~创建统一的 API Client 层~~ (已完成)
 
-**文件**: `DiskStationApi.swift`  
-**现状**: 每次 API 请求都创建新的 `Session` 实例。
-
-```swift
-// 当前代码 (DiskStationApi.swift:26-35)
-init(api: DiskStationApiDefine, ...) throws {
-    session = AlamofireClientFactory.createSession(...)  // 每次都创建新 Session
-}
-```
-
-**建议**: 创建 `SynologyClient` 管理 Session 生命周期：
+**文件**: `SynologyClient.swift`  
+**现状**: ✅ 已创建 `SynologyClient` 统一管理所有依赖和 API 模块。
 
 ```swift
 public final class SynologyClient {
-    private let session: Session
-    private let connectionProvider: DeviceConnectionProviding
+    // 核心服务
+    public let deviceConnection: DeviceConnection
+    let apiClient: ApiClient
+    public let apiInfo: ApiInfoApi
     
-    public static let shared = SynologyClient()
+    // API 模块
+    public lazy var audioStation: AudioStationApi
+    public lazy var auth: AuthApi
+    public lazy var quickConnect: QuickConnectApi
+    public lazy var dsmInfo: DsmInfoApi
+    public lazy var encryption: EncryptionApi
     
-    private init() {
-        self.session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: 30)
-        self.connectionProvider = DeviceConnection.shared
+    // 业务流程
+    public lazy var userLogin: SynologyUserLogin
+    public lazy var checkConnection: CheckDeviceConnection
+    
+    public init() {
+        self.deviceConnection = DeviceConnection()
+        self.apiClient = ApiClient(connectionProvider: deviceConnection)
+        self.apiInfo = ApiInfoApi(apiClient: apiClient)
+        self.apiClient.apiInfoProvider = apiInfo  // 解决循环依赖
     }
-    
-    func request<T: Decodable>(
-        api: DiskStationApiDefine,
-        method: String,
-        version: Int = 1,
-        parameters: [String: Any] = [:]
-    ) async throws -> T { ... }
 }
 ```
 
 ---
 
-### 1.4 🟡 统一错误处理架构
+### 1.4 ✅ ~~统一错误处理架构~~ (已完成)
 
-**文件**: `DiskStationApiError.swift`, `AuthApiError.swift`, `QuickConnectError.swift`  
-**现状**: 多个分散的错误类型，难以统一处理。
+**文件**: `SynologyError.swift`  
+**现状**: ✅ 已创建层级化的 `SynologyError` 统一所有错误类型。
 
-**建议**: 使用层级化错误类型：
+**已实现**:
+- ✅ 创建 `SynologyError` 层级化错误枚举
+- ✅ 包含 `NetworkError`、`ApiError`、`AuthError`、`QuickConnectError`、`ConnectionError` 子类型
+- ✅ 更新 `ApiClient`、`AuthApi`、`QuickConnectApi` 等使用新错误类型
+- ✅ 将 `SynologyApiResponse` 中的 `SynologyError` struct 重命名为 `SynologyApiError`
+
+```swift
+public enum SynologyError: Error, LocalizedError {
+    case network(NetworkError)
+    case api(ApiError)
+    case auth(AuthError)
+    case quickConnect(QuickConnectError)
+    case connection(ConnectionError)
+}
+
+// 使用示例
+do {
+    try await client.auth.login(...)
+} catch SynologyError.auth(.otpRequired) {
+    // 需要两步验证
+} catch SynologyError.api(.invalidSession) {
+    // 会话过期
+}
+```
 
 ```swift
 public enum SynologyError: Error, LocalizedError {
@@ -145,61 +157,42 @@ public enum SynologyError: Error, LocalizedError {
 
 ---
 
-### 1.5 🟡 重构 API 定义枚举
+### 1.5 ✅ ~~重构 API 定义枚举~~ (已完成)
 
-**文件**: `DiskStationApiDefine.swift`  
-**现状**: 单一枚举包含所有 API，不易扩展。
+**文件**: `SynologyApi.swift`, `DiskStationApiDefine.swift`  
+**现状**: ✅ 已创建命名空间结构的 `SynologyApi`，旧枚举标记为 deprecated。
 
-**建议**: 使用命名空间结构：
+**已实现**:
+- ✅ 创建 `ApiDefinition` 结构体
+- ✅ 创建 `SynologyApi` 命名空间（Core、AudioStation、FileStation）
+- ✅ 标记 `DiskStationApiDefine` 为 `@deprecated`
+- ✅ 删除注释掉的代码
 
 ```swift
-public enum SynologyApi {
-    public enum Core {
-        public static let info = ApiDefinition(name: "SYNO.API.Info", requiresAuth: false)
-        public static let auth = ApiDefinition(name: "SYNO.API.Auth", requiresAuth: false)
-        public static let encryption = ApiDefinition(name: "SYNO.API.Encryption", requiresAuth: false)
-    }
-    
-    public enum AudioStation {
-        public static let song = ApiDefinition(name: "SYNO.AudioStation.Song")
-        public static let album = ApiDefinition(name: "SYNO.AudioStation.Album")
-        public static let playlist = ApiDefinition(name: "SYNO.AudioStation.Playlist")
-        public static let cover = ApiDefinition(name: "SYNO.AudioStation.Cover", requiresQuerySid: true)
-        public static let stream = ApiDefinition(name: "SYNO.AudioStation.Stream", requiresQuerySid: true)
-    }
-}
-
-public struct ApiDefinition {
-    let name: String
-    let requiresAuth: Bool
-    let requiresQuerySid: Bool
-    
-    init(name: String, requiresAuth: Bool = true, requiresQuerySid: Bool = false) {
-        self.name = name
-        self.requiresAuth = requiresAuth
-        self.requiresQuerySid = requiresQuerySid
-    }
-}
+// 新的使用方式
+let endpoint = ApiEndpoint(
+    api: SynologyApi.AudioStation.song,
+    method: "list",
+    parameters: ["limit": 100]
+)
+```
 ```
 
 ---
 
-### 1.6 🟢 项目结构重组
+### 1.6 ✅ ~~项目结构重组~~ (已评估 - 保持现状)
 
-**现状**:
+**现状**: 当前结构已基本合理，保持不变。
+
 ```
 Sources/SynologySwiftKit/
-├── BizFlow/
-├── Common/
-└── DiskStationApi/
+├── BizFlow/          (业务流程)
+├── Common/           (通用组件)
+├── DiskStationApi/   (API 模块)
+└── SynologyClient.swift
 ```
 
-**建议**:
-```
-Sources/SynologySwiftKit/
-├── Client/
-│   ├── SynologyClient.swift
-│   └── SessionManager.swift
+**决策**: 大规模重组风险高（需更新所有 import），现有结构可满足需求。
 ├── APIs/
 │   ├── Core/           (Auth, ApiInfo, Encryption, DsmInfo)
 │   ├── AudioStation/
@@ -822,8 +815,8 @@ public func songList(
 | 优先级 | 类别 | 优化项 | 预估工作量 |
 |--------|------|--------|------------|
 | ✅ | 架构 | ~~移除 SwiftyJSON~~ | ~~0.5h~~ |
-| 🔴 | 架构 | 依赖注入替代单例 | 4h |
-| 🔴 | 架构 | 创建统一 API Client | 3h |
+| ✅ | 架构 | ~~依赖注入替代单例~~ | ~~4h~~ |
+| ✅ | 架构 | ~~创建统一 API Client~~ | ~~3h~~ |
 | 🔴 | 代码 | 模型属性命名规范化 | 2h |
 | 🔴 | 代码 | 方法命名规范化 | 1h |
 | 🔴 | 安全 | Keychain 存储敏感数据 | 2h |

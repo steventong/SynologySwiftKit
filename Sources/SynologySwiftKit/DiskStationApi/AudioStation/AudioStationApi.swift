@@ -9,44 +9,53 @@ import Foundation
 
 // MARK: - AudioStation API Client
 
-/// AudioStation API 客户端
-/// 提供对群晖 AudioStation 各功能模块的统一访问入口
-///
-/// AudioStation API Client
-/// Provides unified access to Synology AudioStation API modules
+/// AudioStation API 客户端（依赖注入）
+/// AudioStation API Client (dependency injection)
 ///
 /// 使用示例 / Usage:
 /// ```swift
-/// let audioStation = AudioStationApi()
-///
-/// // 固定 API / Pin API
+/// let audioStation = AudioStationApi(apiClient: client.apiClient)
 /// let (total, items) = try await audioStation.pin.list()
-/// try await audioStation.pin.pinAlbum(album: "专辑名", albumArtist: "艺术家")
+/// let songs = try await audioStation.songList(limit: 100)
 /// ```
 public final class AudioStationApi {
-    
+
+    // MARK: - Dependencies
+
+    /// API 客户端（internal 以便 extension 访问）
+    /// API client (internal for extension access)
+    let apiClient: ApiClientProviding
+
     // MARK: - API Modules
-    
+
     /// 固定 API
-    /// Pin API for managing pinned items (albums, artists, folders, etc.)
-    public let pin = PinApi()
-    
+    /// Pin API for managing pinned items
+    public lazy var pin: PinApi = PinApi(apiClient: apiClient)
+
     // MARK: - Initialization
-    
-    public init() {}
+
+    /// 初始化 AudioStation API
+    /// Initialize AudioStation API
+    /// - Parameter apiClient: API 客户端
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
+    }
 }
 
 // MARK: - Internal Helpers
 
 extension AudioStationApi {
-    
+
     /// 获取当前会话 ID
     /// Get current session ID from UserDefaults
     /// - Throws: DiskStationApiError.invalidSession if session not exist
     /// - Returns: Session ID string
     func getSessionId() throws -> String {
-        guard let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName) else {
-            throw DiskStationApiError.invalidSession(0, "invalid session, session not exist")
+        guard
+            let sid = UserDefaults.standard.string(
+                forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
+        else {
+            throw SynologyError.api(.invalidSession(code: 0, message: "invalid session, session not exist"))
         }
         return sid
     }

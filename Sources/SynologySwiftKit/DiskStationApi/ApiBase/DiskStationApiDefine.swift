@@ -1,12 +1,15 @@
 //
-//  File.swift
-//
+//  DiskStationApiDefine.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
 //
 
 import Foundation
 
+/// Synology API 定义枚举（已弃用）
+/// - Note: 请使用 `SynologyApi` 命名空间替代
+@available(*, deprecated, message: "Use SynologyApi namespace instead")
 public enum DiskStationApiDefine: String {
     /**
      api info
@@ -87,9 +90,10 @@ public enum DiskStationApiDefine: String {
     /**
      api version
      */
-    func apiInfo(apiName: String, method: String, version: Int, parameters: [String: Any]) throws
-        -> (path: String, method: String, version: Int, parameters: [String: Any])
-    {
+    func apiInfo(
+        apiName: String, method: String, version: Int, parameters: [String: Any],
+        apiInfoProvider: ApiInfoProviding
+    ) throws -> (path: String, method: String, version: Int, parameters: [String: Any]) {
         // api query 直接返回
         if apiName == DiskStationApiDefine.SYNO_API_INFO.rawValue {
             return ("query.cgi", "query", 1, parameters: [:])
@@ -99,7 +103,7 @@ public enum DiskStationApiDefine: String {
             return staticApiInfo
         }
 
-        let apiInfo = try ApiInfoApi.shared.getApiInfoByApiName(apiName: apiName)
+        let apiInfo = try apiInfoProvider.getApiInfoByApiName(apiName: apiName)
 
         // 适合的版本号
         let apiVersion = min(max(apiInfo.minVersion, version), apiInfo.maxVersion)
@@ -157,44 +161,4 @@ public enum DiskStationApiDefine: String {
             return nil
         }
     }
-
-    //    /**
-    //     api Url
-    //     */
-    //    var apiPath: String {
-    //        switch self {
-    //        case .SYNO_API_INFO:
-    //            return "/webapi/query.cgi"
-    //        case .SYNO_API_ENCRYPTION:
-    //            return "/webapi/encryption.cgi"
-    //        case .SYNO_API_AUTH:
-    //            return "/webapi/auth.cgi"
-    //        case .SYNO_AUDIO_STATION_SONG:
-    //            return "/webapi/AudioStation/song.cgi"
-    //        case .SYNO_AUDIO_STATION_STREAM:
-    //            return "/webapi/AudioStation/stream.cgi"
-    //        case .SYNO_AUDIO_STATION_PLAYLIST:
-    //            return "/webapi/AudioStation/playlist.cgi"
-    //        case .SYNO_AUDIO_STATION_COVER:
-    //            return "/webapi/AudioStation/cover.cgi"
-    //        case .SYNO_AUDIO_STATION_ARTIST:
-    //            return "/webapi/AudioStation/artist.cgi"
-    //        case .SYNO_AUDIO_STATION_ALBUM:
-    //            return "/webapi/AudioStation/album.cgi"
-    //        case .SYNO_AUDIO_STATION_GENRE:
-    //            return "/webapi/AudioStation/genre.cgi"
-    //        case .SYNO_AUDIO_STATION_COMPOSER:
-    //            return "/webapi/AudioStation/composer.cgi"
-    //        case .SYNO_AUDIO_STATION_FOLDER:
-    //            return "/webapi/AudioStation/folder.cgi"
-    //        case .SYNO_AUDIO_STATION_LYRICS:
-    //            return "/webapi/AudioStation/lyrics.cgi"
-    //        case .SYNO_AUDIO_STATION_LYRICSSEARCH:
-    //            return "/webapi/AudioStation/lyrics_search.cgi"
-    //        case .SYNO_AUDIO_STATION_TAG_EDITOR_UI:
-    //            return "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi"
-    //        default:
-    //            return "/webapi/entry.cgi"
-    //        }
-    //    }
 }
