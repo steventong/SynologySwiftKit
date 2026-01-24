@@ -495,4 +495,4 @@ final class ApiClient: ApiClientProviding {
 
 /// 空数据类型（用于无返回值的请求）
 /// Empty data type (for requests without return value)
-private struct EmptyData: Decodable {}
+public struct EmptyData: Decodable {}
