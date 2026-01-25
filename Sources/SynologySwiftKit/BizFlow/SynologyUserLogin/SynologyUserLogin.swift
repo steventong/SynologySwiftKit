@@ -13,7 +13,6 @@ import OSLog
 /// Synology 用户登录管理（依赖注入）
 /// Synology user login management (dependency injection)
 public actor SynologyUserLogin {
-
     // MARK: - Dependencies
 
     private let deviceConnection: DeviceConnectionProviding
@@ -30,26 +29,22 @@ public actor SynologyUserLogin {
     ///   - deviceConnection: 设备连接提供者
     ///   - apiInfoApi: API 信息提供者
     ///   - apiClient: API 客户端
-    public init(
-        deviceConnection: DeviceConnectionProviding,
-        apiInfoApi: ApiInfoProviding,
-        apiClient: ApiClientProviding
-    ) {
+    public init(deviceConnection: DeviceConnectionProviding,
+                apiInfoApi: ApiInfoProviding,
+                apiClient: ApiClientProviding) {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
 
-        self.quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
-        self.authApi = AuthApi(apiClient: apiClient)
-        self.audioStationApi = AudioStationApi(apiClient: apiClient)
+        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
+        authApi = AuthApi(apiClient: apiClient)
+        audioStationApi = AudioStationApi(apiClient: apiClient)
     }
 
     /// server: quickConnectId 或者是 域名+端口号
-    public func login(
-        server: String, enableHttps: Bool, username: String, password: String,
-        otpCode: String? = nil,
-        onProgress: @escaping (SynologyUserLoginStep) -> Void,
-        onConnectionFetch: @escaping (ConnectionType, String) -> Void
-    ) async throws -> AuthResult {
+    public func login(server: String, enableHttps: Bool, username: String, password: String,
+                      otpCode: String? = nil,
+                      onProgress: @escaping (SynologyUserLoginStep) -> Void,
+                      onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
         // progress
         onProgress(.STEP_START(server: server))
 
@@ -103,11 +98,9 @@ public actor SynologyUserLogin {
     }
 
     /// 通过sid和did登录
-    public func login(
-        server: String, enableHttps: Bool, username: String, sid: String, did: String?,
-        onProgress: @escaping (SynologyUserLoginStep) -> Void,
-        onConnectionFetch: @escaping (ConnectionType, String) -> Void
-    ) async throws -> AuthResult {
+    public func login(server: String, enableHttps: Bool, username: String, sid: String, did: String?,
+                      onProgress: @escaping (SynologyUserLoginStep) -> Void,
+                      onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
         // progress
         onProgress(.STEP_START(server: server))
 
@@ -160,9 +153,7 @@ extension SynologyUserLogin {
     /**
      fetchConnectionUrl 获取地址
      */
-    private func fetchConnectionUrl(
-        server: String, enableHttps: Bool, onProgress: @escaping (SynologyUserLoginStep) -> Void
-    ) async -> (type: ConnectionType, url: String)? {
+    private func fetchConnectionUrl(server: String, enableHttps: Bool, onProgress: @escaping (SynologyUserLoginStep) -> Void) async -> (type: ConnectionType, url: String)? {
         if await !quickConnectApi.isQuickConnectId(server: server) {
             // 自定义域名直接返回地址
             return (.custom_domain, server)
@@ -175,8 +166,7 @@ extension SynologyUserLogin {
         // 通过quick connect 服务获取地址
         do {
             if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(
-                quickConnectId: server, enableHttps: enableHttps)
-            {
+                quickConnectId: server, enableHttps: enableHttps) {
                 // 新的地址
                 onProgress(.QC_FETCH_CONNECTION_SUCCESS)
                 return (connection.type, connection.url)

@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import OSLog
 
 public final class InfoApi {
     private let apiClient: ApiClientProviding
@@ -18,14 +17,9 @@ public final class InfoApi {
     /**
      Query AudioStation Info
      */
-    public func query(
-        cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil
-    ) async throws -> AudioStationInfo {
+    public func query(cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
         // Cache Check
-        if cacheEnabled == true,
-            isCacheValid(),
-            let cachedInfo = getFromCache()
-        {
+        if cacheEnabled == true, isCacheValid(), let cachedInfo = getFromCache() {
             return cachedInfo
         }
 
@@ -42,10 +36,8 @@ public final class InfoApi {
      Query from Cache
      */
     public func getFromCache() -> AudioStationInfo? {
-        if let json = UserDefaults.standard.string(
-            forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
-            let data = json.data(using: .utf8)
-        {
+        if let json = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
+           let data = json.data(using: .utf8) {
             let info = try? JSONDecoder().decode(AudioStationInfo.self, from: data)
             if let info {
                 Logger.debug("SynologySwiftKit.InfoApi, query, from cache: \(info)")
@@ -57,9 +49,7 @@ public final class InfoApi {
 
     // MARK: - Private Methods
 
-    private func queryFromDsm(sid: String? = nil, did: String? = nil) async throws
-        -> AudioStationInfo
-    {
+    private func queryFromDsm(sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
         let result: AudioStationInfo = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.INFO,
@@ -81,8 +71,7 @@ public final class InfoApi {
 
     private func saveToCache(info: AudioStationInfo) {
         if let encoded = try? JSONEncoder().encode(info),
-            let json = String(data: encoded, encoding: .utf8)
-        {
+           let json = String(data: encoded, encoding: .utf8) {
             UserDefaults.standard.setValue(
                 json, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
             UserDefaults.standard.set(
@@ -93,8 +82,7 @@ public final class InfoApi {
 
     private func isCacheValid() -> Bool {
         if let updateTime = UserDefaults.standard.object(
-            forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date
-        {
+            forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
             return Date().timeIntervalSince(updateTime) < 24 * 60 * 60
         }
         return false
