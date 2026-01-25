@@ -19,7 +19,7 @@ import Foundation
 /// )
 /// ```
 public struct ApiEndpoint {
-
+    
     public let api: ApiDefinition
     public let method: String
     public let version: Int
@@ -53,17 +53,9 @@ public struct ApiEndpoint {
 
     /// 标准初始化
     /// Standard initialization
-    public init(
-        api: ApiDefinition,
-        method: String,
-        version: Int = 1,
-        httpMethod: HTTPMethod = .get,
-        parameters: [String: Any] = [:],
-        timeout: TimeInterval = 10,
-        path: String? = nil,
-        sidOnQuery: Bool? = nil,
-        sidOnCookie: Bool? = nil
-    ) {
+    public init(api: ApiDefinition, method: String, version: Int = 1, httpMethod: HTTPMethod = .get,
+                parameters: [String: Any] = [:], timeout: TimeInterval = 10, path: String? = nil,
+                sidOnQuery: Bool? = nil, sidOnCookie: Bool? = nil) {
         self.api = api
         self.method = method
         self.version = version
@@ -78,13 +70,8 @@ public struct ApiEndpoint {
 
     /// 自定义路径初始化
     /// Custom path initialization
-    public init(
-        api: ApiDefinition,
-        customPath: String,
-        httpMethod: HTTPMethod = .get,
-        parameters: [String: Any] = [:],
-        timeout: TimeInterval = 10
-    ) {
+    public init(api: ApiDefinition, customPath: String, httpMethod: HTTPMethod = .get,
+                parameters: [String: Any] = [:], timeout: TimeInterval = 10) {
         self.api = api
         method = ""
         version = 1
@@ -142,43 +129,20 @@ extension ApiEndpoint {
 extension ApiEndpoint {
     /// 标准初始化 (使用 Result Builder)
     /// Standard initialization with Result Builder
-    public init(
-        api: ApiDefinition,
-        method: String,
-        version: Int = 1,
-        httpMethod: HTTPMethod = .get,
-        timeout: TimeInterval = 10,
-        path: String? = nil,
-        sidOnQuery: Bool? = nil,
-        sidOnCookie: Bool? = nil,
-        @ApiParametersBuilder parameters: () -> [String: Any]
-    ) {
-        self.init(
-            api: api,
-            method: method,
-            version: version,
-            httpMethod: httpMethod,
-            parameters: parameters(),
-            timeout: timeout,
-            path: path,
-            sidOnQuery: sidOnQuery,
-            sidOnCookie: sidOnCookie)
+    public init(api: ApiDefinition, method: String, version: Int = 1, httpMethod: HTTPMethod = .get,
+                timeout: TimeInterval = 10, path: String? = nil,
+                sidOnQuery: Bool? = nil, sidOnCookie: Bool? = nil,
+                @ApiParametersBuilder parameters: () -> [String: Any]) {
+        self.init(api: api, method: method, version: version,
+                  httpMethod: httpMethod, parameters: parameters(),
+                  timeout: timeout, path: path,
+                  sidOnQuery: sidOnQuery, sidOnCookie: sidOnCookie)
     }
 
     /// 自定义路径初始化 (使用 Result Builder)
     /// Custom path initialization with Result Builder
-    public init(
-        api: ApiDefinition,
-        customPath: String,
-        httpMethod: HTTPMethod = .get,
-        timeout: TimeInterval = 10,
-        @ApiParametersBuilder parameters: () -> [String: Any]
-    ) {
-        self.init(
-            api: api,
-            customPath: customPath,
-            httpMethod: httpMethod,
-            parameters: parameters(),
-            timeout: timeout)
+    public init(api: ApiDefinition, customPath: String, httpMethod: HTTPMethod = .get, timeout: TimeInterval = 10,
+                @ApiParametersBuilder parameters: () -> [String: Any]) {
+        self.init(api: api, customPath: customPath, httpMethod: httpMethod, parameters: parameters(), timeout: timeout)
     }
 }

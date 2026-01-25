@@ -36,7 +36,7 @@ public struct ApiParametersBuilder {
     public static func buildBlock(_ components: Parameters...) -> Parameters {
         var result: Parameters = [:]
         for component in components {
-            result.merge(component) { (_, new) in new }
+            result.merge(component) { _, new in new }
         }
         return result
     }
@@ -59,7 +59,7 @@ public struct ApiParametersBuilder {
     public static func buildArray(_ components: [Parameters]) -> Parameters {
         var result: Parameters = [:]
         for component in components {
-            result.merge(component) { (_, new) in new }
+            result.merge(component) { _, new in new }
         }
         return result
     }

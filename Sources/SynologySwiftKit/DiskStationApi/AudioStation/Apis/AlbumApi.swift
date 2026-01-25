@@ -17,16 +17,12 @@ public final class AlbumApi {
     /**
      album list
      */
-    public func list(
-        limit: Int = 1000, offset: Int = 0,
-        library: String = "shared", additional: String? = nil,
-        filter: String? = nil, keyword: String? = nil,
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> (total: Int, data: [Album]) {
+    public func list(limit: Int = 1000, offset: Int = 0,
+                     library: String = "shared", additional: String? = nil,
+                     filter: String? = nil, keyword: String? = nil,
+                     sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Album]) {
         let result: AlbumListResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.ALBUM, method: "list", version: 3, httpMethod: .post
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.ALBUM, method: "list", version: 3, httpMethod: .post) {
                 ("limit", limit)
                 ("offset", offset)
                 ("library", library)
