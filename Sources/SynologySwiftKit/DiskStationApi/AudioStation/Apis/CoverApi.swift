@@ -15,55 +15,51 @@ public final class CoverApi {
     }
 
     /**
-     获取封面
-     Get cover image data
+     获取歌曲封面 URL
+     Get song cover URL
      */
-    public func get(id: String) async throws -> Data {
-        // cover.cgi
-        // api=SYNO.AudioStation.Cover&method=getcover&version=3&library=shared&id=music_18521 // song id
-        let result: Data = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
-                ("library", "shared")
-                ("id", id)
-            },
-            rawResponse: true
+    public func songCoverUrl(id: String, library: String = "all") throws -> URL {
+        return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
+            ("library", library)
+            ("id", id)
+        }
         )
-        return result
     }
 
     /**
-     通过 URL 获取封面（某些情况封面可能在不同路径）
+     获取专辑封面 URL
+     Get album cover URL
      */
-    public func getWithUrl(url: String) async throws -> Data {
-        let result: Data = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.COVER, fullPath: url, httpMethod: .get) {
-                // No parameters needed usually for custom path direct access
-            },
-            rawResponse: true
+    public func albumCoverUrl(name: String, artistName: String, library: String = "all") throws -> URL {
+        return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+            ("library", library)
+            ("album_name", name)
+            ("album_artist_name", artistName)
+        }
         )
-        return result
     }
 
     /**
-     从文件夹路径获取封面
+     获取艺术家封面 URL
+     Get artist cover URL
      */
-    public func getFolderCover(path: String) async throws -> Data {
-        // api=SYNO.AudioStation.Cover&output_default=true&method=getcover&version=3&library=shared&id=folder_path_music
-        // section index... not implemented in swift version yet
-        // Fallback to library=shared & id=folder_path (if server supports)
-
-        // This logic seems incomplete in original file.
-        // Assuming we just call standard cover API with folder id pattern if applicable
-        // Or standard request.
-
-        // Use folder variant
-        let result: Data = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
-                ("library", "shared")
-                ("id", path) // assuming path is passed as ID for folders in some contexts
-            },
-            rawResponse: true
+    public func artistCoverUrl(name: String, library: String = "all") throws -> URL {
+        return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+            ("library", library)
+            ("artist_name", name)
+        }
         )
-        return result
+    }
+
+    /**
+     获取作曲家封面 URL
+     Get composer cover URL
+     */
+    public func composerCoverUrl(name: String, library: String = "all") throws -> URL {
+        return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+            ("library", library)
+            ("composer_name", name)
+        }
+        )
     }
 }
