@@ -73,6 +73,11 @@ public final class SynologyClient {
         )
     }()
 
+    /// QueryAllSongs
+    public lazy var queryAllSongs: QueryAllSongs = {
+        QueryAllSongs(apiClient: apiClient)
+    }()
+
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
