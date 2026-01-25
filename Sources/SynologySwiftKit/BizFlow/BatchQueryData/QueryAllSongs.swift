@@ -9,14 +9,14 @@ import Foundation
 
 /// 批量查询所有歌曲（依赖注入）
 /// Batch query all songs (dependency injection)
-public class QueryAllSongs {
+public final class QueryAllSongs {
     private let audioStationApi: AudioStationApi
 
     /// 初始化查询器
     /// Initialize query helper
     /// - Parameter audioStationApi: AudioStation API 实例
-    public init(audioStationApi: AudioStationApi) {
-        self.audioStationApi = audioStationApi
+    public init(apiClient: ApiClientProviding) {
+        audioStationApi = AudioStationApi(apiClient: apiClient)
     }
 
     /**
@@ -39,10 +39,10 @@ public class QueryAllSongs {
         batchNum: Int = 3,
         onTaskStart: @escaping (_ total: Int, _ tasks: Int) -> Void,
         onTaskUpdate:
-            @escaping (
-                _ success: Bool, _ songs: [Song], _ currentCnt: Int, _ totalCnt: Int,
-                _ error: String
-            ) -> Void,
+        @escaping (
+            _ success: Bool, _ songs: [Song], _ currentCnt: Int, _ totalCnt: Int,
+            _ error: String
+        ) -> Void,
         onTaskEnd: @escaping (_ success: Bool, _ errorMsg: String) -> Void
     ) {
         Task {
@@ -74,7 +74,7 @@ public class QueryAllSongs {
                 body: { taskGroup in
                     // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
                     // task start
-                    for taskIndex in 0..<batchNum {
+                    for taskIndex in 0 ..< batchNum {
                         taskGroup.addTask {
                             let data = await self.querySongList(
                                 taskIndex: taskIndex, batchSize: batchSize, total: total)

@@ -9,7 +9,7 @@ import Foundation
 
 /// FileStation API 入口（依赖注入）
 /// FileStation API entry (dependency injection)
-public class FileStationApi {
+public final class FileStationApi {
     /// API 客户端（internal 以便 extension 使用）
     /// API client (internal for extension access)
     let apiClient: ApiClientProviding
