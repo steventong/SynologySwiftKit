@@ -173,8 +173,7 @@ final class ApiClient: ApiClientProviding {
             name: resolved.name,
             method: resolved.method,
             parameters: resolved.parameters,
-            requireAuthCookie: resolved.requireAuthCookie
-        ) {
+            requireAuthCookie: resolved.requireAuthCookie) {
             headers["Cookie"] = cookie
         }
 
@@ -199,8 +198,8 @@ final class ApiClient: ApiClientProviding {
         }
 
         try handleErrorCode(errorCode)
-        throw SynologyError.api(
-            .businessError(code: errorCode, message: "errorCode = \(errorCode)"))
+
+        throw SynologyError.api(.businessError(code: errorCode, message: "errorCode = \(errorCode)"))
     }
 
     /// 发送 HTTP 请求

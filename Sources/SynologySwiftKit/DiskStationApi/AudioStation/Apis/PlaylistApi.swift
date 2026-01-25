@@ -31,23 +31,20 @@ public final class PlaylistApi {
     /**
      query playlist songs
      */
-    public func getSongs(
-        id: String, library: String,
-        additional: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
-        limit: Int, offset: Int,
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> (total: Int, data: [Song]) {
+    public func getSongs(id: String, library: String,
+                         additional: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
+                         limit: Int, offset: Int,
+                         sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
         let result: PlaylistGetInfoResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "getinfo", version: 3,
-                httpMethod: .post
-            ) {
-                ("id", id)
-                ("library", library)
-                ("additional", additional)
-                ("songs_limit", limit)
-                ("songs_offset", offset)
-            }
+                httpMethod: .post) {
+                    ("id", id)
+                    ("library", library)
+                    ("additional", additional)
+                    ("songs_limit", limit)
+                    ("songs_offset", offset)
+                }
         )
         if let playlist = result.playlists.first {
             return (playlist.songsTotal, playlist.songs)
@@ -60,10 +57,7 @@ public final class PlaylistApi {
      */
     public func create(name: String, library: String, songs: String?) async throws -> String {
         let result: PlaylistCreateResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3,
-                httpMethod: .post
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3, httpMethod: .post) {
                 ("name", name)
                 ("library", library)
                 ("songs", songs ?? "")
@@ -81,13 +75,12 @@ public final class PlaylistApi {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "createsmart", version: 2,
-                httpMethod: .post
-            ) {
-                ("name", name)
-                ("library", shared ? "shared" : "personal")
-                ("conj_rule", conj_rule)
-                ("rules_json", rules_json)
-            }
+                httpMethod: .post) {
+                    ("name", name)
+                    ("library", shared ? "shared" : "personal")
+                    ("conj_rule", conj_rule)
+                    ("rules_json", rules_json)
+                }
         )
         return result.id
     }
@@ -99,11 +92,10 @@ public final class PlaylistApi {
         let result: PlaylistRenameResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "rename", version: 3,
-                httpMethod: .post
-            ) {
-                ("id", id)
-                ("new_name", newName)
-            }
+                httpMethod: .post) {
+                    ("id", id)
+                    ("new_name", newName)
+                }
         )
         return result.id
     }
@@ -130,10 +122,9 @@ public final class PlaylistApi {
         try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "removemissing", version: 3,
-                httpMethod: .post
-            ) {
-                ("id", id)
-            }
+                httpMethod: .post) {
+                    ("id", id)
+                }
         )
         return true
     }
@@ -145,16 +136,15 @@ public final class PlaylistApi {
         try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "updatesongs", version: 3,
-                httpMethod: .post
-            ) {
-                ("id", id)
-                ("limit", 0)
-                ("offset", -1)
-                ("skip_duplicate", true)
-                if !songs.isEmpty {
-                    ("songs", songs.joined(separator: ","))
+                httpMethod: .post) {
+                    ("id", id)
+                    ("limit", 0)
+                    ("offset", -1)
+                    ("skip_duplicate", true)
+                    if !songs.isEmpty {
+                        ("songs", songs.joined(separator: ","))
+                    }
                 }
-            }
         )
         return true
     }

@@ -22,9 +22,7 @@ public final class CoverApi {
         // cover.cgi
         // api=SYNO.AudioStation.Cover&method=getcover&version=3&library=shared&id=music_18521 // song id
         let result: Data = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
                 ("library", "shared")
                 ("id", id)
             },
@@ -60,11 +58,9 @@ public final class CoverApi {
 
         // Use folder variant
         let result: Data = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
                 ("library", "shared")
-                ("id", path)  // assuming path is passed as ID for folders in some contexts
+                ("id", path) // assuming path is passed as ID for folders in some contexts
             },
             rawResponse: true
         )
