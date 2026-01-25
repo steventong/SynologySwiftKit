@@ -40,6 +40,9 @@ public final class SynologyClient {
     /// AudioStation API
     public lazy var audioStation: AudioStationApi = { AudioStationApi(apiClient: apiClient) }()
 
+    /// FileStation API
+    public lazy var fileSation: FileStationApi = { FileStationApi(apiClient: apiClient) }()
+
     /// 认证 API
     /// Authentication API
     public lazy var auth: AuthApi = { AuthApi(apiClient: apiClient) }()
