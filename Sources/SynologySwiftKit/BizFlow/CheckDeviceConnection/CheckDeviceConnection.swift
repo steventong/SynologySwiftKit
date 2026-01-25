@@ -12,7 +12,6 @@ import Foundation
 /// 设备连接检查类（依赖注入）
 /// Device connection checker (dependency injection)
 public class CheckDeviceConnection {
-
     // MARK: - Dependencies
 
     private let deviceConnection: DeviceConnectionProviding
@@ -20,7 +19,7 @@ public class CheckDeviceConnection {
     private let quickConnectApi: QuickConnectApi
     private let audioStationApi: AudioStationApi
     private let dsmInfoApi: DsmInfoApi
-    let pingpong = PingPong()
+    private let pingpong = PingPong()
 
     // MARK: - Initialization
 
@@ -30,28 +29,20 @@ public class CheckDeviceConnection {
     ///   - deviceConnection: 设备连接提供者
     ///   - apiInfoApi: API 信息提供者
     ///   - apiClient: API 客户端
-    public init(
-        deviceConnection: DeviceConnectionProviding,
-        apiInfoApi: ApiInfoProviding,
-        apiClient: ApiClientProviding
-    ) {
+    public init(deviceConnection: DeviceConnectionProviding, apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding) {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
 
-        self.quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
-        self.audioStationApi = AudioStationApi(apiClient: apiClient)
-        self.dsmInfoApi = DsmInfoApi(apiClient: apiClient)
+        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
+        audioStationApi = AudioStationApi(apiClient: apiClient)
+        dsmInfoApi = DsmInfoApi(apiClient: apiClient)
     }
 
     /**
      check device connection status
      */
-    public func checkConnectionStatus(
-        fetchNewServerByQuickConnectId: Bool = false,
-        onSuccess: @escaping (_ type: ConnectionType, _ url: String) -> Void,
-        onFailed: @escaping () -> Void,
-        onLoginRequired: @escaping () -> Void
-    ) {
+    public func checkConnectionStatus(fetchNewServerByQuickConnectId: Bool = false,
+                                      onSuccess: @escaping (_ type: ConnectionType, _ url: String) -> Void, onFailed: @escaping () -> Void, onLoginRequired: @escaping () -> Void) {
         Task {
             // ping current connection url
             if let connection = deviceConnection.getCurrentConnectionUrl() {
@@ -74,7 +65,7 @@ public class CheckDeviceConnection {
 
             // 重新获取 quick connect
             guard fetchNewServerByQuickConnectId,
-                let loginServer = deviceConnection.getLoginServer()
+                  let loginServer = deviceConnection.getLoginServer()
             else {
                 Logger.error(
                     "CheckDeviceConnection#checkConnectionStatus, quickconnectId but login server not exist"
@@ -89,8 +80,7 @@ public class CheckDeviceConnection {
                 )
 
                 if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(
-                    quickConnectId: loginServer.server, enableHttps: loginServer.isEnableHttps)
-                {
+                    quickConnectId: loginServer.server, enableHttps: loginServer.isEnableHttps) {
                     // 新的连接地址信息
                     deviceConnection.updateCurrentConnectionUrl(
                         type: connection.type, url: connection.url)
@@ -98,13 +88,13 @@ public class CheckDeviceConnection {
                     self.queryAudioStationInfo(
                         success: { _ in
                             // 成功回调
-                            return onSuccess(connection.type, connection.url)
+                            onSuccess(connection.type, connection.url)
                         },
                         failed: {
-                            return onFailed()
+                            onFailed()
                         },
                         sessionInvalid: {
-                            return onLoginRequired()
+                            onLoginRequired()
                         })
                 } else {
                     Logger.error(
@@ -125,10 +115,7 @@ public class CheckDeviceConnection {
     /**
      query dsmInfo
      */
-    public func queryDsmInfoApi(
-        success: @escaping (DsmInfo) -> Void, failed: @escaping () -> Void,
-        sessionInvalid: @escaping () -> Void
-    ) {
+    public func queryDsmInfoApi(success: @escaping (DsmInfo) -> Void, failed: @escaping () -> Void, sessionInvalid: @escaping () -> Void) {
         Task {
             do {
                 // 登录状态成功后，设备信息
@@ -154,10 +141,7 @@ public class CheckDeviceConnection {
         }
     }
 
-    public func queryAudioStationInfo(
-        success: @escaping (AudioStationInfo) -> Void, failed: @escaping () -> Void,
-        sessionInvalid: @escaping () -> Void
-    ) {
+    public func queryAudioStationInfo(success: @escaping (AudioStationInfo) -> Void, failed: @escaping () -> Void, sessionInvalid: @escaping () -> Void) {
         Task {
             do {
                 // 连接可用, 更新API info.

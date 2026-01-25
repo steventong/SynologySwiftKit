@@ -10,7 +10,6 @@ import Foundation
 /// DSM 信息 API（依赖注入）
 /// DSM Info API (dependency injection)
 public class DsmInfoApi {
-
     private let apiClient: ApiClientProviding
 
     public init(apiClient: ApiClientProviding) {
@@ -18,10 +17,9 @@ public class DsmInfoApi {
     }
 
     public func queryDmsInfo() async throws -> DsmInfo? {
-        let dsmInfo: DsmInfo = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2),
-            resultType: DsmInfo.self
-        )
+        let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2)
+        let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint, resultType: DsmInfo.self)
+        
         Logger.info("dsmInfo: \(dsmInfo)")
         return dsmInfo
     }
