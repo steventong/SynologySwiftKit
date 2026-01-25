@@ -20,15 +20,9 @@ public final class PinApi {
 
     /// 获取固定列表
     /// Get pinned items list
-    public func list(limit: Int = -1, offset: Int = 0) async throws -> (
-        total: Int, items: [PinItem]
-    ) {
+    public func list(limit: Int = -1, offset: Int = 0) async throws -> (total: Int, items: [PinItem]) {
         let result: PinListResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.PIN,
-                method: "list",
-                parameters: ["offset": offset, "limit": limit]
-            )
+            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "list", parameters: ["offset": offset, "limit": limit])
         )
         return (result.total, result.items)
     }
@@ -48,12 +42,7 @@ public final class PinApi {
         let itemsString = String(data: itemsJSON, encoding: .utf8) ?? "[]"
 
         let result: PinOperationResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.PIN,
-                method: "pin",
-                httpMethod: .post,
-                parameters: ["items": itemsString]
-            )
+            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "pin", httpMethod: .post, parameters: ["items": itemsString])
         )
         return result.items.first
     }
@@ -66,12 +55,7 @@ public final class PinApi {
         let itemsString = String(data: itemsJSON, encoding: .utf8) ?? "[]"
 
         return try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.PIN,
-                method: "unpin",
-                httpMethod: .post,
-                parameters: ["items": itemsString]
-            )
+            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "unpin", httpMethod: .post, parameters: ["items": itemsString])
         )
     }
 }

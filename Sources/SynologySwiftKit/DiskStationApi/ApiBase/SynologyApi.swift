@@ -30,11 +30,7 @@ public struct ApiDefinition: Equatable {
 
     /// 初始化 API 定义
     /// Initialize API definition
-    public init(
-        name: String,
-        requiresAuth: Bool = true,
-        requiresQuerySid: Bool = false
-    ) {
+    public init(name: String, requiresAuth: Bool = true, requiresQuerySid: Bool = false) {
         self.name = name
         self.requiresAuth = requiresAuth
         self.requiresQuerySid = requiresQuerySid
@@ -51,28 +47,18 @@ public struct ApiDefinition: Equatable {
 /// - `AudioStation`: 音频站 API
 /// - `FileStation`: 文件站 API
 public enum SynologyApi {
-
     // MARK: - Core APIs
 
     /// 核心 API
     public enum Core {
         /// API 信息查询
-        public static let INFO = ApiDefinition(
-            name: "SYNO.API.Info",
-            requiresAuth: false
-        )
+        public static let INFO = ApiDefinition(name: "SYNO.API.Info", requiresAuth: false)
 
         /// 认证 API
-        public static let AUTH = ApiDefinition(
-            name: "SYNO.API.Auth",
-            requiresAuth: false
-        )
+        public static let AUTH = ApiDefinition(name: "SYNO.API.Auth", requiresAuth: false)
 
         /// 加密 API
-        public static let ENCRYPTION = ApiDefinition(
-            name: "SYNO.API.Encryption",
-            requiresAuth: false
-        )
+        public static let ENCRYPTION = ApiDefinition(name: "SYNO.API.Encryption", requiresAuth: false)
 
         /// DSM 信息
         public static let DSM_INFO = ApiDefinition(name: "SYNO.DSM.Info")
@@ -82,7 +68,7 @@ public enum SynologyApi {
 
     /// AudioStation API
     public enum AudioStation {
-        /// 音频站信息
+        /// 系统信息
         public static let INFO = ApiDefinition(name: "SYNO.AudioStation.Info")
 
         /// 歌曲
@@ -110,16 +96,10 @@ public enum SynologyApi {
         public static let FOLDER = ApiDefinition(name: "SYNO.AudioStation.Folder")
 
         /// 封面（需要 sid 在 URL）
-        public static let COVER = ApiDefinition(
-            name: "SYNO.AudioStation.Cover",
-            requiresQuerySid: true
-        )
+        public static let COVER = ApiDefinition(name: "SYNO.AudioStation.Cover", requiresQuerySid: true)
 
         /// 流媒体（需要 sid 在 URL）
-        public static let STREAM = ApiDefinition(
-            name: "SYNO.AudioStation.Stream",
-            requiresQuerySid: true
-        )
+        public static let STREAM = ApiDefinition(name: "SYNO.AudioStation.Stream", requiresQuerySid: true)
 
         /// 下载
         public static let DOWNLOAD = ApiDefinition(name: "SYNO.AudioStation.Download")
@@ -152,8 +132,7 @@ public enum SynologyApi {
         public static let REMOTE_PLAYER = ApiDefinition(name: "SYNO.AudioStation.RemotePlayer")
 
         /// 远程播放器状态
-        public static let REMOTE_PLAYER_STATUS = ApiDefinition(
-            name: "SYNO.AudioStation.RemotePlayerStatus")
+        public static let REMOTE_PLAYER_STATUS = ApiDefinition(name: "SYNO.AudioStation.RemotePlayerStatus")
 
         /// 媒体服务器
         public static let MEDIA_SERVER = ApiDefinition(name: "SYNO.AudioStation.MediaServer")
@@ -163,13 +142,10 @@ public enum SynologyApi {
 
         /// 语音助手
         public enum VoiceAssistant {
-            public static let BROWSE = ApiDefinition(
-                name: "SYNO.AudioStation.VoiceAssistant.Browse")
-            public static let CHALLENGE = ApiDefinition(
-                name: "SYNO.AudioStation.VoiceAssistant.Challenge")
+            public static let BROWSE = ApiDefinition(name: "SYNO.AudioStation.VoiceAssistant.Browse")
+            public static let CHALLENGE = ApiDefinition(name: "SYNO.AudioStation.VoiceAssistant.Challenge")
             public static let INFO = ApiDefinition(name: "SYNO.AudioStation.VoiceAssistant.Info")
-            public static let STREAM = ApiDefinition(
-                name: "SYNO.AudioStation.VoiceAssistant.Stream")
+            public static let STREAM = ApiDefinition(name: "SYNO.AudioStation.VoiceAssistant.Stream")
         }
     }
 

@@ -10,17 +10,15 @@ import Foundation
 public final class TagEditorApi {
     private let apiClient: ApiClientProviding
 
+    private static let TAG_EDITOR_URL = "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi"
+
     public init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
     public func load(path: String) async throws -> TagEditorResult? {
         let result: TagEditorResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.TAG_EDITOR_UI,
-                fullPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
-                httpMethod: .post
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
                 ("action", "load")
                 ("requestFrom", "")
                 ("audioInfos", "[{\"path\":\"\(path)\"}]")
@@ -32,11 +30,7 @@ public final class TagEditorApi {
 
     public func apply(request: TagEditorRequest) async throws -> TagEditorResult? {
         let result: TagEditorResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.TAG_EDITOR_UI,
-                fullPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
-                httpMethod: .post
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
                 ("action", "apply")
                 ("requestFrom", "")
                 ("data", JsonUtils.toJson(codable: [request]) ?? "")

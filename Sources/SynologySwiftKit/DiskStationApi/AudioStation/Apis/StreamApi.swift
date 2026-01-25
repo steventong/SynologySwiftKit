@@ -18,22 +18,12 @@ public final class StreamApi {
     /**
      build song stream url
      */
-    public func getStreamUrl(
-        id: String, path: String, bitrate: Int, frequency: Int,
-        fileExtension: String = ".mp3", quality: SongStreamQuality
-    ) throws -> URL {
-        // 如果是整轨的，直接返回mp3播放地址
+    public func getStreamUrl(id: String, path: String, bitrate: Int, frequency: Int, fileExtension: String = ".mp3", quality: SongStreamQuality) throws -> URL {
         // 如果是整轨的，直接返回mp3播放地址
         if id.hasPrefix("music_v") || id.hasPrefix("music_p_v") {
             Logger.info("整轨音频文件不支持stream，使用转码URL，id: \(id)")
             return try apiClient.buildUrl(
-                ApiEndpoint(
-                    api: SynologyApi.AudioStation.STREAM,
-                    method: "transcode",
-                    version: 2,
-                    pathSuffix: "/0.mp3",
-                    sidOnQuery: true
-                ) {
+                ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", version: 2, pathSuffix: "/0.mp3", sidOnQuery: true) {
                     ("format", "mp3")
                     ("id", id)
                 }
@@ -53,15 +43,13 @@ public final class StreamApi {
             return try buildStreamUrl(fileExtension: fileExtension, parameters: &parameters)
         } else if streamMethod == .TRANSCODE {
             // must by transcode
-            return try buildTranscodeUrl(
-                fileExtension: fileExtension, quality: quality, parameters: &parameters)
+            return try buildTranscodeUrl(fileExtension: fileExtension, quality: quality, parameters: &parameters)
         } else if quality == .ORIGINAL {
             // user choose use original (stream)
             return try buildStreamUrl(fileExtension: fileExtension, parameters: &parameters)
         } else {
             // user choose transcode
-            return try buildTranscodeUrl(
-                fileExtension: fileExtension, quality: quality, parameters: &parameters)
+            return try buildTranscodeUrl(fileExtension: fileExtension, quality: quality, parameters: &parameters)
         }
     }
 
@@ -72,9 +60,7 @@ public final class StreamApi {
         case TRANSCODE
     }
 
-    private func getAudioStreamForceMethod(id: String, path: String, bitrate: Int, frequency: Int)
-        -> StreamMethodEnum?
-    {
+    private func getAudioStreamForceMethod(id: String, path: String, bitrate: Int, frequency: Int) -> StreamMethodEnum? {
         // 整轨音频文件不支持stream，强制转码
         if id.hasPrefix("music_v") || id.hasPrefix("music_p_v") {
             Logger.info("整轨音频文件不支持stream，强制转码, id: \(id)")
@@ -119,16 +105,10 @@ public final class StreamApi {
         }
     }
 
-    private func buildStreamUrl(fileExtension: String, parameters: inout [String: Any]) throws
-        -> URL
-    {
+    private func buildStreamUrl(fileExtension: String, parameters: inout [String: Any]) throws -> URL {
         parameters["format"] = fileExtension
         return try apiClient.buildUrl(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.STREAM, method: "stream",
-                pathSuffix: "/0\(fileExtension)",
-                sidOnQuery: true
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "stream", pathSuffix: "/0\(fileExtension)", sidOnQuery: true) {
                 // Manually add parameters from the inout dict
                 // This is a bit awkward with Builder, but we can iterate
                 for (key, value) in parameters {
@@ -138,17 +118,11 @@ public final class StreamApi {
         )
     }
 
-    private func buildTranscodeUrl(
-        fileExtension: String, quality: SongStreamQuality, parameters: inout [String: Any]
-    ) throws -> URL {
+    private func buildTranscodeUrl(fileExtension: String, quality: SongStreamQuality, parameters: inout [String: Any]) throws -> URL {
         parameters["format"] = "mp3"
         parameters["bitrate"] = getTransCodeBitrate(quality: quality)
         return try apiClient.buildUrl(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.STREAM, method: "transcode",
-                pathSuffix: "/0.mp3",
-                sidOnQuery: true
-            ) {
+            ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", pathSuffix: "/0.mp3", sidOnQuery: true) {
                 for (key, value) in parameters {
                     (key, value)
                 }
