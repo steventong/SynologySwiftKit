@@ -89,7 +89,7 @@ public struct PinCriteria: Codable {
 /// 固定项目
 /// Pinned item
 public struct PinItem: Codable {
-    public let id: String?
+    public let id: String
     public let type: PinType
     public let name: String
     public let criteria: PinCriteria
