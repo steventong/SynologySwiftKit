@@ -23,22 +23,21 @@ public final class StreamApi {
         fileExtension: String = ".mp3", quality: SongStreamQuality
     ) throws -> URL {
         // 如果是整轨的，直接返回mp3播放地址
+        // 如果是整轨的，直接返回mp3播放地址
         if id.hasPrefix("music_v") || id.hasPrefix("music_p_v") {
-            if let connection = apiClient.connectionProvider.getCurrentConnectionUrl() {
-                var result =
-                    "\(connection.url)/webapi/AudioStation/stream.cgi/0.mp3?api=SYNO.AudioStation.Stream&method=transcode&version=2&format=mp3&id=\(id)&_sid=%SID%"
-
-                // TODO: Using UserDefaults here is a leaky abstraction, but preserving original logic.
-                if let sid = UserDefaults.standard.string(
-                    forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-                {
-                    result = result.replacingOccurrences(of: "%SID%", with: sid)
+            Logger.info("整轨音频文件不支持stream，使用转码URL，id: \(id)")
+            return try apiClient.buildUrl(
+                ApiEndpoint(
+                    api: SynologyApi.AudioStation.STREAM,
+                    method: "transcode",
+                    version: 2,
+                    path: "/0.mp3",
+                    sidOnQuery: true
+                ) {
+                    ("format", "mp3")
+                    ("id", id)
                 }
-
-                if let url = URL(string: result) {
-                    return url
-                }
-            }
+            )
         }
 
         // build parameters
