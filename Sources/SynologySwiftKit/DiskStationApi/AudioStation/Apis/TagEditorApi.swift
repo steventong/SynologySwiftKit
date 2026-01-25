@@ -18,7 +18,7 @@ public final class TagEditorApi {
         let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.TAG_EDITOR_UI,
-                customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
+                fullPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
                 httpMethod: .post
             ) {
                 ("action", "load")
@@ -34,7 +34,7 @@ public final class TagEditorApi {
         let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.TAG_EDITOR_UI,
-                customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
+                fullPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
                 httpMethod: .post
             ) {
                 ("action", "apply")

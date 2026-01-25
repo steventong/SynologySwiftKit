@@ -38,7 +38,7 @@ public final class CoverApi {
      */
     public func getWithUrl(url: String) async throws -> Data {
         let result: Data = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.COVER, customPath: url, httpMethod: .get) {
+            ApiEndpoint(api: SynologyApi.AudioStation.COVER, fullPath: url, httpMethod: .get) {
                 // No parameters needed usually for custom path direct access
             },
             rawResponse: true

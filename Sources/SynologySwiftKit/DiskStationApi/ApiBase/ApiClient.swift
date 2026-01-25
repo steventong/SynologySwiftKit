@@ -126,7 +126,7 @@ final class ApiClient: ApiClientProviding {
                 method: "",
                 version: 1,
                 parameters: endpoint.parameters,
-                apiPath: endpoint.path ?? "",
+                apiPath: endpoint.fullPath ?? "",
                 requireAuthCookie: true,
                 requireAuthQuery: false
             )
@@ -148,7 +148,7 @@ final class ApiClient: ApiClientProviding {
         ]) { current, _ in current }
 
         let apiPath: String
-        if let customPath = endpoint.path {
+        if let customPath = endpoint.pathSuffix {
             apiPath = "/webapi/\(fetchedApiInfo.path)\(customPath)"
         } else {
             apiPath = "/webapi/\(fetchedApiInfo.path)"

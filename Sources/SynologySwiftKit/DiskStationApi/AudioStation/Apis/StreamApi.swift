@@ -31,7 +31,7 @@ public final class StreamApi {
                     api: SynologyApi.AudioStation.STREAM,
                     method: "transcode",
                     version: 2,
-                    path: "/0.mp3",
+                    pathSuffix: "/0.mp3",
                     sidOnQuery: true
                 ) {
                     ("format", "mp3")
@@ -126,7 +126,7 @@ public final class StreamApi {
         return try apiClient.buildUrl(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.STREAM, method: "stream",
-                path: "/0\(fileExtension)",
+                pathSuffix: "/0\(fileExtension)",
                 sidOnQuery: true
             ) {
                 // Manually add parameters from the inout dict
@@ -146,7 +146,7 @@ public final class StreamApi {
         return try apiClient.buildUrl(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.STREAM, method: "transcode",
-                path: "/0.mp3",
+                pathSuffix: "/0.mp3",
                 sidOnQuery: true
             ) {
                 for (key, value) in parameters {
