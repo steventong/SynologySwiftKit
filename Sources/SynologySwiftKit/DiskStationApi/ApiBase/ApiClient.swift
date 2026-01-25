@@ -43,9 +43,7 @@ final class ApiClient: ApiClientProviding {
     /// 发送请求并解码响应
     /// Send request and decode response
     /// 通用请求方法
-    public func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool = false)
-        async throws -> T
-    {
+    public func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool = false) async throws -> T {
         if rawResponse {
             // 返回原始响应
             return try await sendApiRequest(
@@ -105,9 +103,8 @@ final class ApiClient: ApiClientProviding {
     /// 创建 URLSession
     private func createSession(timeout: TimeInterval) -> URLSession {
         if let connectionUrl = connectionProvider.getCurrentConnectionUrl(),
-            connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
-            let url = URL(string: connectionUrl.url)
-        {
+           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
+           let url = URL(string: connectionUrl.url) {
             return URLSessionFactory.createSession(
                 timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
         }
@@ -117,8 +114,7 @@ final class ApiClient: ApiClientProviding {
     /// 解析 Endpoint 信息
     private func resolveEndpoint(_ endpoint: ApiEndpoint) throws -> (
         name: String, method: String, version: Int, parameters: [String: Any], apiPath: String,
-        requireAuthCookie: Bool, requireAuthQuery: Bool
-    ) {
+        requireAuthCookie: Bool, requireAuthQuery: Bool) {
         // 自定义路径端点
         if endpoint.isCustomPath {
             return (
@@ -166,12 +162,8 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 发送 API 请求
-    private func sendApiRequest<Value: Decodable>(
-        endpoint: ApiEndpoint,
-        resultType: Value.Type = Value.self,
-        checkResultIsSuccess: (Value) -> Bool,
-        parseErrorCode: (Value) -> Int?
-    ) async throws -> Value {
+    private func sendApiRequest<Value: Decodable>(endpoint: ApiEndpoint, resultType: Value.Type = Value.self,
+                                                  checkResultIsSuccess: (Value) -> Bool, parseErrorCode: (Value) -> Int?) async throws -> Value {
         let resolved = try resolveEndpoint(endpoint)
         let apiUrl = try buildApiUrl(apiPath: resolved.apiPath)
 
@@ -212,16 +204,15 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 发送 HTTP 请求
-    private func sendHttpRequest<Value: Decodable>(
-        endpoint: ApiEndpoint,
-        resolved: (
-            name: String, method: String, version: Int, parameters: [String: Any], apiPath: String,
-            requireAuthCookie: Bool, requireAuthQuery: Bool
-        ),
-        apiUrl: URL,
-        headers: [String: String]?,
-        resultType: Value.Type = Value.self
-    ) async throws -> Value {
+    private func sendHttpRequest<Value: Decodable>(endpoint: ApiEndpoint,
+                                                   resolved: (name: String,
+                                                              method: String,
+                                                              version: Int,
+                                                              parameters: [String: Any],
+                                                              apiPath: String,
+                                                              requireAuthCookie: Bool,
+                                                              requireAuthQuery: Bool),
+                                                   apiUrl: URL, headers: [String: String]?, resultType: Value.Type = Value.self) async throws -> Value {
         let session = createSession(timeout: endpoint.timeout)
         var request: URLRequest
         var requestUrl: URL = apiUrl
@@ -300,7 +291,7 @@ final class ApiClient: ApiClientProviding {
                 duration: duration
             )
 
-            guard (200...299).contains(httpResponse.statusCode) else {
+            guard (200 ... 299).contains(httpResponse.statusCode) else {
                 throw SynologyError.network(.httpError(statusCode: httpResponse.statusCode))
             }
 
@@ -339,8 +330,7 @@ final class ApiClient: ApiClientProviding {
     /// 构建 API URL
     private func buildApiUrl(apiPath: String) throws -> URL {
         if let connection = connectionProvider.getCurrentConnectionUrl(),
-            let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url
-        {
+           let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
         throw SynologyError.api(.hostNotConfigured)
@@ -384,9 +374,7 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 构建 Cookie 请求头
-    private func buildAuthCookieHeader(
-        name: String, method: String, parameters: [String: Any], requireAuthCookie: Bool
-    ) throws -> String? {
+    private func buildAuthCookieHeader(name: String, method: String, parameters: [String: Any], requireAuthCookie: Bool) throws -> String? {
         if requireAuthCookie {
             guard
                 let sid = UserDefaults.standard.string(
@@ -398,8 +386,7 @@ final class ApiClient: ApiClientProviding {
             }
 
             if let did = UserDefaults.standard.string(
-                forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-            {
+                forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName) {
                 return "id=\(sid); did=\(did)"
             }
             return "id=\(sid)"
@@ -413,9 +400,7 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 构建查询参数中的 sid
-    private func buildAuthQueryParameter(name: String, method: String, requireAuthQuery: Bool)
-        throws -> String?
-    {
+    private func buildAuthQueryParameter(name: String, method: String, requireAuthQuery: Bool) throws -> String? {
         if requireAuthQuery {
             guard
                 let sid = UserDefaults.standard.string(

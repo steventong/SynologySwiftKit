@@ -8,16 +8,13 @@
 import Foundation
 
 public actor AuthApi {
-
     private let apiClient: ApiClientProviding
 
     public init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
-    public func userLogin(
-        server: String, username: String, password: String, otpCode: String? = nil
-    ) async throws -> AuthResult {
+    public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         Logger.debug("send request: userLogin, \(server), \(username)")
 
         let deviceName = getDeviceName()
@@ -41,9 +38,9 @@ public actor AuthApi {
                 resultType: AuthResult.self
             )
             return handleAuthResult(authResult: authResult)
-        } catch SynologyError.api(.invalidSession(let code, let msg)) {
+        } catch let SynologyError.api(.invalidSession(code, msg)) {
             throw SynologyError.auth(.undefined(code: code, message: msg))
-        } catch SynologyError.api(.businessError(let code, let msg)) {
+        } catch let SynologyError.api(.businessError(code, msg)) {
             throw SynologyError.auth(SynologyError.AuthError.fromCode(code, message: msg))
         } catch let error as SynologyError {
             throw error
