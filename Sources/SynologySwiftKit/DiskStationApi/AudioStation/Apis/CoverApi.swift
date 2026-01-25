@@ -18,10 +18,10 @@ public final class CoverApi {
      获取歌曲封面 URL
      Get song cover URL
      */
-    public func songCoverUrl(id: String, library: String = "all") throws -> URL {
+    public func songCoverUrl(songId: String, library: String = "all") throws -> URL {
         return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
             ("library", library)
-            ("id", id)
+            ("id", songId)
         }
         )
     }
@@ -30,11 +30,11 @@ public final class CoverApi {
      获取专辑封面 URL
      Get album cover URL
      */
-    public func albumCoverUrl(name: String, artistName: String, library: String = "all") throws -> URL {
+    public func albumCoverUrl(albumName: String, albumArtistName: String, library: String = "all") throws -> URL {
         return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", library)
-            ("album_name", name)
-            ("album_artist_name", artistName)
+            ("album_name", albumName)
+            ("album_artist_name", albumArtistName)
         }
         )
     }
@@ -43,10 +43,10 @@ public final class CoverApi {
      获取艺术家封面 URL
      Get artist cover URL
      */
-    public func artistCoverUrl(name: String, library: String = "all") throws -> URL {
+    public func artistCoverUrl(artistName: String, library: String = "all") throws -> URL {
         return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", library)
-            ("artist_name", name)
+            ("artist_name", artistName)
         }
         )
     }
@@ -55,10 +55,10 @@ public final class CoverApi {
      获取作曲家封面 URL
      Get composer cover URL
      */
-    public func composerCoverUrl(name: String, library: String = "all") throws -> URL {
+    public func composerCoverUrl(composerName: String, library: String = "all") throws -> URL {
         return try apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", library)
-            ("composer_name", name)
+            ("composer_name", composerName)
         }
         )
     }
