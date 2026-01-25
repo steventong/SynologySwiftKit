@@ -7,21 +7,24 @@
 
 import Foundation
 
-extension AudioStationApi {
-    public func folderList(id: String?) async throws -> (total: Int, data: [Folder]) {
+public final class FolderApi {
+    private let apiClient: ApiClientProviding
+
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
+    }
+
+    public func list(id: String?) async throws -> (total: Int, data: [Folder]) {
         let result: FolderListResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.FOLDER, method: "list",
-                parameters: [
-                    "version": 3,
-                    "id": id ?? "",
-                    "library": "all",
-                    "additional": "song_tag,song_audio,song_rating",
-                    "limit": 5000,
-                    "offset": 0,
-                ]),
-            resultType: FolderListResult.self
+            ApiEndpoint(api: SynologyApi.AudioStation.FOLDER, method: "list") {
+                ("version", 3)
+                ("id", id ?? "")
+                ("library", "all")
+                ("additional", "song_tag,song_audio,song_rating")
+                ("limit", 5000)
+                ("offset", 0)
+            }
         )
-        return (result.folder_total, result.items)
+        return (result.folderTotal, result.items)
     }
 }

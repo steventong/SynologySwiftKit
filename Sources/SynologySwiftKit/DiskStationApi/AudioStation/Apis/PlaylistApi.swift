@@ -7,21 +7,23 @@
 
 import Foundation
 
-extension AudioStationApi {
+public final class PlaylistApi {
+    private let apiClient: ApiClientProviding
+
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
+    }
+
     /**
      query playlist list
      */
-    public func playlistList(limit: Int, offset: Int) async throws -> (total: Int, data: [Playlist])
-    {
+    public func list(limit: Int, offset: Int) async throws -> (total: Int, data: [Playlist]) {
         let result: PlaylistListResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "list",
-                parameters: [
-                    "library": "all",
-                    "limit": limit,
-                    "offset": offset,
-                ]),
-            resultType: PlaylistListResult.self
+            ApiEndpoint(api: SynologyApi.AudioStation.PLAYLIST, method: "list") {
+                ("library", "all")
+                ("limit", limit)
+                ("offset", offset)
+            }
         )
         return (result.total, result.playlists)
     }
@@ -29,7 +31,7 @@ extension AudioStationApi {
     /**
      query playlist songs
      */
-    public func playlistSongList(
+    public func getSongs(
         id: String, library: String,
         additional: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
         limit: Int, offset: Int,
@@ -37,18 +39,18 @@ extension AudioStationApi {
     ) async throws -> (total: Int, data: [Song]) {
         let result: PlaylistGetInfoResult = try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "getinfo", version: 3, httpMethod: .post,
-                parameters: [
-                    "id": id,
-                    "library": library,
-                    "additional": additional,
-                    "songs_limit": limit,
-                    "songs_offset": offset,
-                ]),
-            resultType: PlaylistGetInfoResult.self
+                api: SynologyApi.AudioStation.PLAYLIST, method: "getinfo", version: 3,
+                httpMethod: .post
+            ) {
+                ("id", id)
+                ("library", library)
+                ("additional", additional)
+                ("songs_limit", limit)
+                ("songs_offset", offset)
+            }
         )
         if let playlist = result.playlists.first {
-            return (playlist.songs_total, playlist.songs)
+            return (playlist.songsTotal, playlist.songs)
         }
         return (0, [])
     }
@@ -56,18 +58,16 @@ extension AudioStationApi {
     /**
      创建播放列表
      */
-    public func playlist_create(name: String, library: String, songs: String?) async throws
-        -> String
-    {
+    public func create(name: String, library: String, songs: String?) async throws -> String {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3, httpMethod: .post,
-                parameters: [
-                    "name": name,
-                    "library": library,
-                    "songs": songs ?? "",
-                ]),
-            resultType: PlaylistCreateResult.self
+                api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3,
+                httpMethod: .post
+            ) {
+                ("name", name)
+                ("library", library)
+                ("songs", songs ?? "")
+            }
         )
         return result.id
     }
@@ -75,20 +75,19 @@ extension AudioStationApi {
     /**
      创建智能播放列表
      */
-    public func playlistCreateSmart(
+    public func createSmart(
         name: String, shared: Bool, conj_rule: String, rules_json: String
     ) async throws -> String? {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "createsmart", version: 2,
-                httpMethod: .post,
-                parameters: [
-                    "name": name,
-                    "library": shared ? "shared" : "personal",
-                    "conj_rule": conj_rule,
-                    "rules_json": rules_json,
-                ]),
-            resultType: PlaylistCreateResult.self
+                httpMethod: .post
+            ) {
+                ("name", name)
+                ("library", shared ? "shared" : "personal")
+                ("conj_rule", conj_rule)
+                ("rules_json", rules_json)
+            }
         )
         return result.id
     }
@@ -96,15 +95,15 @@ extension AudioStationApi {
     /**
      重命名播放列表
      */
-    public func playlist_rename(id: String, newName: String) async throws -> String? {
+    public func rename(id: String, newName: String) async throws -> String? {
         let result: PlaylistRenameResult = try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "rename", version: 3, httpMethod: .post,
-                parameters: [
-                    "id": id,
-                    "new_name": newName,
-                ]),
-            resultType: PlaylistRenameResult.self
+                api: SynologyApi.AudioStation.PLAYLIST, method: "rename", version: 3,
+                httpMethod: .post
+            ) {
+                ("id", id)
+                ("new_name", newName)
+            }
         )
         return result.id
     }
@@ -112,12 +111,14 @@ extension AudioStationApi {
     /**
      删除播放列表
      */
-    public func playlist_delete(id: String) async throws -> Bool {
+    public func delete(id: String) async throws -> Bool {
         let result: PlaylistDeleteResult = try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "delete", version: 3, httpMethod: .post,
-                parameters: ["id": id]),
-            resultType: PlaylistDeleteResult.self
+                api: SynologyApi.AudioStation.PLAYLIST, method: "delete", version: 3,
+                httpMethod: .post
+            ) {
+                ("id", id)
+            }
         )
         return result.errors.isEmpty
     }
@@ -125,11 +126,14 @@ extension AudioStationApi {
     /**
      移除丢失歌曲
      */
-    public func playlistRemoveMissing(id: String) async throws -> Bool {
+    public func removeMissing(id: String) async throws -> Bool {
         try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "removemissing", version: 3,
-                httpMethod: .post, parameters: ["id": id])
+                httpMethod: .post
+            ) {
+                ("id", id)
+            }
         )
         return true
     }
@@ -137,21 +141,20 @@ extension AudioStationApi {
     /**
      添加歌曲到播放列表
      */
-    public func playlistAddSongs(id: String, songs: [String]) async throws -> Bool {
-        var parameters: [String: Any] = [
-            "id": id,
-            "limit": 0,
-            "offset": -1,
-            "skip_duplicate": true,
-        ]
-        if !songs.isEmpty {
-            parameters["songs"] = songs.joined(separator: ",")
-        }
-
+    public func addSongs(id: String, songs: [String]) async throws -> Bool {
         try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "updatesongs", version: 3,
-                httpMethod: .post, parameters: parameters)
+                httpMethod: .post
+            ) {
+                ("id", id)
+                ("limit", 0)
+                ("offset", -1)
+                ("skip_duplicate", true)
+                if !songs.isEmpty {
+                    ("songs", songs.joined(separator: ","))
+                }
+            }
         )
         return true
     }

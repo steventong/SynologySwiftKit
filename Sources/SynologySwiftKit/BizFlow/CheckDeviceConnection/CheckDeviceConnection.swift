@@ -29,16 +29,14 @@ public class CheckDeviceConnection {
     /// - Parameters:
     ///   - deviceConnection: 设备连接提供者
     ///   - apiInfoApi: API 信息提供者
+    ///   - apiClient: API 客户端
     public init(
         deviceConnection: DeviceConnectionProviding,
-        apiInfoApi: ApiInfoProviding
+        apiInfoApi: ApiInfoProviding,
+        apiClient: ApiClientProviding
     ) {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
-
-        // 创建依赖链
-        let apiClient = ApiClient(connectionProvider: deviceConnection)
-        apiClient.apiInfoProvider = apiInfoApi  // 设置延迟依赖
 
         self.quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
         self.audioStationApi = AudioStationApi(apiClient: apiClient)
@@ -166,7 +164,7 @@ public class CheckDeviceConnection {
                 _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: true)
 
                 // 查询 audio station 信息
-                let audioStationInfo = try await audioStationApi.queryAudioStationInfo()
+                let audioStationInfo = try await audioStationApi.info.query()
                 Logger.info(
                     "CheckDeviceConnection#queryApiInfo, audioStationInfo: \(audioStationInfo)")
 

@@ -11,7 +11,7 @@ public struct Playlist: Decodable {
     public var id: String
     public var library: String
     public var name: String
-    public var sharing_status: String
+    public var sharingStatus: String
     public var type: String
 
     public var additional: PlaylistAdditional?
@@ -20,20 +20,35 @@ public struct Playlist: Decodable {
         additional?.songs ?? []
     }
 
-    public var songs_offset: Int {
-        additional?.songs_offset ?? 0
+    public var songsOffset: Int {
+        additional?.songsOffset ?? 0
     }
 
-    public var songs_total: Int {
-        additional?.songs_total ?? 0
+    public var songsTotal: Int {
+        additional?.songsTotal ?? 0
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case library
+        case name
+        case sharingStatus = "sharing_status"
+        case type
+        case additional
     }
 }
 
 public struct PlaylistAdditional: Decodable {
     public var songs: [Song]
 
-    public var songs_offset: Int
-    public var songs_total: Int
+    public var songsOffset: Int
+    public var songsTotal: Int
+
+    enum CodingKeys: String, CodingKey {
+        case songs
+        case songsOffset = "songs_offset"
+        case songsTotal = "songs_total"
+    }
 }
 
 public struct PlaylistListResult: Decodable {

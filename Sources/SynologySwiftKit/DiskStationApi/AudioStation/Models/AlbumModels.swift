@@ -10,15 +10,28 @@ import Foundation
 public struct Album: Decodable {
     public var name: String
     public var artist: String
-    public var album_artist: String
-    public var display_artist: String
+    public var albumArtist: String
+    public var displayArtist: String
     public var year: Int
 
     public var additional: AlbumAdditional?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case artist
+        case albumArtist = "album_artist"
+        case displayArtist = "display_artist"
+        case year
+        case additional
+    }
 }
 
 public struct AlbumAdditional: Decodable {
-    public var avg_rating: AlbumAvgRating?
+    public var avgRating: AlbumAvgRating?
+
+    enum CodingKeys: String, CodingKey {
+        case avgRating = "avg_rating"
+    }
 }
 
 public struct AlbumAvgRating: Decodable {

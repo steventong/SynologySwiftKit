@@ -73,7 +73,8 @@ public final class SynologyClient {
     public lazy var userLogin: SynologyUserLogin = {
         SynologyUserLogin(
             deviceConnection: deviceConnection,
-            apiInfoApi: apiInfo
+            apiInfoApi: apiInfo,
+            apiClient: apiClient
         )
     }()
 
@@ -82,7 +83,8 @@ public final class SynologyClient {
     public lazy var checkConnection: CheckDeviceConnection = {
         CheckDeviceConnection(
             deviceConnection: deviceConnection,
-            apiInfoApi: apiInfo
+            apiInfoApi: apiInfo,
+            apiClient: apiClient
         )
     }()
 

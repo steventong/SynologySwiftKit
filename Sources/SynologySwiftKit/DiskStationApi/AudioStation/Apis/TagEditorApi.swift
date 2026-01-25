@@ -7,36 +7,40 @@
 
 import Foundation
 
-extension AudioStationApi {
-    public func tagEditor_load(path: String) async throws -> TagEditorResult? {
+public final class TagEditorApi {
+    private let apiClient: ApiClientProviding
+
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
+    }
+
+    public func load(path: String) async throws -> TagEditorResult? {
         let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.TAG_EDITOR_UI,
                 customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
-                httpMethod: .post,
-                parameters: [
-                    "action": "load",
-                    "requestFrom": "",
-                    "audioInfos": "[{\"path\":\"\(path)\"}]",
-                ]
-            ),
+                httpMethod: .post
+            ) {
+                ("action", "load")
+                ("requestFrom", "")
+                ("audioInfos", "[{\"path\":\"\(path)\"}]")
+            },
             rawResponse: true
         )
         return result.success ? result : nil
     }
 
-    public func tagEditor_apply(request: TagEditorRequest) async throws -> TagEditorResult? {
+    public func apply(request: TagEditorRequest) async throws -> TagEditorResult? {
         let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.TAG_EDITOR_UI,
                 customPath: "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi",
-                httpMethod: .post,
-                parameters: [
-                    "action": "apply",
-                    "requestFrom": "",
-                    "data": JsonUtils.toJson(codable: [request]) ?? "",
-                ]
-            ),
+                httpMethod: .post
+            ) {
+                ("action", "apply")
+                ("requestFrom", "")
+                ("data", JsonUtils.toJson(codable: [request]) ?? "")
+            },
             rawResponse: true
         )
         return result.success ? result : nil

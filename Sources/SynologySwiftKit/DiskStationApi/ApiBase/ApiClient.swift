@@ -23,7 +23,7 @@ final class ApiClient: ApiClientProviding {
 
     /// 设备连接提供者
     /// Device connection provider
-    private let connectionProvider: DeviceConnectionProviding
+    public let connectionProvider: DeviceConnectionProviding
 
     /// API 信息提供者（延迟设置以解决循环依赖）
     /// API info provider (lazy set to resolve circular dependency)
@@ -448,36 +448,10 @@ final class ApiClient: ApiClientProviding {
 
     /// 处理业务错误码
     private func handleErrorCode(_ errorCode: Int) throws {
-        let errorMessages: [Int: String] = [
-            100: "Unknown error.",
-            101: "No parameter of API, method or version.",
-            102: "The requested API does not exist.",
-            103: "The requested method does not exist.",
-            104: "The requested version does not support the functionality.",
-            108: "Failed to upload the file.",
-            109: "The network connection is unstable or the system is busy.",
-            110: "The network connection is unstable or the system is busy.",
-            111: "The network connection is unstable or the system is busy.",
-            112: "Preserve for other purpose.",
-            113: "Preserve for other purpose.",
-            114: "Lost parameters for this API.",
-            115: "Not allowed to upload a file.",
-            116: "Not allowed to perform for a demo site.",
-            117: "The network connection is unstable or the system is busy.",
-            118: "The network connection is unstable or the system is busy.",
-            150: "Request source IP does not match the login IP.",
-        ]
-
         let sessionErrorCodes: Set<Int> = [105, 106, 107, 119]
-        let sessionErrorMessages: [Int: String] = [
-            105: "The logged in session does not have permission.",
-            106: "Session timeout.",
-            107: "Session interrupted by duplicated login.",
-            119: "Invalid session.",
-        ]
 
         if sessionErrorCodes.contains(errorCode) {
-            let message = sessionErrorMessages[errorCode] ?? "Session error"
+            let message = SynologyErrorMapper.description(for: errorCode) ?? "Session error"
             throw SynologyError.api(.invalidSession(code: errorCode, message: message))
         }
 
@@ -486,7 +460,7 @@ final class ApiClient: ApiClientProviding {
                 .businessError(code: errorCode, message: "Preserve for other purpose."))
         }
 
-        let message = errorMessages[errorCode] ?? "errorCode = \(errorCode)"
+        let message = SynologyErrorMapper.description(for: errorCode) ?? "errorCode = \(errorCode)"
         throw SynologyError.api(.businessError(code: errorCode, message: message))
     }
 }

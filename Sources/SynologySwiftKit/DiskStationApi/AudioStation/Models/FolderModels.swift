@@ -12,13 +12,22 @@ public struct Folder: Decodable {
 
     public var path: String
 
-    public var is_personal: Bool?
+    public var isPersonal: Bool?
 
     public var title: String
 
     public var type: String
 
     public var additional: SongAdditional?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case path
+        case isPersonal = "is_personal"
+        case title
+        case type
+        case additional
+    }
 }
 
 public struct FolderListResult: Decodable {
@@ -30,5 +39,13 @@ public struct FolderListResult: Decodable {
 
     public var total: Int
 
-    public var folder_total: Int
+    public var folderTotal: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case items
+        case offset
+        case total
+        case folderTotal = "folder_total"
+    }
 }

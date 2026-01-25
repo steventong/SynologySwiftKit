@@ -216,10 +216,10 @@ Sources/SynologySwiftKit/
 
 ## 2. 代码质量优化
 
-### 2.1 🔴 模型属性命名规范化
+### 2.1 ✅ ~~模型属性命名规范化~~ (已完成)
 
-**文件**: `SongApi+Models.swift`, `PlaylistApi+Models.swift` 等  
-**现状**: 模型属性使用 snake_case 命名，不符合 Swift 规范。
+**文件**: `SongModels.swift`, `PlaylistModels.swift` 等  
+**现状**: ✅ 已全部重命名为驼峰命名，并添加了 `CodingKeys`。全部模型已迁移。
 
 ```swift
 // 当前代码
@@ -248,10 +248,10 @@ public struct SongAdditional: Codable {
 
 ---
 
-### 2.2 🔴 方法命名规范化
+### 2.2 ✅ ~~方法命名规范化~~ (已完成)
 
-**文件**: `PlaylistApi.swift`  
-**现状**: 方法名混用下划线和驼峰。
+**文件**: `PlaylistApi.swift`, `TagEditorApi.swift`  
+**现状**: ✅ 已将所有公共 API 方法重命名为 camelCase (如 `createPlaylist`, `tagEditorLoad`)。
 
 ```swift
 // 当前代码
@@ -272,10 +272,10 @@ public func addSongsToPlaylist(id: String, songs: [String]) async throws -> Bool
 
 ---
 
-### 2.3 🟡 使用 Result Builder 简化参数构建
+### 2.3 ✅ ~~使用 Result Builder 简化参数构建~~ (已完成)
 
-**文件**: `SongApi.swift`, `PlaylistApi.swift`  
-**现状**: 大量 `if let` 判断拼接参数。
+**文件**: `SongApi.swift`, `ApiParametersBuilder.swift`  
+**现状**: ✅ 已通过 `ApiParametersBuilder` 和扩展 `ApiEndpoint` 实现声明式参数构建。
 
 ```swift
 // 当前代码 (SongApi.swift:39-77)
@@ -314,10 +314,10 @@ var parameters: [String: Any] {
 
 ---
 
-### 2.4 🟡 错误码映射优化
+### 2.4 ✅ ~~错误码映射优化~~ (已完成)
 
-**文件**: `DiskStationApi.swift`  
-**现状**: 大量 switch-case 处理错误码（第215-264行）。
+**文件**: `ApiClient.swift`, `SynologyErrorMapper.swift`  
+**现状**: ✅ 引入 `SynologyErrorMapper`，支持错误码到本地化字符串的自动映射。已移除旧的 `DiskStationApiError`。
 
 **建议**: 使用字典映射：
 
@@ -343,10 +343,10 @@ private func handleErrorCode(_ code: Int) throws {
 
 ---
 
-### 2.5 🟡 文件命名规范
+### 2.5 ✅ ~~文件命名规范~~ (已完成)
 
-**现状**: 多个文件命名为 `File.swift`（来自 Xcode 模板）。  
-**建议**: 确保所有文件名与主要类型名一致：
+**文件**: 所有模型文件  
+**现状**: ✅ 已将如 `AuthApiModels.swift` 等重命名为 `AuthModels.swift`，确保格式统一。
 
 | 当前 | 建议 |
 |------|------|
@@ -354,10 +354,10 @@ private func handleErrorCode(_ code: Int) throws {
 
 ---
 
-### 2.6 🟢 移除注释掉的代码
+### 2.6 ✅ ~~移除注释掉的代码~~ (已完成)
 
-**文件**: `PlaylistApi.swift`, `DiskStationApiDefine.swift`  
-**现状**: 包含大量注释掉的代码块。
+**文件**: `DiskStationApiDefine.swift`, `DiskStationApiError.swift`  
+**现状**: ✅ 已删除 `DiskStationApiDefine.swift` 和 `DiskStationApiError.swift`。
 
 ```swift
 // DiskStationApiDefine.swift:157-195
@@ -523,10 +523,10 @@ extension AuthResult: CustomStringConvertible {
 
 ## 4. 性能优化
 
-### 4.1 🟡 API Info 缓存优化
+### 4.1 ✅ ~~API Info 缓存优化~~ (已完成)
 
 **文件**: `ApiInfoApi.swift`  
-**现状**: 每次获取 API 信息都可能触发 UserDefaults 读取。
+**现状**: ✅ 已实现基于 Host 的缓存隔离，防止多 NAS 冲突。
 
 ```swift
 // 当前代码 (ApiInfoApi.swift:22-26)

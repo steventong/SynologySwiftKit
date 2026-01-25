@@ -29,8 +29,46 @@ public final class AudioStationApi {
     // MARK: - API Modules
 
     /// 固定 API
-    /// Pin API for managing pinned items
     public lazy var pin: PinApi = PinApi(apiClient: apiClient)
+
+    /// 文件夹 API
+    public lazy var folder = FolderApi(apiClient: apiClient)
+
+    /// 专辑 API
+    public lazy var album = AlbumApi(apiClient: apiClient)
+
+    /// 艺术家 API
+    public lazy var artist = ArtistApi(apiClient: apiClient)
+
+    /// 作曲家 API
+    public lazy var composer = ComposerApi(apiClient: apiClient)
+
+    /// 流派 API
+    public lazy var genre = GenreApi(apiClient: apiClient)
+
+    /// 歌曲 API
+    public lazy var song = SongApi(apiClient: apiClient)
+
+    /// 播放列表 API
+    public lazy var playlist = PlaylistApi(apiClient: apiClient)
+
+    /// 歌词 API
+    public lazy var lyrics = LyricsApi(apiClient: apiClient)
+
+    /// 搜索 API
+    public lazy var search = SearchApi(apiClient: apiClient)
+
+    /// 封面 API
+    public lazy var cover = CoverApi(apiClient: apiClient)
+
+    /// 流媒体 API
+    public lazy var stream = StreamApi(apiClient: apiClient)
+
+    /// 信息 API
+    public lazy var info = InfoApi(apiClient: apiClient)
+
+    /// 标签编辑器 API
+    public lazy var tagEditor = TagEditorApi(apiClient: apiClient)
 
     // MARK: - Initialization
 
@@ -48,14 +86,15 @@ extension AudioStationApi {
 
     /// 获取当前会话 ID
     /// Get current session ID from UserDefaults
-    /// - Throws: DiskStationApiError.invalidSession if session not exist
+    /// - Throws: SynologyError.api(.invalidSession) if session not exist
     /// - Returns: Session ID string
     func getSessionId() throws -> String {
         guard
             let sid = UserDefaults.standard.string(
                 forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
         else {
-            throw SynologyError.api(.invalidSession(code: 0, message: "invalid session, session not exist"))
+            throw SynologyError.api(
+                .invalidSession(code: 0, message: "invalid session, session not exist"))
         }
         return sid
     }

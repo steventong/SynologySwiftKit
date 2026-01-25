@@ -7,34 +7,38 @@
 
 import Foundation
 
-extension AudioStationApi {
+public final class ComposerApi {
+    private let apiClient: ApiClientProviding
+
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
+    }
+
     /**
      composer list
      */
-    public func composerList(
+    public func list(
         limit: Int = 1000, offset: Int = 0,
         library: String = "shared", additional: String? = nil,
         filter: String? = nil, keyword: String? = nil,
         sort: (sort_by: String, sort_direction: String)? = nil
     ) async throws -> (total: Int, data: [Composer]) {
-        var parameters: [String: Any] = [
-            "library": library,
-            "limit": limit,
-            "offset": offset,
-        ]
-        if let additional { parameters["additional"] = additional }
-        if let filter { parameters["filter"] = filter }
-        if let keyword { parameters["keyword"] = keyword }
-        if let sort {
-            parameters["sort_by"] = sort.sort_by
-            parameters["sort_direction"] = sort.sort_direction
-        }
-
         let result: ComposerListResult = try await apiClient.request(
             ApiEndpoint(
-                api: SynologyApi.AudioStation.COMPOSER, method: "list", version: 2, httpMethod: .post,
-                parameters: parameters),
-            resultType: ComposerListResult.self
+                api: SynologyApi.AudioStation.COMPOSER, method: "list", version: 2,
+                httpMethod: .post
+            ) {
+                ("library", library)
+                ("limit", limit)
+                ("offset", offset)
+                ("additional", additional)
+                ("filter", filter)
+                ("keyword", keyword)
+                if let sort {
+                    ("sort_by", sort.sort_by)
+                    ("sort_direction", sort.sort_direction)
+                }
+            }
         )
         return (result.total, result.composers)
     }

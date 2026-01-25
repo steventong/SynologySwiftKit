@@ -7,40 +7,37 @@
 
 import Foundation
 
-/**
-
- {
-         "path": "\/music\/五月天\/五月天专辑\/2007.04-Enrich Your Life\/CDImage.ape",
-         "id": "music_v_6503",
-         "additional": {
-           "song_tag": {
-             "artist": "五月天",
-             "disc": 0,
-             "album_artist": "五月天",
-             "track": 6,
-             "album": "Enrich Your Life让我照顾你",
-             "year": 0,
-             "comment": "21:22:53\/volume1\/music\/五月天\/五月天专辑\/2007.04-Enrich Your Life\/CDImage.cue",
-             "genre": "",
-             "composer": ""
-           },
-           "song_rating": {
-             "rating": 0
-           },
-           "song_audio": {
-             "channel": 2,
-             "filesize": 0,
-             "frequency": 44100,
-             "codec": "ape",
-             "container": "ape",
-             "duration": 166,
-             "bitrate": 0
-           }
-         },
-         "title": "Enrich Your Life让我照顾你(演奏版)",
-         "type": "file"
-       }
- */
+/// {
+///         "path": "\/music\/五月天\/五月天专辑\/2007.04-Enrich Your Life\/CDImage.ape",
+///         "id": "music_v_6503",
+///         "additional": {
+///           "song_tag": {
+///             "artist": "五月天",
+///             "disc": 0,
+///             "album_artist": "五月天",
+///             "track": 6,
+///             "album": "Enrich Your Life让我照顾你",
+///             "year": 0,
+///             "comment": "21:22:53\/volume1\/music\/五月天\/五月天专辑\/2007.04-Enrich Your Life\/CDImage.cue",
+///             "genre": "",
+///             "composer": ""
+///           },
+///           "song_rating": {
+///             "rating": 0
+///           },
+///           "song_audio": {
+///             "channel": 2,
+///             "filesize": 0,
+///             "frequency": 44100,
+///             "codec": "ape",
+///             "container": "ape",
+///             "duration": 166,
+///             "bitrate": 0
+///           }
+///         },
+///         "title": "Enrich Your Life让我照顾你(演奏版)",
+///         "type": "file"
+///       }
 public struct Song: Decodable, Encodable {
     public var id: String
     public var title: String
@@ -50,22 +47,28 @@ public struct Song: Decodable, Encodable {
     public var additional: SongAdditional?
 
     public var audio: SongAudio? {
-        additional?.song_audio
+        additional?.songAudio
     }
 
     public var rating: SongRating? {
-        additional?.song_rating
+        additional?.songRating
     }
 
     public var tag: SongTag? {
-        additional?.song_tag
+        additional?.songTag
     }
 }
 
 public struct SongAdditional: Decodable, Encodable {
-    public var song_audio: SongAudio?
-    public var song_rating: SongRating?
-    public var song_tag: SongTag?
+    public var songAudio: SongAudio?
+    public var songRating: SongRating?
+    public var songTag: SongTag?
+
+    enum CodingKeys: String, CodingKey {
+        case songAudio = "song_audio"
+        case songRating = "song_rating"
+        case songTag = "song_tag"
+    }
 }
 
 public struct SongAudio: Decodable, Encodable {
@@ -94,7 +97,7 @@ public struct SongTag: Decodable, Encodable {
     // 专辑
     public var album: String
     // 专辑艺人
-    public var album_artist: String
+    public var albumArtist: String
     // 艺人
     public var artist: String
     // 备注、注解
@@ -109,6 +112,18 @@ public struct SongTag: Decodable, Encodable {
     public var track: Int
     // 年份
     public var year: Int
+
+    enum CodingKeys: String, CodingKey {
+        case album
+        case albumArtist = "album_artist"
+        case artist
+        case comment
+        case composer
+        case disc
+        case genre
+        case track
+        case year
+    }
 }
 
 public struct SongListResult: Decodable, Encodable {

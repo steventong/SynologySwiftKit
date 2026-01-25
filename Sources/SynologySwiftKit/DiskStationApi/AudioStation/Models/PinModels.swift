@@ -27,46 +27,56 @@ public struct PinCriteria: Codable {
     public var folder: String?
     public var path: String?
     public var album: String?
-    public var album_artist: String?
+    public var albumArtist: String?
     public var artist: String?
     public var composer: String?
     public var genre: String?
-    
+
+    enum CodingKeys: String, CodingKey {
+        case folder
+        case path
+        case album
+        case albumArtist = "album_artist"
+        case artist
+        case composer
+        case genre
+    }
+
     // MARK: Factory Methods
-    
+
     /// 创建文件夹条件
     public static func folder(_ folderId: String) -> PinCriteria {
         PinCriteria(folder: folderId)
     }
-    
+
     /// 创建专辑条件
     public static func album(_ album: String, albumArtist: String = "") -> PinCriteria {
-        PinCriteria(album: album, album_artist: albumArtist)
+        PinCriteria(album: album, albumArtist: albumArtist)
     }
-    
+
     /// 创建艺术家条件
     public static func artist(_ artist: String) -> PinCriteria {
         PinCriteria(artist: artist)
     }
-    
+
     /// 创建作曲家条件
     public static func composer(_ composer: String) -> PinCriteria {
         PinCriteria(composer: composer)
     }
-    
+
     /// 创建流派条件
     public static func genre(_ genre: String) -> PinCriteria {
         PinCriteria(genre: genre)
     }
-    
+
     // MARK: Internal
-    
+
     /// 转换为字典（用于 API 请求）
     func toDictionary() -> [String: String] {
         var result: [String: String] = [:]
         if let folder = folder { result["folder"] = folder }
         if let album = album { result["album"] = album }
-        if let albumArtist = album_artist { result["album_artist"] = albumArtist }
+        if let albumArtist = albumArtist { result["album_artist"] = albumArtist }
         if let artist = artist { result["artist"] = artist }
         if let composer = composer { result["composer"] = composer }
         if let genre = genre { result["genre"] = genre }
@@ -114,4 +124,3 @@ public struct UnpinError: Codable {
     /// 失败的项目 ID
     public let id: String
 }
-

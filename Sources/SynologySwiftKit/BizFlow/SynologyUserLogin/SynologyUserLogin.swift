@@ -29,16 +29,14 @@ public actor SynologyUserLogin {
     /// - Parameters:
     ///   - deviceConnection: 设备连接提供者
     ///   - apiInfoApi: API 信息提供者
+    ///   - apiClient: API 客户端
     public init(
         deviceConnection: DeviceConnectionProviding,
-        apiInfoApi: ApiInfoProviding
+        apiInfoApi: ApiInfoProviding,
+        apiClient: ApiClientProviding
     ) {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
-
-        // 创建依赖链
-        let apiClient = ApiClient(connectionProvider: deviceConnection)
-        apiClient.apiInfoProvider = apiInfoApi  // 设置延迟依赖
 
         self.quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
         self.authApi = AuthApi(apiClient: apiClient)
@@ -96,7 +94,7 @@ public actor SynologyUserLogin {
         onProgress(.USER_LOGIN_SUCCESS(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
 
         // 查询 audio station 信息
-        let audioStationInfo = try await audioStationApi.queryAudioStationInfo()
+        let audioStationInfo = try await audioStationApi.info.query()
         Logger.info("SynologyUserLogin, audioStationInfo: \(audioStationInfo)")
 
         // 操作结束
@@ -143,7 +141,7 @@ public actor SynologyUserLogin {
         onProgress(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
 
         // 通过接口检查登录，如果有异常会抛出，没有异常则成功
-        let audioStationInfo = try await audioStationApi.queryAudioStationInfo(sid: sid, did: did)
+        let audioStationInfo = try await audioStationApi.info.query(sid: sid, did: did)
 
         // 登录成功
         deviceConnection.updateLoginSession(username: username, sid: sid, did: did)
@@ -154,7 +152,7 @@ public actor SynologyUserLogin {
         // 操作结束
         onProgress(.STEP_FINISH)
 
-        return AuthResult(did: did, is_portal_port: false, sid: sid)
+        return AuthResult(did: did, isPortalPort: false, sid: sid)
     }
 }
 
