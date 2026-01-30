@@ -52,8 +52,7 @@ public class DeviceConnection: DeviceConnectionProviding {
     /**
      sid, did
      */
-    public func getLoginSession() -> (
-        sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)? {
+    public func getLoginSession() -> (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)? {
         if let session {
             return session
         }
