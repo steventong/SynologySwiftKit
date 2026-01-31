@@ -1,13 +1,14 @@
 //
-
-//
+//  DsmInfoModels.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/5/12.
 //
 
 import Foundation
 
-public class DsmInfo: Decodable {
+/// DSM 信息模型 (并发安全 Struct)
+public struct DsmInfo: Decodable, Sendable {
    /**
     {
        "data": {

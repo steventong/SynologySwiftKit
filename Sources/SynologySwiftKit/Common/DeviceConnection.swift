@@ -1,13 +1,14 @@
 //
-
-//
+//  DeviceConnection.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/5/2.
 //
 
 import Foundation
 
-public class DeviceConnection: DeviceConnectionProviding {
+/// 设备连接管理器 (Actor 保证并发安全)
+public actor DeviceConnection: DeviceConnectionProviding {
     private var loginServer: (server: String, isEnableHttps: Bool)?
     private var connection: (type: ConnectionType, url: String)?
     private var session: (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)?
@@ -18,6 +19,7 @@ public class DeviceConnection: DeviceConnectionProviding {
     /// 初始化设备连接管理器
     /// Initialize device connection manager
     public init() {}
+    
     /**
      获取当前URL
      */
@@ -27,14 +29,15 @@ public class DeviceConnection: DeviceConnectionProviding {
         }
 
         if let url = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName) {
-            let typeRawValuw = UserDefaults.standard.integer(
+            let typeRawValue = UserDefaults.standard.integer(
                 forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-            if let type = ConnectionType(rawValue: typeRawValuw) {
-                connection = (type, url)
+            if let type = ConnectionType(rawValue: typeRawValue) {
+                let current = (type, url)
+                connection = current
                 Logger.info(
-                    "[DeviceConnection]get connection-url from userdefaults, connection url = \(connection!)"
+                    "[DeviceConnection]get connection-url from userdefaults, connection url = \(current)"
                 )
-                return connection
+                return current
             }
         }
 
@@ -58,14 +61,15 @@ public class DeviceConnection: DeviceConnectionProviding {
         }
 
         let sid = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-        let sidExpireAt: Date? = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName) as? Date ?? nil
+        let sidExpireAt: Date? = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName) as? Date
 
         let did = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-        let didExpireAt: Date? = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName) as? Date ?? nil
+        let didExpireAt: Date? = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName) as? Date
 
         if let sid, let sidExpireAt {
-            session = (sid, sidExpireAt, did, didExpireAt)
-            return session
+            let current = (sid, sidExpireAt, did, didExpireAt)
+            session = current
+            return current
         }
 
         Logger.warn("[DeviceConnection]getLoginSession, session from userdefaults is invalid")
@@ -82,10 +86,9 @@ public class DeviceConnection: DeviceConnectionProviding {
 
         if let server = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName) {
             let isEnableHttps = UserDefaults.standard.bool(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
-
-            loginServer = (server, isEnableHttps)
-
-            return loginServer
+            let current = (server, isEnableHttps)
+            loginServer = current
+            return current
         }
 
         return nil
@@ -105,27 +108,24 @@ public class DeviceConnection: DeviceConnectionProviding {
             session = (sid, sidExpireAt, nil, nil)
         }
 
-        guard let session else {
+        guard let currentSession = session else {
             return
         }
-        Logger.debug("update login session, session: \(session)")
+        Logger.debug("update login session, session: \(currentSession)")
 
         UserDefaults.standard.setValue(sid, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-        UserDefaults.standard.setValue(session.sidExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
+        UserDefaults.standard.setValue(currentSession.sidExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
 
         if let did {
             UserDefaults.standard.setValue(did, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-            UserDefaults.standard.setValue(session.didExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
+            UserDefaults.standard.setValue(currentSession.didExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
         } else {
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
         }
 
-        // save username for future use
         UserDefaults.standard.setValue(username, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
-
-        UserDefaults.standard.synchronize()
-        Logger.info("[DeviceConnection]updateLoginSession userdefaults synchronize")
+        Logger.info("[DeviceConnection]updateLoginSession saved to userdefaults")
     }
 
     /**
@@ -137,8 +137,7 @@ public class DeviceConnection: DeviceConnectionProviding {
         UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
         UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
 
-        UserDefaults.standard.synchronize()
-        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection!)")
+        Logger.info("[DeviceConnection]update Connection to userdefaults, url = \(url)")
     }
 
     /**
@@ -146,23 +145,22 @@ public class DeviceConnection: DeviceConnectionProviding {
      */
     public func removeLoginSession() {
         session = nil
+        loginServer = nil
+        connection = nil
 
-        DispatchQueue.main.async {
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
 
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
 
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
 
-            UserDefaults.standard.synchronize()
-            Logger.info("[DeviceConnection]removeLoginSession userdefaults synchronize")
-        }
+        Logger.info("[DeviceConnection]removeLoginSession from userdefaults")
     }
 
     /**
@@ -174,25 +172,17 @@ public class DeviceConnection: DeviceConnectionProviding {
         UserDefaults.standard.setValue(server, forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
         UserDefaults.standard.setValue(isEnableHttps, forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
 
-        UserDefaults.standard.synchronize()
-        Logger.info("[DeviceConnection]updateLoginPreferences userdefaults synchronize")
+        Logger.info("[DeviceConnection]updateLoginPreferences to userdefaults")
     }
-}
 
-extension DeviceConnection {
     /**
      removeCurrentConnectionUrl
      */
-    func removeCurrentConnectionUrl() {
+    public func removeCurrentConnectionUrl() {
         connection = nil
-
-        DispatchQueue.main.async {
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-
-            UserDefaults.standard.synchronize()
-            Logger.info("[DeviceConnection]removeCurrentConnectionUrl, removeObject type, url")
-        }
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+        Logger.info("[DeviceConnection]removeCurrentConnectionUrl from userdefaults")
     }
 
     /**

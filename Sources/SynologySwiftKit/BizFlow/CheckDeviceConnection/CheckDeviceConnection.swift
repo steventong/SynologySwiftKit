@@ -113,7 +113,7 @@ private extension CheckDeviceConnection {
     func performConnectionCheck(fetchNewServerByQuickConnectId: Bool, continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
         // Step 1: 检查现有连接
         // Step 1: Check existing connection
-        if let connection = deviceConnection.getCurrentConnectionUrl() {
+        if let connection = await deviceConnection.getCurrentConnectionUrl() {
             Logger.info("CheckDeviceConnection#checkConnectionStatus, checking exist connection: \(connection)")
             continuation.yield(.checkingExistingConnection(url: connection.url))
             
@@ -144,7 +144,7 @@ private extension CheckDeviceConnection {
         // Step 2: 重新获取 QuickConnect
         // Step 2: Fetch new connection via QuickConnect
         guard fetchNewServerByQuickConnectId,
-              let loginServer = deviceConnection.getLoginServer()
+              let loginServer = await deviceConnection.getLoginServer()
         else {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, no login server")
             continuation.yield(.loginRequired(reason: .noLoginServer))

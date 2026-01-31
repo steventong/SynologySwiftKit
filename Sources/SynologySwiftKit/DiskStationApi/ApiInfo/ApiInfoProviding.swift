@@ -18,7 +18,7 @@ public protocol ApiInfoProviding {
 
     /// 根据 API 名称获取 API 信息
     /// Get API information by API name
-    func getApiInfoByApiName(apiName: String) throws -> ApiInfoNode
+    func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode
 
     /// 检查并更新 Synology API 信息
     /// Check and update Synology API information

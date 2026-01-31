@@ -9,18 +9,24 @@ import Foundation
 
 /// DSM 信息 API（依赖注入）
 /// DSM Info API (dependency injection)
-public class DsmInfoApi {
+public final class DsmInfoApi {
     private let apiClient: ApiClientProviding
 
     public init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
+    /// 查询 DSM 信息
+    /// Query DSM information
     public func queryDmsInfo() async throws -> DsmInfo? {
         let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2)
         let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint, resultType: DsmInfo.self)
         
-        Logger.info("dsmInfo: \(dsmInfo)")
+        Logger.info("DsmInfoApi#queryDmsInfo result: \(dsmInfo.model ?? "unknown")")
         return dsmInfo
     }
+}
+
+// MARK: - Extensions (Potential future private methods)
+private extension DsmInfoApi {
 }

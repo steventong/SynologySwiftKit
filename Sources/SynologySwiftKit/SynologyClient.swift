@@ -14,80 +14,75 @@ import Foundation
 ///
 /// 统一的服务入口，管理所有依赖和 API 模块。
 /// Unified service entry point, managing all dependencies and API modules.
-///
-/// 使用示例 / Usage:
-/// ```swift
-/// let client = SynologyClient()
-/// try await client.audioStation.songList(limit: 100)
-/// ```
-public final class SynologyClient {
+public final class SynologyClient: Sendable {
     // MARK: - Core Services
 
     /// 设备连接管理
-    /// Device connection manager
     public let deviceConnection: DeviceConnection
 
-    /// API 客户端（internal，不暴露给外部）
-    /// API client (internal, not exposed externally)
+    /// API 客户端
     let apiClient: ApiClient
 
     /// API 信息管理
-    /// API information manager
     public let apiInfo: ApiInfoApi
 
     // MARK: - API Modules
 
     /// AudioStation API
-    public lazy var audioStation: AudioStationApi = { AudioStationApi(apiClient: apiClient) }()
+    public let audioStation: AudioStationApi
 
     /// FileStation API
-    public lazy var fileStation: FileStationApi = { FileStationApi(apiClient: apiClient) }()
+    public let fileStation: FileStationApi
 
     /// 认证 API
-    /// Authentication API
-    public lazy var auth: AuthApi = { AuthApi(apiClient: apiClient) }()
+    public let auth: AuthApi
 
     /// QuickConnect API
-    public lazy var quickConnect: QuickConnectApi = { QuickConnectApi(deviceConnection: deviceConnection) }()
+    public let quickConnect: QuickConnectApi
 
     /// DSM 信息 API
-    /// DSM info API
-    public lazy var dsmInfo: DsmInfoApi = { DsmInfoApi(apiClient: apiClient) }()
+    public let dsmInfo: DsmInfoApi
 
     /// 加密 API
-    /// Encryption API
-    public lazy var encryption: EncryptionApi = { EncryptionApi(apiClient: apiClient) }()
+    public let encryption: EncryptionApi
 
-    // MARK: - Business Flows
+    // MARK: - Business Flows (Lazy initialized for performance if needed, but currently pre-warmed)
 
     /// 用户登录流程
-    /// User login flow
-    public lazy var userLogin: SynologyUserLogin = {
-        SynologyUserLogin(deviceConnection: deviceConnection, apiInfoApi: apiInfo, apiClient: apiClient)
-    }()
+    public let userLogin: SynologyUserLogin
 
     /// 设备连接检查
-    /// Device connection check
-    public lazy var checkConnection: CheckDeviceConnection = {
-        CheckDeviceConnection(deviceConnection: deviceConnection, apiInfoApi: apiInfo, apiClient: apiClient
-        )
-    }()
+    public let checkConnection: CheckDeviceConnection
 
-    /// QueryAllSongs
-    public lazy var queryAllSongs: QueryAllSongs = {
-        QueryAllSongs(apiClient: apiClient)
-    }()
+    /// 查询所有歌曲
+    public let queryAllSongs: QueryAllSongs
 
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
-    /// Initialize Synology client
     public init() {
-        deviceConnection = DeviceConnection()
-        apiClient = ApiClient(connectionProvider: deviceConnection)
-        apiInfo = ApiInfoApi(apiClient: apiClient)
+        let connection = DeviceConnection()
+        let client = ApiClient(connectionProvider: connection)
+        let info = ApiInfoApi(apiClient: client, connectionProvider: connection)
 
-        // 设置延迟依赖以解决循环依赖
-        apiClient.apiInfoProvider = apiInfo
+        self.deviceConnection = connection
+        self.apiClient = client
+        self.apiInfo = info
+
+        // 注入 API 信息提供者
+        client.apiInfoProvider = info
+
+        // 初始化各个 API 模块
+        self.audioStation = AudioStationApi(apiClient: client)
+        self.fileStation = FileStationApi(apiClient: client)
+        self.auth = AuthApi(apiClient: client)
+        self.quickConnect = QuickConnectApi(deviceConnection: connection)
+        self.dsmInfo = DsmInfoApi(apiClient: client)
+        self.encryption = EncryptionApi(apiClient: client)
+
+        // 初始化流程类
+        self.userLogin = SynologyUserLogin(deviceConnection: connection, apiInfoApi: info, apiClient: client)
+        self.checkConnection = CheckDeviceConnection(deviceConnection: connection, apiInfoApi: info, apiClient: client)
+        self.queryAllSongs = QueryAllSongs(apiClient: client)
     }
 }

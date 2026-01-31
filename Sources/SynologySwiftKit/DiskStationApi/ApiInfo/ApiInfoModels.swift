@@ -6,7 +6,7 @@
 
 import Foundation
 
-public struct ApiInfoNode: Codable {
+public struct ApiInfoNode: Codable, Sendable {
     public let path: String
     
     public let minVersion: Int

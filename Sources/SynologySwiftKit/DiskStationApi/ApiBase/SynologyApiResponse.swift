@@ -17,7 +17,7 @@ import Foundation
 /// // 成功：{ "success": true, "data": { ... } }
 /// // 失败：{ "success": false, "error": { "code": 1002, "errors": [1006] } }
 /// ```
-public struct SynologyResponse<T: Decodable>: Decodable {
+public struct SynologyResponse<T: Decodable & Sendable>: Decodable, Sendable {
     
     public let success: Bool
     public let error: SynologyApiError?
@@ -42,7 +42,7 @@ public struct SynologyResponse<T: Decodable>: Decodable {
 
 /// Synology API 错误
 /// 同时支持 JSON 解码和 Error 协议
-public struct SynologyApiError: Error, Decodable, LocalizedError, CustomStringConvertible {
+public struct SynologyApiError: Error, Decodable, LocalizedError, CustomStringConvertible, Sendable {
     /// 主错误码
     public let code: Int
     /// 子错误码列表
