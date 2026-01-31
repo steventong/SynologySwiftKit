@@ -77,7 +77,7 @@ public actor QuickConnectApi {
 
         if let connectionUrl {
             if save == true {
-                deviceConnection.updateCurrentConnectionUrl(
+                await deviceConnection.updateCurrentConnectionUrl(
                     type: connectionUrl.connnectionType, url: connectionUrl.url)
             }
 

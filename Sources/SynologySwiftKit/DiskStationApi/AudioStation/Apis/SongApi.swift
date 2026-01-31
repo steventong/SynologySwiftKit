@@ -51,8 +51,8 @@ public final class SongApi {
     /**
      build song fetch url
      */
-    public func listUrl(limit: Int, offset: Int, library: String = "shared") throws -> URL {
-        try apiClient.buildUrl(
+    public func listUrl(limit: Int, offset: Int, library: String = "shared") async throws -> URL {
+        try await apiClient.buildUrl(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post,
                 sidOnQuery: true

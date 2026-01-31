@@ -121,7 +121,7 @@ private extension SynologyUserLogin {
         continuation.yield(.started(server: server))
         
         // 保存登录偏好设置
-        deviceConnection.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
+        await deviceConnection.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
         
         // 获取连接地址
         guard let connection = await fetchConnectionUrl(
@@ -135,7 +135,7 @@ private extension SynologyUserLogin {
         }
         
         // 保存可用地址
-        deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+        await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
         
         // 确定服务器类型
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
@@ -164,7 +164,7 @@ private extension SynologyUserLogin {
             )
             
             // 登录成功，保存会话
-            deviceConnection.updateLoginSession(
+            await deviceConnection.updateLoginSession(
                 username: username,
                 sid: authResult.sid,
                 did: authResult.did
@@ -210,7 +210,7 @@ private extension SynologyUserLogin {
         continuation.yield(.started(server: server))
         
         // 保存登录偏好设置
-        deviceConnection.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
+        await deviceConnection.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
         
         // 获取连接地址
         guard let connection = await fetchConnectionUrl(
@@ -224,7 +224,7 @@ private extension SynologyUserLogin {
         }
         
         // 保存可用地址
-        deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+        await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
         
         // 确定服务器类型
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
@@ -249,7 +249,7 @@ private extension SynologyUserLogin {
             let audioStationInfo = try await audioStationApi.info.query(sid: sid, did: did)
             
             // 登录成功，保存会话
-            deviceConnection.updateLoginSession(username: username, sid: sid, did: did)
+            await deviceConnection.updateLoginSession(username: username, sid: sid, did: did)
             
             Logger.info("SynologyUserLogin#performSessionLogin, audioStationInfo: \(audioStationInfo)")
             

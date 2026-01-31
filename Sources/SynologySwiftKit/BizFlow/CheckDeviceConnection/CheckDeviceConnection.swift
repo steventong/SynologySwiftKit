@@ -162,7 +162,7 @@ private extension CheckDeviceConnection {
             ) {
                 // 更新连接地址
                 // Update connection URL
-                deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+                await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
                 continuation.yield(.quickConnectFetched(type: connection.type, url: connection.url))
                 
                 // 验证 AudioStation

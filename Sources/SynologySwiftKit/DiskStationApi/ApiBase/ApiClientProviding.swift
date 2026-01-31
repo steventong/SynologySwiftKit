@@ -29,7 +29,7 @@ public protocol ApiClientProviding {
 
     /// 构建请求 URL（不发送请求）
     /// Build request URL (without sending request)
-    func buildUrl(_ endpoint: ApiEndpoint) throws -> URL
+    func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL
 }
 
 extension ApiClientProviding {

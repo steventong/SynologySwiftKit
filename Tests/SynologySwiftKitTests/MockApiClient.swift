@@ -22,7 +22,7 @@ final class MockApiClient: ApiClientProviding, @unchecked Sendable {
         self.connectionProvider = DeviceConnection(storage: MockKeyValueStorage())
     }
 
-    func request<T>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T where T : Decodable {
+    func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T {
         if let error = mockError {
             throw error
         }
@@ -55,7 +55,7 @@ final class MockApiClient: ApiClientProviding, @unchecked Sendable {
         return .success(())
     }
 
-    func buildUrl(_ endpoint: ApiEndpoint) throws -> URL {
+    func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
         return URL(string: "https://mockApi.com")!
     }
 }

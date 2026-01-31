@@ -25,7 +25,7 @@ final class DeviceConnectionTests: XCTestCase {
     }
 
     func testUpdateCurrentConnectionUrl() async {
-        let type = ConnectionType.quickConnect
+        let type = ConnectionType.relay
         let url = "http://quickconnect.to/test"
 
         await deviceConnection.updateCurrentConnectionUrl(type: type, url: url)

@@ -35,7 +35,7 @@ public actor DeviceConnection: DeviceConnectionProviding {
         }
 
         if let url = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName) {
-            let typeRawValue = storage.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+            let typeRawValue = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName) ?? ""
             if let type = ConnectionType(rawValue: typeRawValue) {
                 let current = (type, url)
                 connection = current

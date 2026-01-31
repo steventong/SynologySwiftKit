@@ -23,35 +23,35 @@ public protocol DeviceConnectionProviding {
 
     /// 获取当前连接 URL
     /// Get current connection URL
-    func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)?
+    func getCurrentConnectionUrl() async -> (type: ConnectionType, url: String)?
 
     /// 获取登录会话信息
     /// Get login session information
-    func getLoginSession() -> (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)?
+    func getLoginSession() async -> (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)?
 
     /// 获取登录服务器配置
     /// Get login server configuration
-    func getLoginServer() -> (server: String, isEnableHttps: Bool)?
+    func getLoginServer() async -> (server: String, isEnableHttps: Bool)?
 
     /// 获取会话用户名
     /// Get session username
-    func getSessionUsername() -> String?
+    func getSessionUsername() async -> String?
 
     // MARK: - Write Methods
 
     /// 更新登录会话
     /// Update login session
-    func updateLoginSession(username: String, sid: String, did: String?)
+    func updateLoginSession(username: String, sid: String, did: String?) async
 
     /// 更新当前连接 URL
     /// Update current connection URL
-    func updateCurrentConnectionUrl(type: ConnectionType, url: String)
+    func updateCurrentConnectionUrl(type: ConnectionType, url: String) async
 
     /// 更新登录偏好设置
     /// Update login preferences
-    func updateLoginPreferences(server: String, isEnableHttps: Bool)
+    func updateLoginPreferences(server: String, isEnableHttps: Bool) async
 
     /// 移除登录会话
     /// Remove login session
-    func removeLoginSession()
+    func removeLoginSession() async
 }

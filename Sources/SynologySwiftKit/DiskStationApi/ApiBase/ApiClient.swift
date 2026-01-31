@@ -102,15 +102,18 @@ final class ApiClient: ApiClientProviding {
 
     /// 构建请求 URL（不发送请求）
     /// Build request URL (without sending request)
-    func buildUrl(_ endpoint: ApiEndpoint) throws -> URL {
-        try buildApiUrlWithQueryParameters(endpoint: endpoint)
+    /// 构建请求 URL（不发送请求）
+    /// Build request URL (without sending request)
+    func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
+        try await buildApiUrlWithQueryParameters(endpoint: endpoint)
     }
 
     // MARK: - Private Methods
 
     /// 创建 URLSession
-    private func createSession(timeout: TimeInterval) -> URLSession {
-        if let connectionUrl = connectionProvider.getCurrentConnectionUrl(),
+    /// 创建 URLSession
+    private func createSession(timeout: TimeInterval) async -> URLSession {
+        if let connectionUrl = await connectionProvider.getCurrentConnectionUrl(),
            connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
            let url = URL(string: connectionUrl.url) {
             return URLSessionFactory.createSession(
@@ -120,7 +123,7 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 解析 Endpoint 信息
-    private func resolveEndpoint(_ endpoint: ApiEndpoint) throws -> (
+    private func resolveEndpoint(_ endpoint: ApiEndpoint) async throws -> (
         name: String, method: String, version: Int, parameters: [String: Any], apiPath: String,
         requireAuthCookie: Bool, requireAuthQuery: Bool) {
         // 自定义路径端点
@@ -142,7 +145,7 @@ final class ApiClient: ApiClientProviding {
 
         // 获取 API 信息
         let apiName = endpoint.apiName
-        let fetchedApiInfo = try apiInfoProvider.getApiInfoByApiName(apiName: apiName)
+        let fetchedApiInfo = try await apiInfoProvider.getApiInfoByApiName(apiName: apiName)
         let apiVersion = min(
             max(fetchedApiInfo.minVersion, endpoint.version), fetchedApiInfo.maxVersion)
         let mergedParameters = endpoint.parameters.merging([
@@ -172,12 +175,12 @@ final class ApiClient: ApiClientProviding {
     /// 发送 API 请求
     private func sendApiRequest<Value: Decodable>(endpoint: ApiEndpoint, resultType: Value.Type = Value.self,
                                                   checkResultIsSuccess: (Value) -> Bool, parseErrorCode: (Value) -> Int?) async throws -> Value {
-        let resolved = try resolveEndpoint(endpoint)
-        let apiUrl = try buildApiUrl(apiPath: resolved.apiPath)
+        let resolved = try await resolveEndpoint(endpoint)
+        let apiUrl = try await buildApiUrl(apiPath: resolved.apiPath)
 
         // 构建请求头
         var headers: [String: String] = [:]
-        if let cookie = try buildAuthCookieHeader(
+        if let cookie = try await buildAuthCookieHeader(
             name: resolved.name,
             method: resolved.method,
             parameters: resolved.parameters,
@@ -220,7 +223,7 @@ final class ApiClient: ApiClientProviding {
                                                               requireAuthCookie: Bool,
                                                               requireAuthQuery: Bool),
                                                    apiUrl: URL, headers: [String: String]?, resultType: Value.Type = Value.self) async throws -> Value {
-        let session = createSession(timeout: endpoint.timeout)
+        let session = await createSession(timeout: endpoint.timeout)
         var request: URLRequest
         var requestUrl: URL = apiUrl
         let startTime = Date()
@@ -234,7 +237,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         // 添加 sid 参数
-        if let sid = try buildAuthQueryParameter(
+        if let sid = try await buildAuthQueryParameter(
             name: resolved.name,
             method: resolved.method,
             requireAuthQuery: resolved.requireAuthQuery
@@ -335,8 +338,8 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 构建 API URL
-    private func buildApiUrl(apiPath: String) throws -> URL {
-        if let connection = connectionProvider.getCurrentConnectionUrl(),
+    private func buildApiUrl(apiPath: String) async throws -> URL {
+        if let connection = await connectionProvider.getCurrentConnectionUrl(),
            let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
@@ -344,9 +347,9 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 构建带查询参数的 URL
-    private func buildApiUrlWithQueryParameters(endpoint: ApiEndpoint) throws -> URL {
-        let resolved = try resolveEndpoint(endpoint)
-        let apiUrl = try buildApiUrl(apiPath: resolved.apiPath)
+    private func buildApiUrlWithQueryParameters(endpoint: ApiEndpoint) async throws -> URL {
+        let resolved = try await resolveEndpoint(endpoint)
+        let apiUrl = try await buildApiUrl(apiPath: resolved.apiPath)
 
         var parameters = resolved.parameters
         parameters["api"] = resolved.name
@@ -355,7 +358,7 @@ final class ApiClient: ApiClientProviding {
             parameters["version"] = resolved.version
         }
 
-        if let sid = try buildAuthQueryParameter(
+        if let sid = try await buildAuthQueryParameter(
             name: resolved.name,
             method: resolved.method,
             requireAuthQuery: resolved.requireAuthQuery
@@ -381,22 +384,20 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 构建 Cookie 请求头
-    private func buildAuthCookieHeader(name: String, method: String, parameters: [String: Any], requireAuthCookie: Bool) throws -> String? {
+    private func buildAuthCookieHeader(name: String, method: String, parameters: [String: Any], requireAuthCookie: Bool) async throws -> String? {
         if requireAuthCookie {
             guard
-                let sid = UserDefaults.standard.string(
-                    forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
+                let session = await connectionProvider.getLoginSession()
             else {
                 Logger.error("接口: \(name) \(method) 必须配置 sid/did cookie，但 session 不存在。")
                 throw SynologyError.api(
                     .invalidSession(code: 0, message: "session invalid, sid not exist"))
             }
 
-            if let did = UserDefaults.standard.string(
-                forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName) {
-                return "id=\(sid); did=\(did)"
+            if let did = session.did {
+                return "id=\(session.sid); did=\(did)"
             }
-            return "id=\(sid)"
+            return "id=\(session.sid)"
         } else if let sid = parameters["sid"] {
             if let did = parameters["did"] {
                 return "id=\(sid); did=\(did)"
@@ -407,17 +408,16 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 构建查询参数中的 sid
-    private func buildAuthQueryParameter(name: String, method: String, requireAuthQuery: Bool) throws -> String? {
+    private func buildAuthQueryParameter(name: String, method: String, requireAuthQuery: Bool) async throws -> String? {
         if requireAuthQuery {
             guard
-                let sid = UserDefaults.standard.string(
-                    forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
+                let session = await connectionProvider.getLoginSession()
             else {
                 Logger.error("接口: \(name) \(method) 必须配置 sid 参数，但 session 不存在。")
                 throw SynologyError.api(
                     .invalidSession(code: 0, message: "session invalid, sid not exist"))
             }
-            return sid
+            return session.sid
         }
         return nil
     }
