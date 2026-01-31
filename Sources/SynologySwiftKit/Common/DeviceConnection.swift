@@ -46,7 +46,10 @@ public actor DeviceConnection: DeviceConnectionProviding {
             }
         }
 
-        Logger.info("[DeviceConnection]can not get saved connection-url info in storage.")
+
+
+        Logger.warn("[DeviceConnection] Invalid or missing connection configuration. Logging out.")
+        removeLoginSession()
         return nil
     }
 
