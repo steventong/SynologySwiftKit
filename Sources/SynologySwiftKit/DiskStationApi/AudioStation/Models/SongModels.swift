@@ -38,7 +38,7 @@ import Foundation
 ///         "title": "Enrich Your Life让我照顾你(演奏版)",
 ///         "type": "file"
 ///       }
-public struct Song: Decodable, Encodable {
+public struct Song: Decodable, Encodable, Sendable {
     public var id: String
     public var title: String
     public var type: String
@@ -59,7 +59,7 @@ public struct Song: Decodable, Encodable {
     }
 }
 
-public struct SongAdditional: Decodable, Encodable {
+public struct SongAdditional: Decodable, Encodable, Sendable {
     public var songAudio: SongAudio?
     public var songRating: SongRating?
     public var songTag: SongTag?
@@ -71,7 +71,7 @@ public struct SongAdditional: Decodable, Encodable {
     }
 }
 
-public struct SongAudio: Decodable, Encodable {
+public struct SongAudio: Decodable, Encodable, Sendable {
     // 码率 bps
     public var bitrate: Int
     // 声道数
@@ -88,12 +88,12 @@ public struct SongAudio: Decodable, Encodable {
     public var frequency: Int
 }
 
-public struct SongRating: Decodable, Encodable {
+public struct SongRating: Decodable, Encodable, Sendable {
     // 评分 0-5
     public var rating: Int
 }
 
-public struct SongTag: Decodable, Encodable {
+public struct SongTag: Decodable, Encodable, Sendable {
     // 专辑
     public var album: String
     // 专辑艺人
@@ -126,14 +126,14 @@ public struct SongTag: Decodable, Encodable {
     }
 }
 
-public struct SongListResult: Decodable, Encodable {
+public struct SongListResult: Decodable, Encodable, Sendable {
     public var offset: Int
     public var total: Int
 
     public var songs: [Song]
 }
 
-public enum SongStreamQuality: String {
+public enum SongStreamQuality: String, Sendable {
     case LOW
     case MEDIUM
     case HIGH
@@ -166,7 +166,7 @@ public enum SongStreamQuality: String {
     }
 }
 
-public struct SongInfo: Decodable {
+public struct SongInfo: Decodable, Sendable {
     /**
      songs
      */

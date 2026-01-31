@@ -50,7 +50,7 @@ import Foundation
    }
  }
  */
-public struct AudioStationInfo: Codable {
+public struct AudioStationInfo: Codable, Sendable {
     public let enable_equalizer: Bool?
     public let playing_queue_max: Int?
     public let same_subnet: Bool?
@@ -78,7 +78,7 @@ public struct AudioStationInfo: Codable {
     public let is_manager: Bool?
 }
 
-public struct AudioStationInfoSettings: Codable {
+public struct AudioStationInfoSettings: Codable, Sendable {
     public let disable_upnp: Bool?
     public let enable_download: Bool?
     public let transcode_to_mp3: Bool?
@@ -86,7 +86,7 @@ public struct AudioStationInfoSettings: Codable {
     public let audio_show_virtual_library: Bool?
 }
 
-public struct AudioStationInfoPrivilege: Codable {
+public struct AudioStationInfoPrivilege: Codable, Sendable {
     public let tag_edit: Bool?
     public let sharing: Bool?
     public let upnp_browse: Bool?
