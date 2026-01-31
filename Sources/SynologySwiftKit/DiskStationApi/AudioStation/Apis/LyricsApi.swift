@@ -33,11 +33,11 @@ public final class LyricsApi {
         -> (total: Int, data: [LyricsSearchItem])
     {
         let result: LyricsSearchResult = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "search", version: 2) {
+            ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 1) {
                 ("title", title)
                 ("artist", artist)
                 ("limit", limit)
-                ("offset", offset)
+                ("additional", "full_lyrics")
             }
         )
         return (result.total, result.items)
