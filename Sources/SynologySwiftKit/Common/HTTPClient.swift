@@ -117,7 +117,7 @@ extension HTTPClient {
             let duration = Date().timeIntervalSince(startTime)
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                throw NetworkError.invalidResponse
+                throw SynologyError.NetworkError.invalidResponse
             }
             
             // 记录响应日志
@@ -131,23 +131,23 @@ extension HTTPClient {
             
             // 检查 HTTP 状态码
             guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
-                throw NetworkError.httpError(statusCode: httpResponse.statusCode)
+                throw SynologyError.NetworkError.httpError(statusCode: httpResponse.statusCode)
             }
             
             // 解码响应
             do {
                 return try JSONDecoder().decode(T.self, from: data)
             } catch {
-                throw NetworkError.decodingError(error)
+                throw SynologyError.NetworkError.decodingError(error)
             }
-        } catch let error as NetworkError {
+        } catch let error as SynologyError.NetworkError {
             let duration = Date().timeIntervalSince(startTime)
             NetworkLogger.logError(url: url, error: error, duration: duration)
             throw error
         } catch {
             let duration = Date().timeIntervalSince(startTime)
             NetworkLogger.logError(url: url, error: error, duration: duration)
-            throw NetworkError.requestFailed(error)
+            throw SynologyError.NetworkError.connectionFailed(underlying: error)
         }
     }
 }
