@@ -91,32 +91,10 @@ public struct LoginResult: Sendable {
     }
 }
 
-// MARK: - LoginError
+// MARK: - LoginError (Deprecated - Use SynologyError)
 
-/// 登录错误
-/// Login error
-public enum LoginError: Error, Sendable {
-    /// 连接不可用
-    /// Connection unavailable
-    case connectionUnavailable
-    
-    /// QuickConnect 获取失败
-    /// QuickConnect fetch failed
-    case quickConnectFetchFailed(message: String)
-    
-    /// 认证失败
-    /// Authentication failed
-    case authenticationFailed(message: String)
-    
-    /// API 信息获取失败
-    /// API info fetch failed
-    case apiInfoFetchFailed(message: String)
-    
-    /// AudioStation 验证失败
-    /// AudioStation verification failed
-    case audioStationVerificationFailed(message: String)
-    
-    /// 底层错误
-    /// Underlying error
-    case underlying(Error)
-}
+/// 登录错误 - 建议使用 SynologyError
+/// Login error - prefer using SynologyError
+/// @available(*, deprecated, message: "Use SynologyError instead")
+public typealias LoginError = SynologyError
+

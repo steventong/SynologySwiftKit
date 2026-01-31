@@ -93,7 +93,7 @@ public actor SynologyUserLogin {
             enableHttps: enableHttps,
             continuation: continuation
         ) else {
-            continuation.yield(.failed(error: .connectionUnavailable))
+            continuation.yield(.failed(error: .connection(.unavailable)))
             continuation.finish()
             return
         }
@@ -111,7 +111,7 @@ public actor SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false)
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .apiInfoFetchFailed(message: error.localizedDescription)))
+            continuation.yield(.failed(error: .network(.connectionFailed(underlying: error))))
             continuation.finish()
             return
         }
@@ -156,7 +156,7 @@ public actor SynologyUserLogin {
             
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, auth failed: \(error)")
-            continuation.yield(.failed(error: .authenticationFailed(message: error.localizedDescription)))
+            continuation.yield(.failed(error: .auth(.undefined(code: 0, message: error.localizedDescription))))
             continuation.finish()
         }
     }
@@ -214,7 +214,7 @@ public actor SynologyUserLogin {
             enableHttps: enableHttps,
             continuation: continuation
         ) else {
-            continuation.yield(.failed(error: .connectionUnavailable))
+            continuation.yield(.failed(error: .connection(.unavailable)))
             continuation.finish()
             return
         }
@@ -232,7 +232,7 @@ public actor SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false)
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .apiInfoFetchFailed(message: error.localizedDescription)))
+            continuation.yield(.failed(error: .network(.connectionFailed(underlying: error))))
             continuation.finish()
             return
         }
@@ -263,7 +263,7 @@ public actor SynologyUserLogin {
             
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, session verification failed: \(error)")
-            continuation.yield(.failed(error: .audioStationVerificationFailed(message: error.localizedDescription)))
+            continuation.yield(.failed(error: .api(.invalidSession(code: 0, message: error.localizedDescription))))
             continuation.finish()
         }
     }
