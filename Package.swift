@@ -15,20 +15,13 @@ let package = Package(
             name: "SynologySwiftKit",
             targets: ["SynologySwiftKit"]),
     ],
-    dependencies: [
-       .package( url: "https://github.com/Alamofire/Alamofire.git", .upToNextMajor(from: "5.10.2")),
-       .package(url: "https://github.com/SwiftyJSON/SwiftyJSON", .upToNextMajor(from: "5.0.2"))
-     ],
+    dependencies: [],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "SynologySwiftKit",
-            dependencies: [
-                .product(name: "Alamofire",  package: "Alamofire"),
-                .product(name: "SwiftyJSON",  package: "SwiftyJSON")
-
-            ]
+            dependencies: []
         ),
         .testTarget(
             name: "SynologySwiftKitTests",

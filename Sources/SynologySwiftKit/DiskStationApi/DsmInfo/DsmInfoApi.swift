@@ -1,25 +1,32 @@
 //
-//  File.swift
-//
+//  DsmInfoApi.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/5/12.
 //
 
-import Alamofire
+import Foundation
 
-public class DsmInfoApi {
-    public init() {
+/// DSM 信息 API（依赖注入）
+/// DSM Info API (dependency injection)
+public final class DsmInfoApi {
+    private let apiClient: ApiClientProviding
+
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
     }
 
-    /**
-     dsm info
-     */
+    /// 查询 DSM 信息
+    /// Query DSM information
     public func queryDmsInfo() async throws -> DsmInfo? {
-        let api = try DiskStationApi(api: .SYNO_DSM_INFO, method: "getinfo", version: 2)
-
-        let dsmInfo = try await api.requestForData(resultType: DsmInfo.self)
-
-        Logger.info("dsmInfo: \(dsmInfo)")
+        let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2)
+        let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint, resultType: DsmInfo.self)
+        
+        Logger.info("DsmInfoApi#queryDmsInfo result: \(dsmInfo.model ?? "unknown")")
         return dsmInfo
     }
+}
+
+// MARK: - Extensions (Potential future private methods)
+private extension DsmInfoApi {
 }

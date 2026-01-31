@@ -1,62 +1,65 @@
 //
-//  File.swift
+//  CoverApi.swift
+//  SynologySwiftKit
 //
-//
-//  Created by Steven on 2024/6/1.
+//  Created by Steven on 2024/6/15.
 //
 
 import Foundation
 
-extension AudioStationApi {
-    /**
-     音乐封面
-     /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getsongcover&version=1&library=all&id=music_6834&_sid=
-     */
-    public func songCoverURL(songId: String) throws -> URL {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getsongcover", parameters: [
-            "library": "all",
-            "id": songId,
-        ])
+public final class CoverApi {
+    private let apiClient: ApiClientProviding
 
-        return try api.assembleRequestUrl()
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
     }
 
     /**
-     专辑封面
-     /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&album_name=%E4%B8%83%E9%87%8C%E9%A6%99&album_artist_name=
+     获取歌曲封面 URL
+     Get song cover URL
      */
-    public func albumCoverURL(albumName: String, albumArtistName: String) throws -> URL {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3, parameters: [
-            "library": "all",
-            "album_name": albumName,
-            "album_artist_name": albumArtistName,
-        ])
-
-        return try api.assembleRequestUrl()
+    public func songCoverUrl(songId: String, library: String = "all") async throws -> URL {
+        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
+            ("library", library)
+            ("id", songId)
+        }
+        )
     }
 
     /**
-     GET /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&artist_name=Backstreet%20Boys
+     获取专辑封面 URL
+     Get album cover URL
      */
-    public func artistCoverURL(artistName: String) throws -> URL {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3, parameters: [
-            "library": "all",
-            "artist_name": artistName,
-        ])
-
-        return try api.assembleRequestUrl()
+    public func albumCoverUrl(albumName: String, albumArtistName: String, library: String = "all") async throws -> URL {
+        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+            ("library", library)
+            ("album_name", albumName)
+            ("album_artist_name", albumArtistName)
+        }
+        )
     }
 
     /**
-      /webapi/AudioStation/cover.cgi?api=SYNO.AudioStation.Cover&method=getcover&version=3&library=all&composer_name=%E4%BA%94%E6%9C%88%E5%A4%A9
+     获取艺术家封面 URL
+     Get artist cover URL
      */
-    public func composerCoverURL(composerName: String) throws -> URL {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_COVER, method: "getcover", version: 3, parameters: [
-            "version": 3,
-            "library": "all",
-            "composer_name": composerName,
-        ])
+    public func artistCoverUrl(artistName: String, library: String = "all") async throws -> URL {
+        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+            ("library", library)
+            ("artist_name", artistName)
+        }
+        )
+    }
 
-        return try api.assembleRequestUrl()
+    /**
+     获取作曲家封面 URL
+     Get composer cover URL
+     */
+    public func composerCoverUrl(composerName: String, library: String = "all") async throws -> URL {
+        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+            ("library", library)
+            ("composer_name", composerName)
+        }
+        )
     }
 }

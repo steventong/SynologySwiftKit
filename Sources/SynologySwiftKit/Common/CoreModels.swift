@@ -1,5 +1,5 @@
 //
-//  File.swift
+
 //
 //
 //  Created by Steven on 2024/4/27.
@@ -7,13 +7,13 @@
 
 import Foundation
 
-public enum ConnectionType: Int, CaseIterable {
-    case lan = 1
-    case wan = 2
-    case lanv6 = 3
-    case wanv6 = 4
-    case ddns = 5
-    case relay = 6
+public enum ConnectionType: String, CaseIterable, Sendable {
+    case lan
+    case wan
+    case lanv6
+    case wanv6
+    case ddns
+    case relay
     //        case lanIPv4
     //        case wan
     //        case wanIPv4
@@ -29,63 +29,43 @@ public enum ConnectionType: Int, CaseIterable {
 //        case wanIPv6
 //        case wanIPv4
 
-    case custom_domain = 99
+    case custom_domain
+
+    private var priority: Int {
+        switch self {
+        case .lan: return 1
+        case .wan: return 2
+        case .lanv6: return 3
+        case .wanv6: return 4
+        case .ddns: return 5
+        case .relay: return 6
+        case .custom_domain: return 99
+        }
+    }
 
     /**
      get by name
      */
     public static func getByName(name: String) -> ConnectionType? {
-        switch name {
-        case "lan":
-            .lan
-        case "ddns":
-            .ddns
-        case "relay":
-            .relay
-        case "wan":
-            .wan
-        case "lanv6":
-            .lanv6
-        case "wanv6":
-            .wanv6
-        case "custom_domain":
-            .custom_domain
-        default:
-            nil
-        }
+        return ConnectionType(rawValue: name)
     }
 
     /**
      name
      */
     public var name: String {
-        switch self {
-        case .lan:
-            "lan"
-        case .ddns:
-            "ddns"
-        case .relay:
-            "relay"
-        case .wan:
-            "wan"
-        case .lanv6:
-            "lanv6"
-        case .wanv6:
-            "wanv6"
-        case .custom_domain:
-            "custom_domain"
-        }
+        return rawValue
     }
 
     /**
      按序
      */
     static var ordered: [ConnectionType] {
-        return allCases.sorted { $0.rawValue < $1.rawValue }
+        return allCases.sorted { $0.priority < $1.priority }
     }
 }
 
-public enum HttpType {
+public enum HttpType: Sendable {
     case HTTPS
     case HTTP
 

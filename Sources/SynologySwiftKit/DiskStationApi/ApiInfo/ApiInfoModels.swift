@@ -1,5 +1,4 @@
 //
-//  File.swift
 //
 //
 //  Created by Steven on 2024/4/27.
@@ -7,7 +6,7 @@
 
 import Foundation
 
-public struct ApiInfoNode: Codable {
+public struct ApiInfoNode: Codable, Sendable {
     public let path: String
     
     public let minVersion: Int

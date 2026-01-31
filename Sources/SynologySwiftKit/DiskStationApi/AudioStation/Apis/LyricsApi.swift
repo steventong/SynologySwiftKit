@@ -1,20 +1,46 @@
 //
-//  File.swift
+//  LyricsApi.swift
+//  SynologySwiftKit
 //
-//
-//  Created by Steven on 2024/6/15.
+//  Created by Steven on 2024/6/1.
 //
 
 import Foundation
 
-extension AudioStationApi {
-    public func lyricsGetLyrics(id: String) async throws -> String? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_LYRICS, method: "getlyrics", version: 1, parameters: [
-            "library": "all",
-            "id": id,
-        ])
+public final class LyricsApi {
+    private let apiClient: ApiClientProviding
 
-        let lyrics = try await api.requestForData(resultType: Lyrics.self)
-        return lyrics.lyrics
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
+    }
+
+    /**
+     Get Lyrics
+     获取歌词
+     */
+    public func get(id: String) async throws -> Lyrics? {
+        let result: LyricsResult = try await apiClient.request(
+            ApiEndpoint(api: SynologyApi.AudioStation.LYRICS, method: "getlyrics", version: 2) {
+                ("id", id)
+            }
+        )
+        return result.lyrics
+    }
+
+    /**
+     Search Lyrics
+     */
+    public func search(title: String, artist: String, limit: Int = 10, offset: Int = 0) async throws
+        -> (total: Int, data: [LyricsSearchItem])
+    {
+        let result: LyricsSearchResult = try await apiClient.request(
+            ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 1) {
+                ("title", title)
+                ("artist", artist)
+                ("limit", limit)
+                ("additional", "full_lyrics")
+            }
+        )
+        return (result.total, result.items)
     }
 }

@@ -1,112 +1,90 @@
 //
-//  File.swift
-//
+//  InfoApi.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/6/22.
 //
 
 import Foundation
 
-extension AudioStationApi {
-    /**
-     queryAudioStationInfo
-     */
-    public func queryAudioStationInfo(cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
-        // 使用上次的记录, 从缓存获取，有效期一天
-        if cacheEnabled == true,
-           isAudioStationInfoCacheValid(),
-           let cachedAudioStationInfo = queryAudioStationInfoFromCache() {
-            return cachedAudioStationInfo
-        }
+public final class InfoApi {
+    private let apiClient: ApiClientProviding
 
-        let audioStationInfo = try await queryAudioStationInfoFromDsm(sid: sid, did: did)
-        Logger.debug("SynologySwiftKit.InfoApi, queryAudioStationInfo, query from api: \(audioStationInfo)")
-
-        // save to userdefaults
-        saveAudioStationInfoToUserDefaults(audioStationInfo: audioStationInfo)
-        // result
-        return audioStationInfo
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
     }
 
     /**
-     queryAudioStationInfo
+     Query AudioStation Info
      */
-    public func queryAudioStationInfoFromCache() -> AudioStationInfo? {
-        // 使用上次的记录, 从缓存获取，有效期一天
-        if let cachedAudioStationInfo = getAudioStationInfoFromUserDefaults() {
-            Logger.debug("SynologySwiftKit.InfoApi, queryAudioStationInfo, query from userdefaults: \(cachedAudioStationInfo)")
-            return cachedAudioStationInfo
+    public func query(cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
+        // Cache Check
+        if cacheEnabled == true, isCacheValid(), let cachedInfo = getFromCache() {
+            return cachedInfo
         }
 
-        return nil
-    }
-}
+        // Network Request
+        let info = try await queryFromDsm(sid: sid, did: did)
+        Logger.debug("SynologySwiftKit.InfoApi, query, from api: \(info)")
 
-extension AudioStationApi {
-    /**
-     queryAudioStationInfoFromDsm
-     */
-    private func queryAudioStationInfoFromDsm(sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
-        var parameters: [String: Any] = [:]
-        if let sid {
-            parameters["sid"] = sid
-            parameters["did"] = did
-        }
-
-        // 从接口查询
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_INFO, method: "getinfo", version: 6, httpMethod: .post,
-                                     parameters: parameters, buildSidOnQuery: sid == nil, buildSidOnCookie: sid == nil)
-
-        let audioStationInfo = try await api.requestForData(resultType: AudioStationInfo.self)
-
-        Logger.info("AudioStationApi.audioStationInfo: \(audioStationInfo)")
-        return audioStationInfo
+        // Save Cache
+        saveToCache(info: info)
+        return info
     }
 
     /**
-     save to user defaults
+     Query from Cache
      */
-    private func saveAudioStationInfoToUserDefaults(audioStationInfo: AudioStationInfo) {
-        if let encoded = try? JSONEncoder().encode(audioStationInfo),
-           let audioStationInfoJson = String(data: encoded, encoding: .utf8) {
-            UserDefaults.standard.setValue(audioStationInfoJson, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
-            UserDefaults.standard.set(Date(), forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
+    public func getFromCache() -> AudioStationInfo? {
+        if let json = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
+           let data = json.data(using: .utf8) {
+            let info = try? JSONDecoder().decode(AudioStationInfo.self, from: data)
+            if let info {
+                Logger.debug("SynologySwiftKit.InfoApi, query, from cache: \(info)")
+            }
+            return info
         }
-    }
-
-    /**
-     get from user defaults
-     */
-    private func getAudioStationInfoFromUserDefaults() -> AudioStationInfo? {
-        if let audioStationInfoJson = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
-           let encoded = audioStationInfoJson.data(using: .utf8) {
-            return try? JSONDecoder().decode(AudioStationInfo.self, from: encoded)
-        }
-
         return nil
     }
 
-    /**
-     get update time
-     */
-    private func getAudioStationInfoSaveToUserDefaultsTime() -> Date? {
-        if let date = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
-            return date
-        }
+    // MARK: - Private Methods
 
-        return nil
+    private func queryFromDsm(sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
+        let result: AudioStationInfo = try await apiClient.request(
+            ApiEndpoint(
+                api: SynologyApi.AudioStation.INFO,
+                method: "getinfo",
+                version: 6,
+                httpMethod: .post,
+                sidOnQuery: sid == nil,
+                sidOnCookie: sid == nil
+            ) {
+                if let sid {
+                    ("sid", sid)
+                    ("did", did)
+                }
+            },
+            resultType: AudioStationInfo.self
+        )
+        return result
     }
 
-    /**
-     check time is expired or not (1 day valid)
-     */
-    private func isAudioStationInfoCacheValid() -> Bool {
-        if let updateTime = getAudioStationInfoSaveToUserDefaultsTime() {
-            let timeInterval = Date().timeIntervalSince(updateTime)
-            // one day cache valid duration
-            return timeInterval < 24 * 60 * 60
+    private func saveToCache(info: AudioStationInfo) {
+        if let encoded = try? JSONEncoder().encode(info),
+           let json = String(data: encoded, encoding: .utf8) {
+            UserDefaults.standard.setValue(
+                json, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
+            UserDefaults.standard.set(
+                Date(), forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName
+            )
         }
+    }
 
+    private func isCacheValid() -> Bool {
+        if let updateTime = UserDefaults.standard.object(
+            forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
+            return Date().timeIntervalSince(updateTime) < 24 * 60 * 60
+        }
         return false
     }
 }
