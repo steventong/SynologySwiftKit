@@ -8,7 +8,7 @@
 import Foundation
 
 
-public enum StreamMethodEnum {
+public enum StreamMethodEnum: Sendable {
     case STREAM
     case TRANSCODE
 }

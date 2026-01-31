@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct SearchResult: Decodable {
+public struct SearchResult: Decodable, Sendable {
     /**
      "albumTotal": 15,
      "albums": [

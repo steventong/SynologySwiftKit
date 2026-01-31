@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct Playlist: Decodable {
+public struct Playlist: Decodable, Sendable {
     public var id: String
     public var library: String
     public var name: String
@@ -38,7 +38,7 @@ public struct Playlist: Decodable {
     }
 }
 
-public struct PlaylistAdditional: Decodable {
+public struct PlaylistAdditional: Decodable, Sendable {
     public var songs: [Song]
 
     public var songsOffset: Int
@@ -51,24 +51,39 @@ public struct PlaylistAdditional: Decodable {
     }
 }
 
-public struct PlaylistListResult: Decodable {
-    public var offset: Int
-    public var total: Int
+public typealias PlaylistListResult = SynologyListResult<Playlist>
+
+extension SynologyListResult where T == Playlist {
+    public var playlists: [Playlist] { items }
+
+    private enum ListCodingKeys: String, CodingKey {
+        case offset
+        case total
+        case items = "playlists"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: ListCodingKeys.self)
+        offset = try container.decode(Int.self, forKey: .offset)
+        total = try container.decode(Int.self, forKey: .total)
+        items = try container.decode([Playlist].self, forKey: .items)
+    }
+
+}
+
+
+public struct PlaylistGetInfoResult: Decodable, Sendable {
     public var playlists: [Playlist]
 }
 
-public struct PlaylistGetInfoResult: Decodable {
-    public var playlists: [Playlist]
-}
-
-public struct PlaylistCreateResult: Decodable {
+public struct PlaylistCreateResult: Decodable, Sendable {
     public var id: String
 }
 
-public struct PlaylistRenameResult: Decodable {
+public struct PlaylistRenameResult: Decodable, Sendable {
     public var id: String
 }
 
-public struct PlaylistDeleteResult: Decodable {
+public struct PlaylistDeleteResult: Decodable, Sendable {
     public var errors: [String]
 }

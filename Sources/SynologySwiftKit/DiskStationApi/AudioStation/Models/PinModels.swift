@@ -11,7 +11,7 @@ import Foundation
 
 /// 固定项类型
 /// Pin item type
-public enum PinType: String, Codable {
+public enum PinType: String, Codable, Sendable {
     case folder
     case album
     case artist
@@ -23,7 +23,7 @@ public enum PinType: String, Codable {
 
 /// 固定项筛选条件
 /// Pin item criteria
-public struct PinCriteria: Codable {
+public struct PinCriteria: Codable, Sendable {
     public var folder: String?
     public var path: String?
     public var album: String?
@@ -88,7 +88,7 @@ public struct PinCriteria: Codable {
 
 /// 固定项目
 /// Pinned item
-public struct PinItem: Codable {
+public struct PinItem: Codable, Sendable {
     public let id: String
     public let type: PinType
     public let name: String
@@ -97,20 +97,32 @@ public struct PinItem: Codable {
 
 // MARK: - API Results
 
-struct PinListResult: Codable {
-    let items: [PinItem]
-    let offset: Int
-    let total: Int
+public typealias PinListResult = SynologyListResult<PinItem>
+
+extension SynologyListResult where T == PinItem {
+    private enum ListCodingKeys: String, CodingKey {
+        case offset
+        case total
+        case items
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: ListCodingKeys.self)
+        offset = try container.decode(Int.self, forKey: .offset)
+        total = try container.decode(Int.self, forKey: .total)
+        items = try container.decode([PinItem].self, forKey: .items)
+    }
 }
 
+
 /// Pin 操作成功结果
-struct PinOperationResult: Codable {
+struct PinOperationResult: Codable, Sendable {
     let errors: [Int]
     let items: [PinItem]
 }
 
 /// Unpin 操作结果
-public struct UnpinOperationResult: Codable {
+public struct UnpinOperationResult: Codable, Sendable {
     /// 失败的项目错误列表
     public let errors: [UnpinError]
     /// 成功取消固定的 ID 列表
@@ -118,7 +130,7 @@ public struct UnpinOperationResult: Codable {
 }
 
 /// Unpin 错误项
-public struct UnpinError: Codable {
+public struct UnpinError: Codable, Sendable {
     /// 错误码（1007 = 项目不存在）
     public let error: Int
     /// 失败的项目 ID

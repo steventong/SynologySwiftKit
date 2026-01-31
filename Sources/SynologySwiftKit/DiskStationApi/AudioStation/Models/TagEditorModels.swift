@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct TagEditorResult: Decodable {
+public struct TagEditorResult: Decodable, Sendable {
     public var success: Bool
     public var readFailCount: Int
     public var lyrics: String?
@@ -21,7 +21,7 @@ public struct TagEditorResult: Decodable {
     }
 }
 
-public struct TagEditorRequest: Codable {
+public struct TagEditorRequest: Codable, Sendable {
     public var audioInfos: [TagEditorData]
 
     public var lyrics: String
@@ -80,7 +80,7 @@ public struct TagEditorRequest: Codable {
     }
 }
 
-public struct TagEditorData: Codable {
+public struct TagEditorData: Codable, Sendable {
     public var album: String
     public var albumArtist: String
     public var artist: String

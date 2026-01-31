@@ -7,14 +7,27 @@
 
 import Foundation
 
-public struct Composer: Decodable {
+public struct Composer: Decodable, Sendable {
     public var name: String
 }
 
-public struct ComposerListResult: Decodable {
-    public var offset: Int
+public typealias ComposerListResult = SynologyListResult<Composer>
 
-    public var total: Int
+extension SynologyListResult where T == Composer {
+    public var composers: [Composer] { items }
 
-    public var composers: [Composer]
+    private enum ListCodingKeys: String, CodingKey {
+        case offset
+        case total
+        case items = "composers"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: ListCodingKeys.self)
+        offset = try container.decode(Int.self, forKey: .offset)
+        total = try container.decode(Int.self, forKey: .total)
+        items = try container.decode([Composer].self, forKey: .items)
+    }
+
 }
+

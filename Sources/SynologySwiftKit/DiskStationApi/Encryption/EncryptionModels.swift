@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct ApiInfoEncryption: Decodable {
+public struct ApiInfoEncryption: Decodable, Sendable {
     public let cipherkey: String
     public let ciphertoken: String
     public let publicKey: String

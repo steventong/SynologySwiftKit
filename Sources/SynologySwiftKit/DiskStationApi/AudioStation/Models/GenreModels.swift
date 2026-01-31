@@ -7,14 +7,27 @@
 
 import Foundation
 
-public struct Genre: Decodable {
+public struct Genre: Decodable, Sendable {
     public var name: String
 }
 
-public struct GenreListResult: Decodable {
-    public var offset: Int
+public typealias GenreListResult = SynologyListResult<Genre>
 
-    public var total: Int
+extension SynologyListResult where T == Genre {
+    public var genres: [Genre] { items }
 
-    public var genres: [Genre]
+    private enum ListCodingKeys: String, CodingKey {
+        case offset
+        case total
+        case items = "genres"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: ListCodingKeys.self)
+        offset = try container.decode(Int.self, forKey: .offset)
+        total = try container.decode(Int.self, forKey: .total)
+        items = try container.decode([Genre].self, forKey: .items)
+    }
+
 }
+
