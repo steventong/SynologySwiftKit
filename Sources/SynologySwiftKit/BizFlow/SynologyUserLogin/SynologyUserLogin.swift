@@ -72,9 +72,45 @@ public actor SynologyUserLogin {
         }
     }
     
+    // MARK: - Session Login (AsyncStream)
+    
+    /// 通过 Session 登录（AsyncStream 版本）
+    /// Login with session (AsyncStream version)
+    /// - Parameters:
+    ///   - server: QuickConnect ID 或自定义域名
+    ///   - enableHttps: 是否启用 HTTPS
+    ///   - username: 用户名
+    ///   - sid: Session ID
+    ///   - did: Device ID
+    /// - Returns: AsyncStream 返回登录进度
+    public func login(
+        server: String,
+        enableHttps: Bool,
+        username: String,
+        sid: String,
+        did: String?
+    ) -> AsyncStream<LoginProgress> {
+        AsyncStream { continuation in
+            Task {
+                await self.performSessionLogin(
+                    server: server,
+                    enableHttps: enableHttps,
+                    username: username,
+                    sid: sid,
+                    did: did,
+                    continuation: continuation
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Private Support
+
+private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
-    private func performPasswordLogin(
+    func performPasswordLogin(
         server: String,
         enableHttps: Bool,
         username: String,
@@ -161,41 +197,9 @@ public actor SynologyUserLogin {
         }
     }
     
-    // MARK: - Session Login (AsyncStream)
-    
-    /// 通过 Session 登录（AsyncStream 版本）
-    /// Login with session (AsyncStream version)
-    /// - Parameters:
-    ///   - server: QuickConnect ID 或自定义域名
-    ///   - enableHttps: 是否启用 HTTPS
-    ///   - username: 用户名
-    ///   - sid: Session ID
-    ///   - did: Device ID
-    /// - Returns: AsyncStream 返回登录进度
-    public func login(
-        server: String,
-        enableHttps: Bool,
-        username: String,
-        sid: String,
-        did: String?
-    ) -> AsyncStream<LoginProgress> {
-        AsyncStream { continuation in
-            Task {
-                await self.performSessionLogin(
-                    server: server,
-                    enableHttps: enableHttps,
-                    username: username,
-                    sid: sid,
-                    did: did,
-                    continuation: continuation
-                )
-            }
-        }
-    }
-    
     /// 执行 Session 登录
     /// Perform session login
-    private func performSessionLogin(
+    func performSessionLogin(
         server: String,
         enableHttps: Bool,
         username: String,
@@ -268,11 +272,9 @@ public actor SynologyUserLogin {
         }
     }
     
-    // MARK: - Private Helpers
-    
     /// 获取连接地址
     /// Fetch connection URL
-    private func fetchConnectionUrl(
+    func fetchConnectionUrl(
         server: String,
         enableHttps: Bool,
         continuation: AsyncStream<LoginProgress>.Continuation
@@ -300,3 +302,4 @@ public actor SynologyUserLogin {
         return nil
     }
 }
+

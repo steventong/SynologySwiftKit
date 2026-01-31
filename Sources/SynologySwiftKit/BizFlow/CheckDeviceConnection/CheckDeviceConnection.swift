@@ -54,10 +54,63 @@ public class CheckDeviceConnection {
             }
         }
     }
+
+    // MARK: - DSM Info Query
     
+    /// 查询 DSM 信息
+    /// Query DSM information
+    /// - Returns: DSM 信息
+    /// - Throws: SynologyError
+    public func queryDsmInfo() async throws -> DsmInfo {
+        do {
+            guard let dsmInfo = try await dsmInfoApi.queryDmsInfo() else {
+                Logger.error("CheckDeviceConnection#queryDsmInfo, fetch dsm info failed")
+                throw SynologyError.api(.businessError(code: -1, message: "Failed to fetch DSM info"))
+            }
+            Logger.info("CheckDeviceConnection#queryDsmInfo, fetch dsm info: \(dsmInfo)")
+            return dsmInfo
+        } catch let error as SynologyError {
+            Logger.error("CheckDeviceConnection#queryDsmInfo, error: \(error)")
+            throw error
+        } catch {
+            Logger.error("CheckDeviceConnection#queryDsmInfo, error: \(error)")
+            throw SynologyError.network(.connectionFailed(underlying: error))
+        }
+    }
+    
+    // MARK: - AudioStation Info Query
+    
+    /// 查询 AudioStation 信息
+    /// Query AudioStation information
+    /// - Returns: AudioStation 信息
+    /// - Throws: SynologyError
+    public func queryAudioStationInfo() async throws -> AudioStationInfo {
+        do {
+            // 更新 API 信息
+            // Update API info
+            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: true)
+            
+            // 查询 AudioStation 信息
+            // Query AudioStation info
+            let audioStationInfo = try await audioStationApi.info.query()
+            Logger.info("CheckDeviceConnection#queryAudioStationInfo, audioStationInfo: \(audioStationInfo)")
+            return audioStationInfo
+        } catch let error as SynologyError {
+            Logger.error("CheckDeviceConnection#queryAudioStationInfo, error: \(error)")
+            throw error
+        } catch {
+            Logger.error("CheckDeviceConnection#queryAudioStationInfo, error: \(error)")
+            throw SynologyError.network(.connectionFailed(underlying: error))
+        }
+    }
+}
+
+// MARK: - Private Support
+
+private extension CheckDeviceConnection {
     /// 执行连接检查的内部方法
     /// Internal method to perform connection check
-    private func performConnectionCheck(fetchNewServerByQuickConnectId: Bool,continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
+    func performConnectionCheck(fetchNewServerByQuickConnectId: Bool, continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
         // Step 1: 检查现有连接
         // Step 1: Check existing connection
         if let connection = deviceConnection.getCurrentConnectionUrl() {
@@ -137,7 +190,7 @@ public class CheckDeviceConnection {
     
     /// 验证 AudioStation 连接
     /// Verify AudioStation connection
-    private func verifyAudioStation(connectionType: ConnectionType,connectionUrl: String,continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
+    func verifyAudioStation(connectionType: ConnectionType, connectionUrl: String, continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
         continuation.yield(.queryingApiInfo)
         
         do {
@@ -162,55 +215,6 @@ public class CheckDeviceConnection {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, AudioStation query failed: \(error)")
             continuation.yield(.failed(reason: .audioStationQueryFailed(error: error.localizedDescription)))
             continuation.finish()
-        }
-    }
-    
-    // MARK: - DSM Info Query
-    
-    /// 查询 DSM 信息
-    /// Query DSM information
-    /// - Returns: DSM 信息
-    /// - Throws: SynologyError
-    public func queryDsmInfo() async throws -> DsmInfo {
-        do {
-            guard let dsmInfo = try await dsmInfoApi.queryDmsInfo() else {
-                Logger.error("CheckDeviceConnection#queryDsmInfo, fetch dsm info failed")
-                throw SynologyError.api(.businessError(code: -1, message: "Failed to fetch DSM info"))
-            }
-            Logger.info("CheckDeviceConnection#queryDsmInfo, fetch dsm info: \(dsmInfo)")
-            return dsmInfo
-        } catch let error as SynologyError {
-            Logger.error("CheckDeviceConnection#queryDsmInfo, error: \(error)")
-            throw error
-        } catch {
-            Logger.error("CheckDeviceConnection#queryDsmInfo, error: \(error)")
-            throw SynologyError.network(.connectionFailed(underlying: error))
-        }
-    }
-    
-    // MARK: - AudioStation Info Query
-    
-    /// 查询 AudioStation 信息
-    /// Query AudioStation information
-    /// - Returns: AudioStation 信息
-    /// - Throws: SynologyError
-    public func queryAudioStationInfo() async throws -> AudioStationInfo {
-        do {
-            // 更新 API 信息
-            // Update API info
-            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: true)
-            
-            // 查询 AudioStation 信息
-            // Query AudioStation info
-            let audioStationInfo = try await audioStationApi.info.query()
-            Logger.info("CheckDeviceConnection#queryAudioStationInfo, audioStationInfo: \(audioStationInfo)")
-            return audioStationInfo
-        } catch let error as SynologyError {
-            Logger.error("CheckDeviceConnection#queryAudioStationInfo, error: \(error)")
-            throw error
-        } catch {
-            Logger.error("CheckDeviceConnection#queryAudioStationInfo, error: \(error)")
-            throw SynologyError.network(.connectionFailed(underlying: error))
         }
     }
 }

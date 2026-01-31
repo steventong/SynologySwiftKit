@@ -55,10 +55,14 @@ public final class QueryAllSongs: @unchecked Sendable {
             }
         }
     }
-    
+}
+
+// MARK: - Private Support
+
+private extension QueryAllSongs {
     /// 执行查询所有歌曲
     /// Perform query all songs
-    private func performQueryAllSongs(
+    func performQueryAllSongs(
         batchSize: Int,
         concurrency: Int,
         continuation: AsyncStream<QuerySongsProgress>.Continuation
@@ -137,11 +141,9 @@ public final class QueryAllSongs: @unchecked Sendable {
         continuation.finish()
     }
     
-    // MARK: - Private Helpers
-    
     /// 查询单批次歌曲
     /// Query single batch of songs
-    private func querySongBatch(
+    func querySongBatch(
         batchIndex: Int,
         batchSize: Int,
         total: Int
