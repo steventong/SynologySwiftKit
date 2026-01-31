@@ -92,13 +92,5 @@ public struct SynologyApiError: Error, Decodable, LocalizedError, CustomStringCo
     }
 }
 
-// MARK: - Synology List Result
 
-/// 通用列表响应结构
-/// Generic list response structure
-public struct SynologyListResult<T: Decodable & Sendable>: Decodable, Sendable {
-    public let offset: Int
-    public let total: Int
-    public let items: [T]
-}
 

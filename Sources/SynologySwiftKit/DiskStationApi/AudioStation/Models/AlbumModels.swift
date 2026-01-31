@@ -39,22 +39,15 @@ public struct AlbumAvgRating: Decodable, Sendable {
     public var rating: Int
 }
 
-public typealias AlbumListResult = SynologyListResult<Album>
+public struct AlbumListResult: Decodable, Sendable {
+    public let offset: Int
+    public let total: Int
+    public let albums: [Album]
 
-extension SynologyListResult where T == Album {
-    public var albums: [Album] { items }
-
-    private enum ListCodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey {
         case offset
         case total
-        case items = "albums"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: ListCodingKeys.self)
-        offset = try container.decode(Int.self, forKey: .offset)
-        total = try container.decode(Int.self, forKey: .total)
-        items = try container.decode([Album].self, forKey: .items)
+        case albums
     }
 }
 

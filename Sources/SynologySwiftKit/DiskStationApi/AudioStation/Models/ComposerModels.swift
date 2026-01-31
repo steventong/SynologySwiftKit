@@ -11,23 +11,15 @@ public struct Composer: Decodable, Sendable {
     public var name: String
 }
 
-public typealias ComposerListResult = SynologyListResult<Composer>
+public struct ComposerListResult: Decodable, Sendable {
+    public let offset: Int
+    public let total: Int
+    public let composers: [Composer]
 
-extension SynologyListResult where T == Composer {
-    public var composers: [Composer] { items }
-
-    private enum ListCodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey {
         case offset
         case total
-        case items = "composers"
+        case composers
     }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: ListCodingKeys.self)
-        offset = try container.decode(Int.self, forKey: .offset)
-        total = try container.decode(Int.self, forKey: .total)
-        items = try container.decode([Composer].self, forKey: .items)
-    }
-
 }
 

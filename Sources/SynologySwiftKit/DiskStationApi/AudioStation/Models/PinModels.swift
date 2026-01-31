@@ -97,20 +97,15 @@ public struct PinItem: Codable, Sendable {
 
 // MARK: - API Results
 
-public typealias PinListResult = SynologyListResult<PinItem>
+public struct PinListResult: Decodable, Sendable {
+    public let offset: Int
+    public let total: Int
+    public let items: [PinItem]
 
-extension SynologyListResult where T == PinItem {
-    private enum ListCodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey {
         case offset
         case total
         case items
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: ListCodingKeys.self)
-        offset = try container.decode(Int.self, forKey: .offset)
-        total = try container.decode(Int.self, forKey: .total)
-        items = try container.decode([PinItem].self, forKey: .items)
     }
 }
 

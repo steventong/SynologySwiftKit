@@ -126,22 +126,15 @@ public struct SongTag: Decodable, Encodable, Sendable {
     }
 }
 
-public typealias SongListResult = SynologyListResult<Song>
+public struct SongListResult: Decodable, Sendable {
+    public let offset: Int
+    public let total: Int
+    public let songs: [Song]
 
-extension SynologyListResult where T == Song {
-    public var songs: [Song] { items }
-
-    private enum ListCodingKeys: String, CodingKey {
+    enum CodingKeys: String, CodingKey {
         case offset
         case total
-        case items = "songs"
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: ListCodingKeys.self)
-        offset = try container.decode(Int.self, forKey: .offset)
-        total = try container.decode(Int.self, forKey: .total)
-        items = try container.decode([Song].self, forKey: .items)
+        case songs
     }
 }
 
