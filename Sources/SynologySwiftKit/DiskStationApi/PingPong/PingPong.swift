@@ -7,17 +7,22 @@
 
 import Foundation
 
-class PingPong {
+public protocol PingPongProviding: Sendable {
+    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String]
+    func pingpong(url: String) async -> Bool
+}
+
+public final class PingPong: PingPongProviding, @unchecked Sendable {
     private let httpClient: HTTPClient
 
-    init() {
+    public init() {
         httpClient = HTTPClient(timeout: 3.6)
     }
 
     /// 并发测试多个连接地址的可达性
     /// - Parameter connections: 连接类型到地址列表的映射
     /// - Returns: 可达的连接类型到地址的映射
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+    public func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
         return await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: [ConnectionType: String].self, body: { taskGroup in
             // 子任务
             connections.forEach { connection in
@@ -48,7 +53,7 @@ class PingPong {
     /// 测试单个 URL 的可达性
     /// - Parameter url: 要测试的 URL
     /// - Returns: 是否可达
-    func pingpong(url: String) async -> Bool {
+    public func pingpong(url: String) async -> Bool {
         let requestUrl = buildPingPongUrl(url: url)
 
         guard let url = URL(string: requestUrl) else {

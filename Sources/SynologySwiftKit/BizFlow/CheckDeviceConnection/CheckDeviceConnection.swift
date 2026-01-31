@@ -19,7 +19,7 @@ public class CheckDeviceConnection {
     private let quickConnectApi: QuickConnectApi
     private let audioStationApi: AudioStationApi
     private let dsmInfoApi: DsmInfoApi
-    private let pingpong = PingPong()
+    private let pingpong: PingPongProviding
 
     // MARK: - Initialization
 
@@ -29,9 +29,11 @@ public class CheckDeviceConnection {
     ///   - deviceConnection: 设备连接提供者
     ///   - apiInfoApi: API 信息提供者
     ///   - apiClient: API 客户端
-    public init(deviceConnection: DeviceConnectionProviding, apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding) {
+    ///   - pingpong: PingPong 服务（可选，默认使用 PingPong()）
+    public init(deviceConnection: DeviceConnectionProviding, apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding = PingPong()) {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
+        self.pingpong = pingpong
 
         quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
         audioStationApi = AudioStationApi(apiClient: apiClient)
