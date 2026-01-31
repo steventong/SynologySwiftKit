@@ -24,6 +24,9 @@ final class ApiClient: ApiClientProviding {
     /// 设备连接提供者
     /// Device connection provider
     public let connectionProvider: DeviceConnectionProviding
+    
+    /// 网络拦截器链
+    private var interceptors: [RequestInterceptor] = []
 
     /// API 信息提供者（延迟设置以解决循环依赖）
     /// API info provider (lazy set to resolve circular dependency)
@@ -36,6 +39,11 @@ final class ApiClient: ApiClientProviding {
     /// - Parameter connectionProvider: 设备连接提供者
     init(connectionProvider: DeviceConnectionProviding) {
         self.connectionProvider = connectionProvider
+    }
+    
+    /// 注册拦截器
+    func addInterceptor(_ interceptor: RequestInterceptor) {
+        interceptors.append(interceptor)
     }
 
     // MARK: - Public Methods

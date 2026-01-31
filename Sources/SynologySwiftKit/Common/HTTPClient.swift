@@ -19,6 +19,13 @@ final class HTTPClient {
         self.session = URLSession(configuration: configuration)
     }
     
+    /// 使用配置初始化
+    init(config: SynologyConfig) {
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = config.timeoutInterval
+        self.session = URLSession(configuration: configuration)
+    }
+    
     /// 使用自定义 URLSession 初始化
     init(session: URLSession) {
         self.session = session

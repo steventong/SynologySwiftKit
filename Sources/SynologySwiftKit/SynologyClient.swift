@@ -14,7 +14,7 @@ import Foundation
 ///
 /// 统一的服务入口，管理所有依赖和 API 模块。
 /// Unified service entry point, managing all dependencies and API modules.
-public final class SynologyClient: Sendable {
+public final class SynologyClient: @unchecked Sendable {
     // MARK: - Core Services
 
     /// 设备连接管理
@@ -25,6 +25,9 @@ public final class SynologyClient: Sendable {
 
     /// API 信息管理
     public let apiInfo: ApiInfoApi
+    
+    /// 全局配置
+    public let config: SynologyConfig
 
     // MARK: - API Modules
 
@@ -60,7 +63,10 @@ public final class SynologyClient: Sendable {
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
-    public init() {
+    /// - Parameter config: 全局配置 (默认为 SynologyConfig.default)
+    public init(config: SynologyConfig = .default) {
+        self.config = config
+        
         let connection = DeviceConnection()
         let client = ApiClient(connectionProvider: connection)
         let info = ApiInfoApi(apiClient: client, connectionProvider: connection)
