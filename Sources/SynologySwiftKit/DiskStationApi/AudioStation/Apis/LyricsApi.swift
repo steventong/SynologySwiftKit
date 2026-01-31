@@ -16,6 +16,7 @@ public final class LyricsApi {
 
     /**
      Get Lyrics
+     获取歌词
      */
     public func get(id: String) async throws -> Lyrics? {
         let result: LyricsResult = try await apiClient.request(
