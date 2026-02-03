@@ -107,7 +107,7 @@ private extension SynologyUserLogin {
         continuation.yield(.updatingApiInfo)
 
         do {
-            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false)
+            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
             continuation.yield(.failed(error: .network(.connectionFailed(underlying: error))))
@@ -196,7 +196,7 @@ private extension SynologyUserLogin {
         // 更新 API 信息
         continuation.yield(.updatingApiInfo)
         do {
-            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false)
+            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, API info fetch failed: \(error)")
             continuation.yield(.failed(error: .network(.connectionFailed(underlying: error))))

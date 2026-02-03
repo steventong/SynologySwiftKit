@@ -133,7 +133,7 @@ private extension CheckDeviceConnection {
         do {
             // 更新 API 信息
             // Update API info
-            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: true)
+            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: true, updateCache: true)
 
             continuation.yield(.queryingAudioStation)
 
