@@ -91,7 +91,7 @@ private extension CheckDeviceConnection {
         // Step 2: Fetch new connection via QuickConnect
         guard fetchNewServerByQuickConnectId, let loginServer = await deviceConnection.getLoginServer() else {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, no login server")
-            continuation.yield(.loginRequired(reason: .noLoginServer))
+            continuation.yield(.sessionInvalid(reason: .noLoginServer))
             continuation.finish()
             return
         }
@@ -116,7 +116,7 @@ private extension CheckDeviceConnection {
             }
         } catch SynologyError.api(.invalidSession) {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, invalidSession")
-            continuation.yield(.loginRequired(reason: .sessionInvalid))
+            continuation.yield(.sessionInvalid(reason: .sessionInvalid))
             continuation.finish()
         } catch {
             Logger.error("CheckDeviceConnection#checkConnectionStatus error: \(error)")
@@ -146,7 +146,7 @@ private extension CheckDeviceConnection {
             continuation.finish()
         } catch SynologyError.api(.invalidSession) {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, invalidSession during AudioStation query")
-            continuation.yield(.loginRequired(reason: .sessionInvalid))
+            continuation.yield(.sessionInvalid(reason: .sessionInvalid))
             continuation.finish()
         } catch {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, AudioStation query failed: \(error)")
