@@ -12,7 +12,7 @@ public actor DeviceConnection: DeviceConnectionProviding {
     private var loginServer: (server: String, isEnableHttps: Bool)?
     private var connection: (type: ConnectionType, url: String)?
     private var session: (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)?
-    
+
     /// 注入的存储依赖
     private let storage: KeyValueStorage
 
@@ -25,44 +25,34 @@ public actor DeviceConnection: DeviceConnectionProviding {
     public init(storage: KeyValueStorage = UserDefaultsStorage()) {
         self.storage = storage
     }
-    
-    /**
-     获取当前URL
-     */
+
+    /// 获取当前URL
     public func getCurrentConnectionUrl() -> (type: ConnectionType, url: String)? {
         if let connection {
             return connection
         }
 
-        if let url = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName) {
-            let typeRawValue = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName) ?? ""
-            if let type = ConnectionType(rawValue: typeRawValue) {
-                let current = (type, url)
-                connection = current
-                Logger.info(
-                    "[DeviceConnection]get connection-url from storage, connection url = \(current)"
-                )
-                return current
-            }
+        if let connectionUrl = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName),
+           let typeRawValue = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName),
+           let connectionType = ConnectionType(rawValue: typeRawValue) {
+            let current = (connectionType, connectionUrl)
+            connection = current
+            Logger.info("[DeviceConnection]get connection-url from storage, connection url = \(current)")
+            return current
         }
-
-
 
         Logger.warn("[DeviceConnection] Invalid or missing connection configuration. Logging out.")
         removeLoginSession()
+
         return nil
     }
 
-    /**
-     用户名
-     */
+    /// 获取当前用户名
     public func getSessionUsername() -> String? {
         return storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
     }
 
-    /**
-     sid, did
-     */
+    /// 获取登录session
     public func getLoginSession() -> (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)? {
         if let session {
             return session
@@ -84,9 +74,7 @@ public actor DeviceConnection: DeviceConnectionProviding {
         return nil
     }
 
-    /**
-     登录偏好
-     */
+    /// 获取登录服务器信息
     public func getLoginServer() -> (server: String, isEnableHttps: Bool)? {
         if let loginServer {
             return loginServer
