@@ -54,20 +54,16 @@ final class ApiClient: ApiClientProviding {
     public func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool = false) async throws -> T {
         if rawResponse {
             // 返回原始响应
-            return try await sendApiRequest(
-                endpoint: endpoint,
-                resultType: T.self,
-                checkResultIsSuccess: { _ in true },
-                parseErrorCode: { _ in nil }
-            )
+            return try await sendApiRequest(endpoint: endpoint,
+                                            resultType: T.self,
+                                            checkResultIsSuccess: { _ in true },
+                                            parseErrorCode: { _ in nil })
         } else {
             // 解包数据 (默认)
-            let response = try await sendApiRequest(
-                endpoint: endpoint,
-                resultType: SynologyResponse<T>.self,
-                checkResultIsSuccess: { $0.success },
-                parseErrorCode: { $0.error?.code }
-            )
+            let response = try await sendApiRequest(endpoint: endpoint,
+                                                    resultType: SynologyResponse<T>.self,
+                                                    checkResultIsSuccess: { $0.success },
+                                                    parseErrorCode: { $0.error?.code })
             return try response.unwrap()
         }
     }
@@ -178,22 +174,14 @@ final class ApiClient: ApiClientProviding {
 
         // 构建请求头
         var headers: [String: String] = [:]
-        if let cookie = try await buildAuthCookieHeader(
-            name: resolved.name,
-            method: resolved.method,
-            parameters: resolved.parameters,
-            requireAuthCookie: resolved.requireAuthCookie) {
+        if let cookie = try await buildAuthCookieHeader(name: resolved.name, method: resolved.method,
+                                                        parameters: resolved.parameters,
+                                                        requireAuthCookie: resolved.requireAuthCookie) {
             headers["Cookie"] = cookie
         }
 
         // 发送请求
-        let response = try await sendHttpRequest(
-            endpoint: endpoint,
-            resolved: resolved,
-            apiUrl: apiUrl,
-            headers: headers,
-            resultType: resultType
-        )
+        let response = try await sendHttpRequest(endpoint: endpoint, resolved: resolved, apiUrl: apiUrl, headers: headers, resultType: resultType)
 
         // 检查业务状态
         if checkResultIsSuccess(response) {
@@ -202,8 +190,7 @@ final class ApiClient: ApiClientProviding {
 
         // 处理错误
         guard let errorCode = parseErrorCode(response) else {
-            throw SynologyError.api(
-                .businessError(code: -1, message: "Unknown error, fetch errorCode fail"))
+            throw SynologyError.api(.businessError(code: -1, message: "Unknown error, fetch errorCode fail"))
         }
 
         try handleErrorCode(errorCode)
@@ -213,14 +200,9 @@ final class ApiClient: ApiClientProviding {
 
     /// 发送 HTTP 请求
     private func sendHttpRequest<Value: Decodable>(endpoint: ApiEndpoint,
-                                                   resolved: (name: String,
-                                                              method: String,
-                                                              version: Int,
-                                                              parameters: [String: Any],
-                                                              apiPath: String,
-                                                              requireAuthCookie: Bool,
-                                                              requireAuthQuery: Bool),
-                                                   apiUrl: URL, headers: [String: String]?, resultType: Value.Type = Value.self) async throws -> Value {
+                                                   resolved: (name: String, method: String, version: Int, parameters: [String: Any], apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool),
+                                                   apiUrl: URL, headers: [String: String]?,
+                                                   resultType: Value.Type = Value.self) async throws -> Value {
         let session = await createSession(timeout: endpoint.timeout)
         var request: URLRequest
         var requestUrl: URL = apiUrl
@@ -235,11 +217,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         // 添加 sid 参数
-        if let sid = try await buildAuthQueryParameter(
-            name: resolved.name,
-            method: resolved.method,
-            requireAuthQuery: resolved.requireAuthQuery
-        ) {
+        if let sid = try await buildAuthQueryParameter(name: resolved.name, method: resolved.method, requireAuthQuery: resolved.requireAuthQuery) {
             parameters["_sid"] = sid
         }
 
