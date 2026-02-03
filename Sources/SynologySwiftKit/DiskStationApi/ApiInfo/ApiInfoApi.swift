@@ -12,12 +12,11 @@ import Foundation
 /// API 信息管理类 (Actor 保证并发安全)
 /// API information manager (Actor ensures concurrency safety)
 public actor ApiInfoApi: ApiInfoProviding {
-
     // MARK: - Dependencies & State
 
     /// API 客户端
     private let apiClient: ApiClientProviding
-    
+
     /// 键值存储 (用于持久化缓存)
     private let storage: KeyValueStorage
 
@@ -28,36 +27,33 @@ public actor ApiInfoApi: ApiInfoProviding {
 
     /// 初始化 API 信息管理器
     /// Initialize API information manager
-    public init(apiClient: ApiClientProviding, 
+    public init(apiClient: ApiClientProviding,
                 connectionProvider: DeviceConnectionProviding? = nil,
-                storage: KeyValueStorage = UserDefaultsStorage())
-    {
+                storage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
         self.storage = storage
     }
 
     public func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
-        if cachedApiInfo.isEmpty,
-            let cached = getApiInfoFromStorage()
-        {
-            self.cachedApiInfo = cached
+        if cachedApiInfo.isEmpty, let cached = getApiInfoFromStorage() {
+            cachedApiInfo = cached
             Logger.debug("ApiInfoApi#getApiInfoByApiName load from cache: \(cached.count)")
         }
 
         guard let apiInfo = cachedApiInfo[apiName] else {
-            Logger.debug("ApiInfoApi#getApiInfoByApiName (\(apiName)) not exist")
+            Logger.info("ApiInfoApi#getApiInfoByApiName (\(apiName)) not exist")
             throw SynologyError.api(.apiNotExists(name: apiName))
         }
 
+        Logger.info("ApiInfoApi#getApiInfoByApiName get apiInfo, key = : \(apiName), value = \(apiInfo)")
         return apiInfo
     }
 
     public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws -> Bool {
         if cacheEnabled == true && isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60),
-            let cached = getApiInfoFromStorage()
-        {
+           let cached = getApiInfoFromStorage() {
             Logger.debug("ApiInfoApi#checkSynologyApiInfo from cache: \(cached.count)")
-            self.cachedApiInfo = cached
+            cachedApiInfo = cached
             return true
         }
 
@@ -80,8 +76,7 @@ extension ApiInfoApi {
 
     private func saveApiInfoToStorage(apiInfo: [String: ApiInfoNode]) {
         if let encoded = try? JSONEncoder().encode(apiInfo),
-            let jsonString = String(data: encoded, encoding: .utf8)
-        {
+           let jsonString = String(data: encoded, encoding: .utf8) {
             let (dataKey, timeKey) = getCacheKeys()
             storage.set(jsonString, forKey: dataKey)
             storage.set(Date(), forKey: timeKey)
@@ -91,8 +86,7 @@ extension ApiInfoApi {
     private func getApiInfoFromStorage() -> [String: ApiInfoNode]? {
         let (dataKey, _) = getCacheKeys()
         if let jsonString = storage.string(forKey: dataKey),
-            let data = jsonString.data(using: .utf8)
-        {
+           let data = jsonString.data(using: .utf8) {
             return try? JSONDecoder().decode([String: ApiInfoNode].self, from: data)
         }
         return nil

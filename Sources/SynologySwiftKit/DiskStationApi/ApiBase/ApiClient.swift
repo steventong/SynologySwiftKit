@@ -24,7 +24,7 @@ final class ApiClient: ApiClientProviding {
     /// 设备连接提供者
     /// Device connection provider
     public let connectionProvider: DeviceConnectionProviding
-    
+
     /// 网络拦截器链
     private var interceptors: [RequestInterceptor] = []
 
@@ -40,7 +40,7 @@ final class ApiClient: ApiClientProviding {
     init(connectionProvider: DeviceConnectionProviding) {
         self.connectionProvider = connectionProvider
     }
-    
+
     /// 注册拦截器
     func addInterceptor(_ interceptor: RequestInterceptor) {
         interceptors.append(interceptor)
@@ -116,27 +116,24 @@ final class ApiClient: ApiClientProviding {
         if let connectionUrl = await connectionProvider.getCurrentConnectionUrl(),
            connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
            let url = URL(string: connectionUrl.url) {
-            return URLSessionFactory.createSession(
-                timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+            return URLSessionFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
         }
+
         return URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
     }
 
     /// 解析 Endpoint 信息
-    private func resolveEndpoint(_ endpoint: ApiEndpoint) async throws -> (
-        name: String, method: String, version: Int, parameters: [String: Any], apiPath: String,
-        requireAuthCookie: Bool, requireAuthQuery: Bool) {
+    private func resolveEndpoint(_ endpoint: ApiEndpoint) async throws
+        -> (name: String, method: String, version: Int, parameters: [String: Any], apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool) {
         // 自定义路径端点
         if endpoint.isCustomPath {
-            return (
-                name: endpoint.apiName,
-                method: "",
-                version: 1,
-                parameters: endpoint.parameters,
-                apiPath: endpoint.fullPath ?? "",
-                requireAuthCookie: true,
-                requireAuthQuery: false
-            )
+            return (name: endpoint.apiName,
+                    method: endpoint.method,
+                    version: endpoint.version,
+                    parameters: endpoint.parameters,
+                    apiPath: endpoint.fullPath ?? "",
+                    requireAuthCookie: endpoint.sidOnCookie ?? endpoint.requireAuthCookie,
+                    requireAuthQuery: endpoint.sidOnQuery ?? endpoint.requireQuerySid)
         }
 
         guard let apiInfoProvider else {
@@ -146,8 +143,9 @@ final class ApiClient: ApiClientProviding {
         // 获取 API 信息
         let apiName = endpoint.apiName
         let fetchedApiInfo = try await apiInfoProvider.getApiInfoByApiName(apiName: apiName)
-        let apiVersion = min(
-            max(fetchedApiInfo.minVersion, endpoint.version), fetchedApiInfo.maxVersion)
+
+        let apiVersion = fetchApiVersion(version: endpoint.version, apiMinVersion: fetchedApiInfo.minVersion, apiMaxVersion: fetchedApiInfo.maxVersion)
+
         let mergedParameters = endpoint.parameters.merging([
             "api": apiName,
             "version": apiVersion,
@@ -454,6 +452,11 @@ final class ApiClient: ApiClientProviding {
 
         let message = SynologyErrorMapper.description(for: errorCode) ?? "errorCode = \(errorCode)"
         throw SynologyError.api(.businessError(code: errorCode, message: message))
+    }
+
+    /// 获取适配的 API 版本
+    private func fetchApiVersion(version: Int, apiMinVersion: Int, apiMaxVersion: Int) -> Int {
+        return min(max(apiMinVersion, version), apiMaxVersion)
     }
 }
 
