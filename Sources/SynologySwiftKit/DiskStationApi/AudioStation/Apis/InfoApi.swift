@@ -68,7 +68,7 @@ public final class InfoApi {
         )
         return result
     }
-
+    
     private func saveToCache(info: AudioStationInfo) {
         if let encoded = try? JSONEncoder().encode(info),
            let json = String(data: encoded, encoding: .utf8) {

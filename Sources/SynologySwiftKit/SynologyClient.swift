@@ -25,7 +25,7 @@ public final class SynologyClient: @unchecked Sendable {
 
     /// API 信息管理
     public let apiInfo: ApiInfoApi
-    
+
     /// 全局配置
     public let config: SynologyConfig
 
@@ -60,35 +60,40 @@ public final class SynologyClient: @unchecked Sendable {
     /// 查询所有歌曲
     public let queryAllSongs: QueryAllSongs
 
+    /// PingPong
+    public let pingpong: PingPong
+
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
     /// - Parameter config: 全局配置 (默认为 SynologyConfig.default)
     public init(config: SynologyConfig = .default) {
         self.config = config
-        
+
         let connection = DeviceConnection()
         let client = ApiClient(connectionProvider: connection)
         let info = ApiInfoApi(apiClient: client, connectionProvider: connection)
+        let pingpong = PingPong()
 
-        self.deviceConnection = connection
-        self.apiClient = client
-        self.apiInfo = info
+        deviceConnection = connection
+        apiClient = client
+        apiInfo = info
+        self.pingpong = pingpong
 
         // 注入 API 信息提供者
         client.apiInfoProvider = info
 
         // 初始化各个 API 模块
-        self.audioStation = AudioStationApi(apiClient: client)
-        self.fileStation = FileStationApi(apiClient: client)
-        self.auth = AuthApi(apiClient: client)
-        self.quickConnect = QuickConnectApi(deviceConnection: connection)
-        self.dsmInfo = DsmInfoApi(apiClient: client)
-        self.encryption = EncryptionApi(apiClient: client)
+        audioStation = AudioStationApi(apiClient: client)
+        fileStation = FileStationApi(apiClient: client)
+        auth = AuthApi(apiClient: client)
+        quickConnect = QuickConnectApi(deviceConnection: connection)
+        dsmInfo = DsmInfoApi(apiClient: client)
+        encryption = EncryptionApi(apiClient: client)
 
         // 初始化流程类
-        self.userLogin = SynologyUserLogin(deviceConnection: connection, apiInfoApi: info, apiClient: client)
-        self.checkConnection = CheckDeviceConnection(deviceConnection: connection, apiInfoApi: info, apiClient: client)
-        self.queryAllSongs = QueryAllSongs(apiClient: client)
+        userLogin = SynologyUserLogin(deviceConnection: connection, apiInfoApi: info, apiClient: client)
+        checkConnection = CheckDeviceConnection(deviceConnection: connection, apiInfoApi: info, pingpong: pingpong, apiClient: client)
+        queryAllSongs = QueryAllSongs(apiClient: client)
     }
 }
