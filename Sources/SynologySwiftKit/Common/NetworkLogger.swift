@@ -60,6 +60,13 @@ final class NetworkLogger {
         log += "\n│ Status: \(statusCode)"
         log += "\n│ Duration: \(durationStr)s"
         
+        if let headers = headers, !headers.isEmpty {
+            log += "\n│ Headers:"
+            for (key, value) in headers {
+                log += "\n│   \(key): \(value)"
+            }
+        }
+        
         if let data = data {
             if let jsonString = prettyPrintJSON(data) {
                 log += "\n│ Body:\n\(jsonString)"

@@ -259,6 +259,14 @@ final class ApiClient: ApiClientProviding {
         // 添加请求头
         headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
 
+        // 记录请求日志
+        NetworkLogger.logRequest(
+            url: requestUrl,
+            method: request.httpMethod ?? "GET",
+            headers: request.allHTTPHeaderFields,
+            body: request.httpBody
+        )
+
         do {
             let (data, response) = try await session.data(for: request)
             let duration = Date().timeIntervalSince(startTime)
