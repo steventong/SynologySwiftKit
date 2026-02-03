@@ -188,13 +188,15 @@ final class ApiClient: ApiClientProviding {
             return response
         }
 
-        // 处理错误
+        // 解析错误码
         guard let errorCode = parseErrorCode(response) else {
             throw SynologyError.api(.businessError(code: -1, message: "Unknown error, fetch errorCode fail"))
         }
 
+        // 处理常见错误码
         try handleErrorCode(errorCode)
 
+        // 其他业务错误码
         throw SynologyError.api(.businessError(code: errorCode, message: "errorCode = \(errorCode)"))
     }
 
@@ -424,8 +426,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         if errorCode >= 120 && errorCode <= 149 {
-            throw SynologyError.api(
-                .businessError(code: errorCode, message: "Preserve for other purpose."))
+            throw SynologyError.api(.businessError(code: errorCode, message: "Preserve for other purpose."))
         }
 
         let message = SynologyErrorMapper.description(for: errorCode) ?? "errorCode = \(errorCode)"
