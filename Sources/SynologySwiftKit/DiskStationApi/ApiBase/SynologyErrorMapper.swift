@@ -34,6 +34,7 @@ public struct SynologyErrorMapper {
         117: "The network connection is unstable or the system is busy.",
         118: "The network connection is unstable or the system is busy.",
         119: "Invalid session.",
+        // 120-149 Preserve for other purpose.
         150: "Request source IP does not match the login IP.",
     ]
 

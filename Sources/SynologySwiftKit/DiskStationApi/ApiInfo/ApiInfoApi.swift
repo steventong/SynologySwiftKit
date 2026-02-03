@@ -49,9 +49,8 @@ public actor ApiInfoApi: ApiInfoProviding {
         return apiInfo
     }
 
-    public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws -> Bool {
-        if cacheEnabled == true && isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60),
-           let cached = getApiInfoFromStorage() {
+    public func checkSynologyApiInfo(cacheEnabled: Bool? = false, updateCache: Bool? = true) async throws -> Bool {
+        if cacheEnabled == true, isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60), let cached = getApiInfoFromStorage() {
             Logger.debug("ApiInfoApi#checkSynologyApiInfo from cache: \(cached.count)")
             cachedApiInfo = cached
             return true
@@ -60,7 +59,9 @@ public actor ApiInfoApi: ApiInfoProviding {
         cachedApiInfo = try await queryApiInfoFromDsm()
         Logger.debug("ApiInfoApi#checkSynologyApiInfo from api: \(cachedApiInfo.count)")
 
-        saveApiInfoToStorage(apiInfo: cachedApiInfo)
+        if updateCache == true, cachedApiInfo.isEmpty == false {
+            saveApiInfoToStorage(apiInfo: cachedApiInfo)
+        }
         return true
     }
 }
