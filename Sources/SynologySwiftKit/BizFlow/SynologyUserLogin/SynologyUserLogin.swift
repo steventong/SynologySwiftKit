@@ -110,7 +110,7 @@ private extension SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .network(.connectionFailed(underlying: error))))
+            continuation.yield(.failed(error: .http(error.localizedDescription)))
             continuation.finish()
             return
         }
@@ -119,29 +119,14 @@ private extension SynologyUserLogin {
         continuation.yield(.authenticating(serverType: serverType))
 
         do {
-            let authResult = try await authApi.userLogin(
-                server: connection.url,
-                username: username,
-                password: password,
-                otpCode: otpCode
-            )
+            let authResult = try await authApi.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
 
             // 登录成功，保存会话
-            await deviceConnection.updateLoginSession(
-                username: username,
-                sid: authResult.sid,
-                did: authResult.did
-            )
+            await deviceConnection.updateLoginSession(username: username, sid: authResult.sid, did: authResult.did)
 
             Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
 
-            let loginResult = LoginResult(
-                sid: authResult.sid,
-                did: authResult.did,
-                connectionType: connection.type,
-                connectionUrl: connection.url,
-                serverType: serverType
-            )
+            let loginResult = LoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
             continuation.yield(.loginSuccess(result: loginResult))
 
             // 验证 AudioStation
@@ -199,7 +184,7 @@ private extension SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .network(.connectionFailed(underlying: error))))
+            continuation.yield(.failed(error: .http(error.localizedDescription)))
             continuation.finish()
             return
         }

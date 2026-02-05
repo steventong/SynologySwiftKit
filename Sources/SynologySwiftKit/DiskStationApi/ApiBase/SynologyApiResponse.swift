@@ -31,66 +31,9 @@ public struct SynologyResponse<T: Decodable & Sendable>: Decodable, Sendable {
         }
 
         if let error = error {
-            throw error
+            throw error.toSynologyError()
         }
 
-        throw SynologyApiError.unknown
+        throw SynologyError.api(.businessError(code: -1, message: "Unknown error"))
     }
 }
-
-// MARK: - Synology Error
-
-/// Synology API 错误
-/// 同时支持 JSON 解码和 Error 协议
-public struct SynologyApiError: Error, Decodable, LocalizedError, CustomStringConvertible, Sendable {
-    /// 主错误码
-    public let code: Int
-    /// 子错误码列表
-    public let errors: [Int]
-
-    /// 未知错误
-    public static let unknown = SynologyApiError(code: -1, errors: [])
-
-    // MARK: - Decodable
-
-    enum CodingKeys: String, CodingKey {
-        case code
-        case errors
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        code = try container.decode(Int.self, forKey: .code)
-        errors = try container.decodeIfPresent([Int].self, forKey: .errors) ?? []
-    }
-
-    public init(code: Int, errors: [Int] = []) {
-        self.code = code
-        self.errors = errors
-    }
-
-    // MARK: - Convenience
-
-    /// 第一个错误码（优先返回 errors 中的第一个，否则返回主 code）
-    public var primaryCode: Int {
-        errors.first ?? code
-    }
-
-    /// 是否匹配指定错误码
-    public func hasError(_ errorCode: Int) -> Bool {
-        code == errorCode || errors.contains(errorCode)
-    }
-
-    // MARK: - Error Protocol
-
-    public var errorDescription: String? {
-        "Synology API Error (code: \(code), errors: \(errors))"
-    }
-
-    public var description: String {
-        "SynologyError(code: \(code), errors: \(errors))"
-    }
-}
-
-
-

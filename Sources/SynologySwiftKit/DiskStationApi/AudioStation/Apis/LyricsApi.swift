@@ -17,30 +17,33 @@ public final class LyricsApi {
     /**
      Get Lyrics
      获取歌词
+     - Throws: SynologyError.network(.responseEmpty) when lyrics content is empty or not found
      */
-    public func get(id: String) async throws -> Lyrics? {
-        let result: LyricsResult = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.LYRICS, method: "getlyrics", version: 2) {
-                ("id", id)
-            }
-        )
-        return result.lyrics
+    public func get(id: String) async throws -> Lyrics {
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.LYRICS, method: "getlyrics", version: 2) {
+            ("id", id)
+        }
+
+        let result: LyricsResult = try await apiClient.request(api)
+        guard let lyrics = result.lyrics, !lyrics.lyrics.isEmpty else {
+            throw SynologyError.api(.lyricsNotFound)
+        }
+        return lyrics
     }
 
     /**
      Search Lyrics
      */
-    public func search(title: String, artist: String, limit: Int = 10, offset: Int = 0) async throws
-        -> (total: Int, data: [LyricsSearchItem])
+    public func search(title: String, artist: String, limit: Int = 10, offset: Int = 0) async throws -> (total: Int, data: [LyricsSearchItem])
     {
-        let result: LyricsSearchResult = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 1) {
-                ("title", title)
-                ("artist", artist)
-                ("limit", limit)
-                ("additional", "full_lyrics")
-            }
-        )
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 1) {
+            ("title", title)
+            ("artist", artist)
+            ("limit", limit)
+            ("additional", "full_lyrics")
+        }
+
+        let result: LyricsSearchResult = try await apiClient.request(api)
         return (result.total, result.items)
     }
 }

@@ -23,14 +23,13 @@ import Foundation
 /// }
 /// ```
 public enum SynologyError: Error, LocalizedError {
-
     /// 网络层错误
     /// Network layer errors
-    case network(NetworkError)
+    case http(String)
 
     /// API 业务错误
     /// API business errors
-    case api(ApiError)
+    case api(SynologyApiError)
 
     /// 认证错误
     /// Authentication errors
@@ -48,67 +47,16 @@ public enum SynologyError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .network(let error):
+        case let .http(message):
+            return message
+        case let .api(error):
             return error.errorDescription
-        case .api(let error):
+        case let .auth(error):
             return error.errorDescription
-        case .auth(let error):
+        case let .quickConnect(error):
             return error.errorDescription
-        case .quickConnect(let error):
+        case let .connection(error):
             return error.errorDescription
-        case .connection(let error):
-            return error.errorDescription
-        }
-    }
-}
-
-// MARK: - NetworkError
-
-extension SynologyError {
-
-    /// 网络层错误
-    /// Network layer errors
-    public enum NetworkError: Error, LocalizedError {
-        /// SSL 连接失败
-        case sslFailed(String)
-        /// 域名解析失败
-        case hostNotFound(String)
-        /// 请求超时
-        case timeout
-        /// 连接失败
-        case connectionFailed(underlying: Error)
-        /// 无效响应
-        case invalidResponse
-        /// HTTP 状态码错误
-        case httpError(statusCode: Int)
-        /// 解码错误
-        case decodingError(Error)
-        /// 无效 URL
-        case invalidURL(String)
-        /// 响应为空
-        case responseEmpty
-
-        public var errorDescription: String? {
-            switch self {
-            case .sslFailed(let msg):
-                return "SSL connection failed: \(msg)"
-            case .hostNotFound(let msg):
-                return "Host not found: \(msg)"
-            case .timeout:
-                return "Request timeout"
-            case .connectionFailed(let error):
-                return "Connection failed: \(error.localizedDescription)"
-            case .invalidResponse:
-                return "Invalid server response"
-            case .httpError(let code):
-                return "HTTP error: \(code)"
-            case .decodingError(let error):
-                return "Data parsing error: \(error.localizedDescription)"
-            case .invalidURL(let url):
-                return "Invalid URL: \(url)"
-            case .responseEmpty:
-                return "Server response is empty"
-            }
         }
     }
 }
@@ -116,10 +64,12 @@ extension SynologyError {
 // MARK: - ApiError
 
 extension SynologyError {
-
     /// API 业务错误
     /// API business errors
-    public enum ApiError: Error, LocalizedError {
+    public enum SynologyApiError: Error, LocalizedError {
+        /// 歌词未找到
+        case lyricsNotFound
+
         /// 会话无效/过期
         case invalidSession(code: Int, message: String)
         /// API 不存在
@@ -131,14 +81,16 @@ extension SynologyError {
 
         public var errorDescription: String? {
             switch self {
-            case .invalidSession(_, let message):
+            case let .invalidSession(_, message):
                 return "Session expired: \(message)"
-            case .apiNotExists(let name):
+            case let .apiNotExists(name):
                 return "API not found: \(name)"
-            case .businessError(let code, let message):
+            case let .businessError(code, message):
                 return "API error (\(code)): \(message)"
             case .hostNotConfigured:
                 return "Request host not configured"
+            case .lyricsNotFound:
+                return "Lyrics not found"
             }
         }
 
@@ -153,7 +105,6 @@ extension SynologyError {
 // MARK: - AuthError
 
 extension SynologyError {
-
     /// 认证错误
     /// Authentication errors
     public enum AuthError: Error, LocalizedError {
@@ -206,7 +157,7 @@ extension SynologyError {
             case .passwordMustChange:
                 return NSLocalizedString(
                     "PASSWORD_MUST_BE_CHANGED", comment: "Password must change")
-            case .undefined(_, let message):
+            case let .undefined(_, message):
                 return message
             }
         }
@@ -242,14 +193,11 @@ extension SynologyError {
 // MARK: - QuickConnectError
 
 extension SynologyError {
-
     /// QuickConnect 错误
     /// QuickConnect errors
     public enum QuickConnectError: Error, LocalizedError {
         /// 服务器信息未找到
         case serverInfoNotFound
-        /// 连接信息未找到
-        case connectionInfoNotFound
         /// 无效 URL
         case invalidURL
 
@@ -257,8 +205,6 @@ extension SynologyError {
             switch self {
             case .serverInfoNotFound:
                 return "QuickConnect server info not available"
-            case .connectionInfoNotFound:
-                return "Device connection info not available"
             case .invalidURL:
                 return "Invalid QuickConnect URL"
             }
@@ -269,7 +215,6 @@ extension SynologyError {
 // MARK: - ConnectionError
 
 extension SynologyError {
-
     /// 连接错误
     /// Connection errors
     public enum ConnectionError: Error, LocalizedError {
@@ -292,22 +237,15 @@ extension SynologyError {
 // MARK: - Convenience Extensions
 
 extension SynologyError {
-
     /// 是否为会话过期错误
     public var isSessionExpired: Bool {
-        if case .api(let error) = self, error.isSessionExpired { return true }
-        return false
-    }
-
-    /// 是否为网络错误
-    public var isNetworkError: Bool {
-        if case .network = self { return true }
+        if case let .api(error) = self, error.isSessionExpired { return true }
         return false
     }
 
     /// 是否需要两步验证
     public var requiresOTP: Bool {
-        if case .auth(let error) = self, error.requiresOTP { return true }
+        if case let .auth(error) = self, error.requiresOTP { return true }
         return false
     }
 }

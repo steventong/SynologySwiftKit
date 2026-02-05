@@ -260,66 +260,38 @@ final class ApiClient: ApiClientProviding {
         headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
 
         // 记录请求日志
-        NetworkLogger.logRequest(
-            url: requestUrl,
-            method: request.httpMethod ?? "GET",
-            headers: request.allHTTPHeaderFields,
-            body: request.httpBody
-        )
+        NetworkLogger.logRequest(url: requestUrl, method: request.httpMethod ?? "GET", headers: request.allHTTPHeaderFields, body: request.httpBody)
 
         do {
             let (data, response) = try await session.data(for: request)
-            let duration = Date().timeIntervalSince(startTime)
 
             guard let httpResponse = response as? HTTPURLResponse else {
-                throw SynologyError.network(
-                    .connectionFailed(
-                        underlying: NSError(
-                            domain: "", code: 0,
-                            userInfo: [NSLocalizedDescriptionKey: "Invalid response type"])))
+                throw SynologyError.http("Invalid response type")
             }
 
-            NetworkLogger.logResponse(
-                url: requestUrl,
-                statusCode: httpResponse.statusCode,
-                headers: httpResponse.allHeaderFields,
-                data: data,
-                duration: duration
-            )
+            NetworkLogger.logResponse(url: requestUrl, statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, data: data,
+                                      duration: Date().timeIntervalSince(startTime))
 
             guard (200 ... 299).contains(httpResponse.statusCode) else {
-                throw SynologyError.network(.httpError(statusCode: httpResponse.statusCode))
+                throw SynologyError.http("Invalid http status code: \(httpResponse.statusCode)")
             }
 
             do {
                 return try JSONDecoderProvider.shared.decode(Value.self, from: data)
             } catch {
-                Logger.error(
-                    "JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")"
-                )
-                throw SynologyError.network(.responseEmpty)
+                Logger.error("JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")")
+                throw SynologyError.http("Failed to decode response: \(error.localizedDescription)")
             }
         } catch let error as SynologyError {
-            let duration = Date().timeIntervalSince(startTime)
-            NetworkLogger.logError(url: requestUrl, error: error, duration: duration)
+            NetworkLogger.logError(url: requestUrl, error: error, duration: Date().timeIntervalSince(startTime))
             throw error
         } catch let urlError as URLError {
-            let duration = Date().timeIntervalSince(startTime)
-            NetworkLogger.logError(url: requestUrl, error: urlError, duration: duration)
+            NetworkLogger.logError(url: requestUrl, error: urlError, duration: Date().timeIntervalSince(startTime))
             try handleURLError(urlError)
-            throw SynologyError.network(
-                .connectionFailed(
-                    underlying: NSError(
-                        domain: "", code: 0,
-                        userInfo: [NSLocalizedDescriptionKey: urlError.localizedDescription])))
+            throw SynologyError.http(urlError.localizedDescription)
         } catch {
-            let duration = Date().timeIntervalSince(startTime)
-            NetworkLogger.logError(url: requestUrl, error: error, duration: duration)
-            throw SynologyError.network(
-                .connectionFailed(
-                    underlying: NSError(
-                        domain: "", code: 0,
-                        userInfo: [NSLocalizedDescriptionKey: error.localizedDescription])))
+            NetworkLogger.logError(url: requestUrl, error: error, duration: Date().timeIntervalSince(startTime))
+            throw SynologyError.http(error.localizedDescription)
         }
     }
 
@@ -412,15 +384,14 @@ final class ApiClient: ApiClientProviding {
     private func handleURLError(_ error: URLError) throws {
         switch error.code {
         case .secureConnectionFailed:
-            throw SynologyError.network(.sslFailed(error.localizedDescription))
+            Logger.error("secureConnectionFailed ssl error, \(error.localizedDescription)")
+            throw SynologyError.http(error.localizedDescription)
         case .cannotFindHost:
-            throw SynologyError.network(.hostNotFound(error.localizedDescription))
+            Logger.error("cannotFindHost error, \(error.localizedDescription)")
+            throw SynologyError.http(error.localizedDescription)
         default:
-            throw SynologyError.network(
-                .connectionFailed(
-                    underlying: NSError(
-                        domain: "", code: 0,
-                        userInfo: [NSLocalizedDescriptionKey: error.localizedDescription])))
+            Logger.error("http error, \(error.localizedDescription)")
+            throw SynologyError.http(error.localizedDescription)
         }
     }
 
