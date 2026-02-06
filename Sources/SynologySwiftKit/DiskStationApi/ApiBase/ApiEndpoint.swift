@@ -48,6 +48,10 @@ public enum ApiParameterValue: Sendable {
     }
 }
 
+extension ApiParameterValue: ApiParameterValueConvertible {
+    public var apiParameterValue: ApiParameterValue { self }
+}
+
 public protocol ApiParameterValueConvertible {
     var apiParameterValue: ApiParameterValue { get }
 }

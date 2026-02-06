@@ -144,8 +144,7 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 解析 Endpoint 信息
-    private func resolveEndpoint(_ endpoint: ApiEndpoint) async throws
-        -> (name: String, method: String, version: Int, parameters: [String: Any], apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool) {
+    private func resolveEndpoint(_ endpoint: ApiEndpoint) async throws -> (name: String, method: String, version: Int, parameters: ApiParameters, apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool) {
         // 自定义路径端点
         if endpoint.isCustomPath {
             return (name: endpoint.apiName,
@@ -227,7 +226,7 @@ final class ApiClient: ApiClientProviding {
 
     /// 发送 HTTP 请求
     private func sendHttpRequest<Value: Decodable>(endpoint: ApiEndpoint,
-                                                   resolved: (name: String, method: String, version: Int, parameters: [String: Any], apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool),
+                                                   resolved: (name: String, method: String, version: Int, parameters: ApiParameters, apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool),
                                                    apiUrl: URL, headers: [String: String]?,
                                                    resultType: Value.Type = Value.self) async throws -> Value {
         let session = await createSession(timeout: endpoint.timeout)

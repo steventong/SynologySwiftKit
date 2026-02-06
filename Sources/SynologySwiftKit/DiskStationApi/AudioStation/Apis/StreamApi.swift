@@ -22,16 +22,15 @@ public final class StreamApi {
         // 如果是整轨的，直接返回mp3播放地址
         if id.hasPrefix("music_v") || id.hasPrefix("music_p_v") {
             Logger.info("整轨音频文件不支持stream，使用转码URL，id: \(id)")
-            return try await apiClient.buildUrl(
-                ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", version: 2, pathSuffix: "/0.mp3", sidOnQuery: true) {
-                    ("format", "mp3")
-                    ("id", id)
-                }
-            )
+            let api = ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", version: 2, pathSuffix: "/0.mp3", sidOnQuery: true) {
+                ("format", "mp3")
+                ("id", id)
+            }
+            return try await apiClient.buildUrl(api)
         }
 
         // build parameters
-        var parameters: [String: Any] = ["id": UrlUtils.urlEncode(id)]
+        var parameters: ApiParameters = ["id": .string(UrlUtils.urlEncode(id))]
 
         // 构建播放地址 getPlayUrl
         // 当前的音频是否需要转码
@@ -105,28 +104,32 @@ public final class StreamApi {
         }
     }
 
-    private func buildStreamUrl(fileExtension: String, parameters: inout [String: Any]) async throws -> URL {
-        parameters["format"] = fileExtension
-        return try await apiClient.buildUrl(
-            ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "stream", pathSuffix: "/0\(fileExtension)", sidOnQuery: true) {
-                // Manually add parameters from the inout dict
-                // This is a bit awkward with Builder, but we can iterate
-                for (key, value) in parameters {
-                    (key, value)
-                }
+    private func buildStreamUrl(fileExtension: String, parameters: inout ApiParameters) async throws -> URL {
+        parameters["format"] = .string(fileExtension)
+
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "stream", pathSuffix: "/0\(fileExtension)", sidOnQuery: true) {
+            let pairs: [ApiParametersBuilder.Parameter] = parameters.map { key, value in
+                (key, value as ApiParameterValueConvertible)
             }
-        )
+            for pair in pairs {
+                pair
+            }
+        }
+        return try await apiClient.buildUrl(api)
     }
 
-    private func buildTranscodeUrl(fileExtension: String, quality: SongStreamQuality, parameters: inout [String: Any]) async throws -> URL {
-        parameters["format"] = "mp3"
-        parameters["bitrate"] = getTransCodeBitrate(quality: quality)
-        return try await apiClient.buildUrl(
-            ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", pathSuffix: "/0.mp3", sidOnQuery: true) {
-                for (key, value) in parameters {
-                    (key, value)
-                }
+    private func buildTranscodeUrl(fileExtension: String, quality: SongStreamQuality, parameters: inout ApiParameters) async throws -> URL {
+        parameters["format"] = .string("mp3")
+        parameters["bitrate"] = .int(getTransCodeBitrate(quality: quality))
+
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", pathSuffix: "/0.mp3", sidOnQuery: true) {
+            let pairs: [ApiParametersBuilder.Parameter] = parameters.map { key, value in
+                (key, value as ApiParameterValueConvertible)
             }
-        )
+            for pair in pairs {
+                pair
+            }
+        }
+        return try await apiClient.buildUrl(api)
     }
 }
