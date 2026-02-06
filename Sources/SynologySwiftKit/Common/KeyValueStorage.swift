@@ -10,16 +10,15 @@ import Foundation
 /// 键值存储协议（解耦 UserDefaults）
 /// Key-Value Storage Protocol (Decouple UserDefaults)
 public protocol KeyValueStorage: Sendable {
-    
     func string(forKey defaultName: String) -> String?
     func integer(forKey defaultName: String) -> Int
     func bool(forKey defaultName: String) -> Bool
     func object(forKey defaultName: String) -> Any?
     func data(forKey defaultName: String) -> Data?
-    
+
     func set(_ value: Any?, forKey defaultName: String)
     func removeObject(forKey defaultName: String)
-    
+
     // 注意：Actor 环境下不再需要显示调用 synchronize，
     // 具体实现应自己处理持久化策略。
 }
@@ -49,7 +48,7 @@ public final class UserDefaultsStorage: KeyValueStorage, @unchecked Sendable {
     public func object(forKey defaultName: String) -> Any? {
         userDefaults.object(forKey: defaultName)
     }
-    
+
     public func data(forKey defaultName: String) -> Data? {
         userDefaults.data(forKey: defaultName)
     }

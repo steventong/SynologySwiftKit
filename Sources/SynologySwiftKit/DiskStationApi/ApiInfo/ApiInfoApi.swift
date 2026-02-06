@@ -23,15 +23,20 @@ public actor ApiInfoApi: ApiInfoProviding {
     /// 缓存的 API 信息
     private var cachedApiInfo: [String: ApiInfoNode] = [:]
 
+    /// API 缓存有效期 (秒)
+    private let cacheValidity: Int32
+
     // MARK: - Initialization
 
     /// 初始化 API 信息管理器
     /// Initialize API information manager
     public init(apiClient: ApiClientProviding,
                 connectionProvider: DeviceConnectionProviding? = nil,
-                storage: KeyValueStorage = UserDefaultsStorage()) {
+                storage: KeyValueStorage = UserDefaultsStorage(),
+                cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
         self.apiClient = apiClient
         self.storage = storage
+        self.cacheValidity = cacheValidity
     }
 
     public func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
@@ -50,7 +55,7 @@ public actor ApiInfoApi: ApiInfoProviding {
     }
 
     public func checkSynologyApiInfo(cacheEnabled: Bool? = false, updateCache: Bool? = true) async throws -> Bool {
-        if cacheEnabled == true, isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60), let cached = getApiInfoFromStorage() {
+        if cacheEnabled == true, isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
             Logger.debug("ApiInfoApi#checkSynologyApiInfo from cache: \(cached.count)")
             cachedApiInfo = cached
             return true

@@ -72,8 +72,8 @@ public final class SynologyClient: @unchecked Sendable {
 
         let connection = DeviceConnection()
         let client = ApiClient(connectionProvider: connection)
-        let info = ApiInfoApi(apiClient: client, connectionProvider: connection)
-        let pingpong = PingPong(apiClient: client)
+        let info = ApiInfoApi(apiClient: client, connectionProvider: connection, cacheValidity: config.apiInfoCacheValidity)
+        let pingpong = PingPong(apiClient: client, timeout: config.pingpongTimeout)
 
         deviceConnection = connection
         apiClient = client
@@ -87,9 +87,11 @@ public final class SynologyClient: @unchecked Sendable {
         audioStation = AudioStationApi(apiClient: client)
         fileStation = FileStationApi(apiClient: client)
         auth = AuthApi(apiClient: client)
+        client.addInterceptor(LoggerInterceptor(enableLogging: config.enableNetworkLogging))
         quickConnect = QuickConnectApi(deviceConnection: connection,
                                        apiClient: client,
-                                       pingpong: pingpong)
+                                       pingpong: pingpong,
+                                       timeout: config.quickConnectTimeout)
         dsmInfo = DsmInfoApi(apiClient: client)
         encryption = EncryptionApi(apiClient: client)
 

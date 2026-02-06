@@ -15,9 +15,8 @@ import Foundation
 /// 定义网络请求的接口，支持依赖注入模式。
 /// Defines network request interfaces, supporting dependency injection pattern.
 public protocol ApiClientProviding {
-    
     var connectionProvider: DeviceConnectionProviding { get }
-    
+
     /// 通用请求方法
     /// - Parameters:
     ///   - rawResponse: 如果为 true，返回原始响应类型(T)；如果为 false，解包 SynologyResponse<T> 返回 data(T)。
@@ -33,17 +32,14 @@ public protocol ApiClientProviding {
 
     /// 发送原始 HTTP 请求（非 DSM API 场景）
     /// Send raw HTTP request (non-DSM API scenarios)
-    func requestRaw<T: Decodable>(
-        url: URL,
-        httpMethod: HTTPMethod,
-        headers: [String: String]?,
-        body: Data?,
-        timeout: TimeInterval
-    ) async throws -> T
+    func requestRaw<T: Decodable>(url: URL,
+                                  httpMethod: HTTPMethod,
+                                  headers: [String: String]?,
+                                  body: Data?,
+                                  timeout: TimeInterval) async throws -> T
 }
 
 extension ApiClientProviding {
-    
     /// 默认请求（解包数据）
     public func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
         try await request(endpoint, rawResponse: false)

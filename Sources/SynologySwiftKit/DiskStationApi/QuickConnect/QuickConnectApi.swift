@@ -11,11 +11,13 @@ public actor QuickConnectApi {
     private let apiClient: ApiClientProviding
     private let deviceConnection: DeviceConnectionProviding
     private let pingpong: PingPongProviding
+    private let timeout: TimeInterval
 
-    public init(deviceConnection: DeviceConnectionProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding) {
+    public init(deviceConnection: DeviceConnectionProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding, timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout) {
         self.apiClient = apiClient
         self.deviceConnection = deviceConnection
         self.pingpong = pingpong
+        self.timeout = timeout
     }
 
     /// 通过 QuickConnect ID 获取设备连接地址
@@ -221,7 +223,7 @@ extension QuickConnectApi {
             httpMethod: .post,
             headers: ["Content-Type": "application/json"],
             body: body,
-            timeout: 10
+            timeout: timeout
         )
     }
 

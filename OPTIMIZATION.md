@@ -4,7 +4,7 @@
 
 ## 架构层优化
 
-### 1) 统一网络栈（单一入口）
+### 1) 统一网络栈（单一入口） ✅ 已完成
 **为什么重要**  
 目前同时存在 `HTTPClient` 与 `ApiClient` 两套网络逻辑，日志、错误处理、超时策略不一致，维护成本高且行为不一致。  
 
@@ -16,7 +16,7 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiBase/ApiClient.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/QuickConnect/QuickConnectApi.swift`
 
-### 2) 打通拦截器链（RequestInterceptor）
+### 2) 打通拦截器链（RequestInterceptor） ✅ 已完成
 **为什么重要**  
 拦截器协议已经定义，但 `ApiClient` 没有执行链路，导致日志/鉴权/重试等横切逻辑无法集中管理。
 
@@ -32,7 +32,7 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/Common/AuthInterceptor.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiBase/ApiClient.swift`
 
-### 3) 配置注入要真正生效
+### 3) 配置注入要真正生效 ✅ 已完成
 **为什么重要**  
 `SynologyConfig` 已定义但没有贯穿所有服务，导致配置表面存在但无法影响行为。
 
@@ -59,7 +59,7 @@
 
 ## 实现层优化
 
-### 5) 统一错误模型
+### 5) 统一错误模型 ✅ 已完成
 **为什么重要**  
 文档里出现 `SynologyError.network(...)`，但枚举中并不存在该分支。容易导致理解偏差与代码不一致。
 
@@ -149,4 +149,3 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/.DS_Store`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/Common/.DS_Store`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/.DS_Store`
-

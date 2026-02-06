@@ -9,9 +9,11 @@ import Foundation
 
 public final class PingPong: PingPongProviding, @unchecked Sendable {
     private let apiClient: ApiClientProviding
+    private let timeout: TimeInterval
 
-    public init(apiClient: ApiClientProviding) {
+    public init(apiClient: ApiClientProviding, timeout: TimeInterval = SynologyConfig.default.pingpongTimeout) {
         self.apiClient = apiClient
+        self.timeout = timeout
     }
 
     /// 并发测试多个连接地址的可达性
@@ -57,13 +59,11 @@ public final class PingPong: PingPongProviding, @unchecked Sendable {
         }
 
         do {
-            let result: PingPongResult = try await apiClient.requestRaw(
-                url: url,
-                httpMethod: .get,
-                headers: nil,
-                body: nil,
-                timeout: 3.6
-            )
+            let result: PingPongResult = try await apiClient.requestRaw(url: url,
+                                                                        httpMethod: .get,
+                                                                        headers: nil,
+                                                                        body: nil,
+                                                                        timeout: timeout)
             return result.success
         } catch {
             return false

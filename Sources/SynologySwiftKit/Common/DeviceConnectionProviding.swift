@@ -18,7 +18,6 @@ import Foundation
 /// Defines interfaces for device connection, session management and login preferences.
 /// Implements dependency injection pattern for better testability.
 public protocol DeviceConnectionProviding {
-
     // MARK: - Read Methods
 
     /// 获取当前连接 URL

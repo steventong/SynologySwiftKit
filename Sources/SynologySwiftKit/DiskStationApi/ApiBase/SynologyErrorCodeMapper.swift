@@ -10,7 +10,6 @@ import Foundation
 /// Synology API 错误码映射
 /// Synology API Error Code Mapper
 public struct SynologyErrorCodeMapper {
-    
     /// 通用错误码映射表
     /// Common error code mapping table
     private static let commonErrors: [Int: String] = [

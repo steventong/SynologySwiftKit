@@ -13,7 +13,7 @@ public protocol RequestInterceptor: Sendable {
     /// 预处理请求 (例如添加 Token, Header)
     /// Pre-process the request (e.g., adding Token, Header)
     func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest
-    
+
     /// 处理响应结果 (例如日志记录, 错误重试)
     /// Process the response result (e.g., logging, error retry)
     func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error>
@@ -43,7 +43,7 @@ public extension RequestInterceptor {
     func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
         return request
     }
-    
+
     func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error> {
         return result
     }

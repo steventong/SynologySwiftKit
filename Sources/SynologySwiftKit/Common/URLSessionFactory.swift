@@ -9,7 +9,6 @@ import Foundation
 
 /// URLSession 工厂类，提供配置好的 URLSession 实例
 final class URLSessionFactory {
-    
     /// 创建配置好的 URLSession
     /// - Parameters:
     ///   - timeoutIntervalForRequest: 请求超时时间
@@ -22,7 +21,7 @@ final class URLSessionFactory {
         let configuration = URLSessionConfiguration.default
         configuration.timeoutIntervalForRequest = timeoutIntervalForRequest
         configuration.timeoutIntervalForResource = timeoutIntervalForResource
-        
+
         if let domain = trustedSSLDomain {
             let delegate = SSLTrustDelegate(trustedDomain: domain)
             #if DEBUG
@@ -31,7 +30,7 @@ final class URLSessionFactory {
 
             return URLSession(configuration: configuration, delegate: delegate, delegateQueue: nil)
         }
-        
+
         return URLSession(configuration: configuration)
     }
 }
@@ -39,11 +38,11 @@ final class URLSessionFactory {
 /// SSL 信任代理，用于处理自签名证书
 final class SSLTrustDelegate: NSObject, URLSessionDelegate {
     private let trustedDomain: String
-    
+
     init(trustedDomain: String) {
         self.trustedDomain = trustedDomain
     }
-    
+
     func urlSession(_ session: URLSession,
                     didReceive challenge: URLAuthenticationChallenge,
                     completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
@@ -54,7 +53,7 @@ final class SSLTrustDelegate: NSObject, URLSessionDelegate {
             completionHandler(.performDefaultHandling, nil)
             return
         }
-        
+
         // 信任该域名的证书
         let credential = URLCredential(trust: serverTrust)
         completionHandler(.useCredential, credential)
