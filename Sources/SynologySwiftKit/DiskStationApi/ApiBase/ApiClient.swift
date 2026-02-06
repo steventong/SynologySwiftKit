@@ -85,35 +85,12 @@ final class ApiClient: ApiClientProviding {
         headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         request.httpBody = body
 
-        let startTime = Date()
-        do {
-            let (data, response) = try await httpClient.send(request)
-            let duration = Date().timeIntervalSince(startTime)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw SynologyError.http("Invalid response type")
-            }
-
-            NetworkLogger.logResponse(url: url, statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, data: data,
-                                      duration: duration)
-
-            guard (200 ... 299).contains(httpResponse.statusCode) else {
-                throw SynologyError.http("Invalid http status code: \(httpResponse.statusCode)")
-            }
-
-            do {
-                return try JSONDecoderProvider.shared.decode(T.self, from: data)
-            } catch {
-                Logger.error("JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")")
-                throw SynologyError.http("Failed to decode response: \(error.localizedDescription)")
-            }
-        } catch let error as SynologyError {
-            NetworkLogger.logError(url: url, error: error, duration: Date().timeIntervalSince(startTime))
-            throw error
-        } catch {
-            NetworkLogger.logError(url: url, error: error, duration: Date().timeIntervalSince(startTime))
-            throw SynologyError.http("http request failed: \(error.localizedDescription)")
-        }
+        return try await executeRequest(
+            request: request,
+            requestUrl: url,
+            endpoint: rawEndpoint,
+            httpClient: httpClient
+        )
     }
 
     /// 发送请求（无返回值）
@@ -257,7 +234,6 @@ final class ApiClient: ApiClientProviding {
         let httpClient = HTTPClient(session: session)
         var request: URLRequest
         var requestUrl: URL = apiUrl
-        let startTime = Date()
 
         // 构建基础参数
         var parameters = resolved.parameters
@@ -308,40 +284,12 @@ final class ApiClient: ApiClientProviding {
         // 添加请求头
         headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
 
-        // 记录请求日志
-        NetworkLogger.logRequest(url: requestUrl, method: request.httpMethod ?? "GET", headers: request.allHTTPHeaderFields, body: request.httpBody)
-
-        do {
-            let (data, response) = try await httpClient.send(request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw SynologyError.http("Invalid response type")
-            }
-
-            NetworkLogger.logResponse(url: requestUrl, statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, data: data,
-                                      duration: Date().timeIntervalSince(startTime))
-
-            guard (200 ... 299).contains(httpResponse.statusCode) else {
-                throw SynologyError.http("Invalid http status code: \(httpResponse.statusCode)")
-            }
-
-            do {
-                return try JSONDecoderProvider.shared.decode(Value.self, from: data)
-            } catch {
-                Logger.error("JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")")
-                throw SynologyError.http("Failed to decode response: \(error.localizedDescription)")
-            }
-        } catch let error as SynologyError {
-            NetworkLogger.logError(url: requestUrl, error: error, duration: Date().timeIntervalSince(startTime))
-            throw error
-        } catch let urlError as URLError {
-            NetworkLogger.logError(url: requestUrl, error: urlError, duration: Date().timeIntervalSince(startTime))
-            try handleURLError(urlError)
-            throw SynologyError.http(urlError.localizedDescription)
-        } catch {
-            NetworkLogger.logError(url: requestUrl, error: error, duration: Date().timeIntervalSince(startTime))
-            throw SynologyError.http(error.localizedDescription)
-        }
+        return try await executeRequest(
+            request: request,
+            requestUrl: requestUrl,
+            endpoint: endpoint,
+            httpClient: httpClient
+        )
     }
 
     /// 构建 API URL
@@ -434,13 +382,16 @@ final class ApiClient: ApiClientProviding {
         switch error.code {
         case .secureConnectionFailed:
             Logger.error("secureConnectionFailed ssl error, \(error.localizedDescription)")
-            throw SynologyError.http(error.localizedDescription)
+            throw SynologyError.network(.connectionFailed(underlying: error))
         case .cannotFindHost:
             Logger.error("cannotFindHost error, \(error.localizedDescription)")
-            throw SynologyError.http(error.localizedDescription)
+            throw SynologyError.network(.connectionFailed(underlying: error))
+        case .timedOut:
+            Logger.error("timeout error, \(error.localizedDescription)")
+            throw SynologyError.network(.timeout)
         default:
             Logger.error("http error, \(error.localizedDescription)")
-            throw SynologyError.http(error.localizedDescription)
+            throw SynologyError.network(.requestFailed(message: error.localizedDescription))
         }
     }
 
@@ -464,6 +415,104 @@ final class ApiClient: ApiClientProviding {
     /// 获取适配的 API 版本
     private func fetchApiVersion(version: Int, apiMinVersion: Int, apiMaxVersion: Int) -> Int {
         return min(max(apiMinVersion, version), apiMaxVersion)
+    }
+
+    // MARK: - Interceptors
+
+    private var rawEndpoint: ApiEndpoint {
+        ApiEndpoint(api: SynologyApi.Core.INFO, method: "")
+    }
+
+    private func applyRequestInterceptors(_ request: URLRequest, endpoint: ApiEndpoint, context: inout RequestContext) async throws -> URLRequest {
+        var current = request
+        for interceptor in interceptors {
+            if let contextAware = interceptor as? RequestInterceptorWithContext {
+                current = try await contextAware.adapt(current, for: endpoint, context: &context)
+            } else {
+                current = try await interceptor.adapt(current, for: endpoint)
+            }
+        }
+        return current
+    }
+
+    private func applyResponseInterceptors(_ result: Result<(Data, URLResponse), Error>, endpoint: ApiEndpoint, context: inout RequestContext) async throws -> Result<(Data, URLResponse), Error> {
+        var current = result
+        for interceptor in interceptors.reversed() {
+            if let contextAware = interceptor as? RequestInterceptorWithContext {
+                current = try await contextAware.process(current, for: endpoint, context: &context)
+            } else {
+                current = try await interceptor.process(current, for: endpoint)
+            }
+        }
+        return current
+    }
+
+    // MARK: - Shared Execution
+
+    private func executeRequest<Value: Decodable>(
+        request: URLRequest,
+        requestUrl: URL,
+        endpoint: ApiEndpoint,
+        httpClient: HTTPClient
+    ) async throws -> Value {
+        var context = RequestContext()
+        var currentRequest = request
+
+        currentRequest = try await applyRequestInterceptors(currentRequest, endpoint: endpoint, context: &context)
+        let finalUrl = currentRequest.url ?? requestUrl
+
+        // 记录请求日志
+        NetworkLogger.logRequest(url: finalUrl, method: currentRequest.httpMethod ?? "GET", headers: currentRequest.allHTTPHeaderFields, body: currentRequest.httpBody)
+
+        do {
+            let (data, response) = try await httpClient.send(currentRequest)
+            context.duration = Date().timeIntervalSince(context.startTime)
+
+            let processed = try await applyResponseInterceptors(.success((data, response)), endpoint: endpoint, context: &context)
+            let processedData: Data
+            let processedResponse: URLResponse
+            switch processed {
+            case let .success(value):
+                processedData = value.0
+                processedResponse = value.1
+            case let .failure(error):
+                throw error
+            }
+
+            guard let httpResponse = processedResponse as? HTTPURLResponse else {
+                throw SynologyError.network(.invalidResponse)
+            }
+
+            NetworkLogger.logResponse(url: finalUrl, statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, data: processedData,
+                                      duration: context.duration ?? 0)
+
+            guard (200 ... 299).contains(httpResponse.statusCode) else {
+                throw SynologyError.network(.httpStatus(code: httpResponse.statusCode))
+            }
+
+            do {
+                return try JSONDecoderProvider.shared.decode(Value.self, from: processedData)
+            } catch {
+                Logger.error("JSON decode error: \(error), data: \(String(data: processedData, encoding: .utf8) ?? "nil")")
+                throw SynologyError.network(.decodingFailed(message: error.localizedDescription))
+            }
+        } catch let error as SynologyError {
+            context.duration = Date().timeIntervalSince(context.startTime)
+            _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
+            NetworkLogger.logError(url: finalUrl, error: error, duration: context.duration ?? 0)
+            throw error
+        } catch let urlError as URLError {
+            context.duration = Date().timeIntervalSince(context.startTime)
+            _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)
+            NetworkLogger.logError(url: finalUrl, error: urlError, duration: context.duration ?? 0)
+            try handleURLError(urlError)
+            throw SynologyError.network(.connectionFailed(underlying: urlError))
+        } catch {
+            context.duration = Date().timeIntervalSince(context.startTime)
+            _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
+            NetworkLogger.logError(url: finalUrl, error: error, duration: context.duration ?? 0)
+            throw SynologyError.network(.requestFailed(message: error.localizedDescription))
+        }
     }
 }
 

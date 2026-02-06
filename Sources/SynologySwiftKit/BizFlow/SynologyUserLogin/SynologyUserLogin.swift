@@ -113,7 +113,7 @@ private extension SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .http(error.localizedDescription)))
+            continuation.yield(.failed(error: .network(.requestFailed(message: error.localizedDescription))))
             continuation.finish()
             return
         }
@@ -187,7 +187,7 @@ private extension SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .http(error.localizedDescription)))
+            continuation.yield(.failed(error: .network(.requestFailed(message: error.localizedDescription))))
             continuation.finish()
             return
         }

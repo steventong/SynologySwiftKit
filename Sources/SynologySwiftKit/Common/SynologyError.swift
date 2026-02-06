@@ -25,7 +25,7 @@ import Foundation
 public enum SynologyError: Error, LocalizedError {
     /// 网络层错误
     /// Network layer errors
-    case http(String)
+    case network(NetworkError)
 
     /// API 业务错误
     /// API business errors
@@ -47,8 +47,8 @@ public enum SynologyError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case let .http(message):
-            return message
+        case let .network(error):
+            return error.errorDescription
         case let .api(error):
             return error.errorDescription
         case let .auth(error):
@@ -57,6 +57,41 @@ public enum SynologyError: Error, LocalizedError {
             return error.errorDescription
         case let .connection(error):
             return error.errorDescription
+        }
+    }
+}
+
+// MARK: - NetworkError
+
+extension SynologyError {
+    /// 网络层错误
+    /// Network layer errors
+    public enum NetworkError: Error, LocalizedError {
+        case invalidResponse
+        case httpStatus(code: Int)
+        case decodingFailed(message: String)
+        case requestFailed(message: String)
+        case responseEmpty
+        case timeout
+        case connectionFailed(underlying: Error?)
+
+        public var errorDescription: String? {
+            switch self {
+            case .invalidResponse:
+                return "Invalid response type"
+            case let .httpStatus(code):
+                return "Invalid http status code: \(code)"
+            case let .decodingFailed(message):
+                return "Failed to decode response: \(message)"
+            case let .requestFailed(message):
+                return "Request failed: \(message)"
+            case .responseEmpty:
+                return "Response is empty"
+            case .timeout:
+                return "Request timeout"
+            case let .connectionFailed(underlying):
+                return "Connection failed: \(underlying?.localizedDescription ?? "unknown")"
+            }
         }
     }
 }

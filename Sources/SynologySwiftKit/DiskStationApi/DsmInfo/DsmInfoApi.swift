@@ -43,7 +43,7 @@ public final class DsmInfoApi {
             throw error
         } catch {
             Logger.error("DsmInfoApi#queryDsmInfo, error: \(error)")
-            throw SynologyError.http("request failed")
+            throw SynologyError.network(.requestFailed(message: "request failed"))
         }
     }
 }
