@@ -12,11 +12,7 @@ public actor QuickConnectApi {
     private let deviceConnection: DeviceConnectionProviding
     private let pingpong: PingPongProviding
 
-    public init(
-        deviceConnection: DeviceConnectionProviding,
-        apiClient: ApiClientProviding,
-        pingpong: PingPongProviding
-    ) {
+    public init(deviceConnection: DeviceConnectionProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding) {
         self.apiClient = apiClient
         self.deviceConnection = deviceConnection
         self.pingpong = pingpong
@@ -367,9 +363,7 @@ extension QuickConnectApi {
     }
 
     /// pingpong
-    private func pingpongConnections(connections: [ConnectionType: [String]]) async -> (
-        ConnectionType, String
-    )? {
+    private func pingpongConnections(connections: [ConnectionType: [String]]) async -> (ConnectionType, String)? {
         let avaliablePingpong = await pingpong.pingpong(connections: connections)
         if !avaliablePingpong.isEmpty {
             for connectionType in ConnectionType.ordered {
@@ -383,17 +377,12 @@ extension QuickConnectApi {
     }
 
     /// relay connection
-    private func requestForRelayConnection(
-        connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String,
-        enableHttps: Bool
-    ) async -> (ConnectionType, String)? {
+    private func requestForRelayConnection(connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String, enableHttps: Bool) async -> (ConnectionType, String)? {
         if connections.keys.contains(.relay) {
             return nil
         }
 
-        Logger.debug(
-            "relay connection is not present, send request_tunnel request, synologyServer = \(synologyServer)"
-        )
+        Logger.debug("relay connection is not present, send request_tunnel request, synologyServer = \(synologyServer)")
 
         do {
             let serverInfo = try await invokeSynologyServiceApi(
