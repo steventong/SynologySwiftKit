@@ -68,10 +68,12 @@ public final class PlaylistApi {
 
     /**
      创建智能播放列表
+     Create smart playlist
+     - Throws: SynologyError.api(.playlistOperationFailed) when operation fails
      */
     public func createSmart(
         name: String, shared: Bool, conj_rule: String, rules_json: String
-    ) async throws -> String? {
+    ) async throws -> String {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "createsmart", version: 2,
@@ -87,8 +89,10 @@ public final class PlaylistApi {
 
     /**
      重命名播放列表
+     Rename playlist
+     - Throws: SynologyError.api(.playlistOperationFailed) when operation fails
      */
-    public func rename(id: String, newName: String) async throws -> String? {
+    public func rename(id: String, newName: String) async throws -> String {
         let result: PlaylistRenameResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "rename", version: 3,

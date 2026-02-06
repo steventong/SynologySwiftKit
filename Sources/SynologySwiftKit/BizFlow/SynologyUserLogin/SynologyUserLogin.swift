@@ -236,13 +236,10 @@ private extension SynologyUserLogin {
         continuation.yield(.fetchingQuickConnect)
 
         do {
-            if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(
-                quickConnectId: server,
-                enableHttps: enableHttps
-            ) {
-                continuation.yield(.quickConnectFetched(type: connection.type, url: connection.url))
-                return (connection.type, connection.url)
-            }
+            let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
+
+            continuation.yield(.quickConnectFetched(type: connection.type, url: connection.url))
+            return (connection.type, connection.url)
         } catch {
             Logger.error("SynologyUserLogin#fetchConnectionUrl, error: \(error)")
         }

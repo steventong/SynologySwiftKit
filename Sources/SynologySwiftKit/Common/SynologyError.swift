@@ -67,9 +67,8 @@ extension SynologyError {
     /// API 业务错误
     /// API business errors
     public enum SynologyApiError: Error, LocalizedError {
-        /// 歌词未找到
-        case lyricsNotFound
-
+        /// 操作失败
+        case processFail(message: String)
         /// 会话无效/过期
         case invalidSession(code: Int, message: String)
         /// API 不存在
@@ -89,8 +88,8 @@ extension SynologyError {
                 return "API error (\(code)): \(message)"
             case .hostNotConfigured:
                 return "Request host not configured"
-            case .lyricsNotFound:
-                return "Lyrics not found"
+            case let .processFail(message):
+                return "process fail: \(message)"
             }
         }
 
@@ -200,6 +199,8 @@ extension SynologyError {
         case serverInfoNotFound
         /// 无效 URL
         case invalidURL
+        /// 无法建立连接
+        case connectionFailed
 
         public var errorDescription: String? {
             switch self {
@@ -207,6 +208,8 @@ extension SynologyError {
                 return "QuickConnect server info not available"
             case .invalidURL:
                 return "Invalid QuickConnect URL"
+            case .connectionFailed:
+                return "Failed to establish QuickConnect connection"
             }
         }
     }

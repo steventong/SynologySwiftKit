@@ -16,7 +16,10 @@ public final class TagEditorApi {
         self.apiClient = apiClient
     }
 
-    public func load(path: String) async throws -> TagEditorResult? {
+    /// 加载标签信息
+    /// Load tag information
+    /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
+    public func load(path: String) async throws -> TagEditorResult {
         let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
                 ("action", "load")
@@ -25,10 +28,16 @@ public final class TagEditorApi {
             },
             rawResponse: true
         )
-        return result.success ? result : nil
+        guard result.success else {
+            throw SynologyError.api(.processFail(message: "query failed"))
+        }
+        return result
     }
 
-    public func apply(request: TagEditorRequest) async throws -> TagEditorResult? {
+    /// 应用标签修改
+    /// Apply tag changes
+    /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
+    public func apply(request: TagEditorRequest) async throws -> TagEditorResult {
         let result: TagEditorResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
                 ("action", "apply")
@@ -37,6 +46,9 @@ public final class TagEditorApi {
             },
             rawResponse: true
         )
-        return result.success ? result : nil
+        guard result.success else {
+            throw SynologyError.api(.processFail(message: "update failed"))
+        }
+        return result
     }
 }

@@ -67,8 +67,10 @@ public final class SongApi {
 
     /**
      query song info
+     查询歌曲信息
+     - Throws: SynologyError.api(.songNotFound) when song is not found
      */
-    public func getInfo(id: String) async throws -> Song? {
+    public func getInfo(id: String) async throws -> Song {
         let result: SongInfo = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "getinfo", version: 2
@@ -77,7 +79,11 @@ public final class SongApi {
                 ("additional", "song_tag,song_audio,song_rating")
             }
         )
-        return result.songs.first
+        guard let song = result.songs.first else {
+            throw SynologyError.api(.processFail(message: "query song failed"))
+        }
+
+        return song
     }
 
     /**

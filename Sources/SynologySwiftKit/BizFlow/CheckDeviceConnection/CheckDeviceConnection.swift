@@ -100,20 +100,15 @@ private extension CheckDeviceConnection {
         Logger.info("CheckDeviceConnection#checkConnectionStatus, checking new connection: \(loginServer)")
 
         do {
-            if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: loginServer.server, enableHttps: loginServer.isEnableHttps) {
-                // 更新连接地址
-                // Update connection URL
-                await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
-                continuation.yield(.quickConnectFetched(type: connection.type, url: connection.url))
+            let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: loginServer.server, enableHttps: loginServer.isEnableHttps)
+            // 更新连接地址
+            // Update connection URL
+            await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+            continuation.yield(.quickConnectFetched(type: connection.type, url: connection.url))
 
-                // 验证 AudioStation
-                // Verify AudioStation
-                await verifyAudioStation(connectionType: connection.type, connectionUrl: connection.url, continuation: continuation)
-            } else {
-                Logger.error("CheckDeviceConnection#checkConnectionStatus, checking new connection failed")
-                continuation.yield(.failed(reason: .quickConnectFetchFailed))
-                continuation.finish()
-            }
+            // 验证 AudioStation
+            // Verify AudioStation
+            await verifyAudioStation(connectionType: connection.type, connectionUrl: connection.url, continuation: continuation)
         } catch SynologyError.api(.invalidSession) {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, invalidSession")
             continuation.yield(.sessionInvalid(reason: .sessionInvalid))

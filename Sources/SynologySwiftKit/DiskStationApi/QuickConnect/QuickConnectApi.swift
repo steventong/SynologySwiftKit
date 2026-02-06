@@ -13,14 +13,14 @@ public actor QuickConnectApi {
     let pingpong = PingPong()
 
     public init(deviceConnection: DeviceConnectionProviding) {
-        self.httpClient = HTTPClient(timeout: 10)
+        httpClient = HTTPClient(timeout: 10)
         self.deviceConnection = deviceConnection
     }
 
     /// 通过 QuickConnect ID 获取设备连接地址
-    public func getDeviceConnectionByQuickConnectId(
-        quickConnectId: String, enableHttps: Bool, save: Bool? = false
-    ) async throws -> (type: ConnectionType, url: String)? {
+    /// Get device connection URL by QuickConnect ID
+    /// - Throws: SynologyError.quickConnect(.serverInfoNotFound) or SynologyError.quickConnect(.connectionFailed)
+    public func getDeviceConnectionByQuickConnectId(quickConnectId: String, enableHttps: Bool, save: Bool? = false) async throws -> (type: ConnectionType, url: String) {
         // 获取 serverInfo 信息
         let serverInfo = try await queryAvaliableServerInfo(
             quickConnectId: quickConnectId, enableHttps: enableHttps)
@@ -75,16 +75,16 @@ public actor QuickConnectApi {
                 return nil
             })
 
-        if let connectionUrl {
-            if save == true {
-                await deviceConnection.updateCurrentConnectionUrl(
-                    type: connectionUrl.connnectionType, url: connectionUrl.url)
-            }
-
-            return (connectionUrl.connnectionType, connectionUrl.url)
+        guard let connectionUrl else {
+            throw SynologyError.quickConnect(.connectionFailed)
         }
 
-        return nil
+        if save == true {
+            await deviceConnection.updateCurrentConnectionUrl(
+                type: connectionUrl.connnectionType, url: connectionUrl.url)
+        }
+
+        return (connectionUrl.connnectionType, connectionUrl.url)
     }
 }
 
@@ -99,8 +99,7 @@ extension QuickConnectApi {
 
     /// 获取 serverInfo
     private func queryAvaliableServerInfo(quickConnectId: String, enableHttps: Bool) async throws
-        -> (synologyServer: String, serverInfo: ServerInfo)?
-    {
+        -> (synologyServer: String, serverInfo: ServerInfo)? {
         let synologyServer = fetchSynologyServerFromCache(quickConnectId: quickConnectId)
 
         let serverInfo = try await invokeSynologyServiceApi(
@@ -232,8 +231,7 @@ extension QuickConnectApi {
 
             serverInfo.server?.interface?.forEach({ interface in
                 if let host = interface.ip,
-                    let port = serverInfo.service?.port
-                {
+                   let port = serverInfo.service?.port {
                     lanValues.append("\(httpScheme)\(host):\(port)")
                 }
             })
@@ -254,8 +252,7 @@ extension QuickConnectApi {
             var wanValues: [String] = []
 
             if let host = serverInfo.server?.external?.ip,
-                let port = serverInfo.service?.port
-            {
+               let port = serverInfo.service?.port {
                 wanValues.append("\(httpScheme)\(host):\(port)")
             }
 
@@ -271,9 +268,8 @@ extension QuickConnectApi {
             serverInfo.server?.interface?.forEach({ interface in
                 interface.ipv6?.forEach({ ipv6 in
                     if ipv6.addr_type == 0,
-                        let host = ipv6.address,
-                        let port = serverInfo.service?.port
-                    {
+                       let host = ipv6.address,
+                       let port = serverInfo.service?.port {
                         lanv6Values.append("\(httpScheme)\(host):\(port)")
                     }
                 })
@@ -291,23 +287,20 @@ extension QuickConnectApi {
             serverInfo.server?.interface?.forEach({ interface in
                 interface.ipv6?.forEach({ ipv6 in
                     if ipv6.addr_type == 0,
-                        let host = ipv6.address,
-                        let port = serverInfo.service?.ext_port
-                    {
+                       let host = ipv6.address,
+                       let port = serverInfo.service?.ext_port {
                         wanv6Values.append("\(httpScheme)\(host):\(port)")
                     }
                 })
             })
 
             if let host = serverInfo.server?.external?.ipv6,
-                let port = serverInfo.service?.port
-            {
+               let port = serverInfo.service?.port {
                 wanv6Values.append("\(httpScheme)\(host):\(port)")
             }
 
             if let host = serverInfo.server?.external?.ipv6,
-                let port = serverInfo.service?.ext_port
-            {
+               let port = serverInfo.service?.ext_port {
                 wanv6Values.append("\(httpScheme)\(host):\(port)")
             }
 
@@ -321,14 +314,12 @@ extension QuickConnectApi {
             var ddnsValues: [String] = []
 
             if let host = serverInfo.server?.ddns,
-                let port = serverInfo.service?.port
-            {
+               let port = serverInfo.service?.port {
                 ddnsValues.append("\(httpScheme)\(host):\(port)")
             }
 
             if let host = serverInfo.server?.ddns,
-                let port = serverInfo.service?.ext_port
-            {
+               let port = serverInfo.service?.ext_port {
                 ddnsValues.append("\(httpScheme)\(host):\(port)")
             }
 
@@ -342,8 +333,7 @@ extension QuickConnectApi {
             var relayValues: [String] = []
 
             if let host = serverInfo.service?.relay_dn,
-                let port = serverInfo.service?.relay_port
-            {
+               let port = serverInfo.service?.relay_port {
                 relayValues.append("\(httpScheme)\(host):\(port)")
             }
 
