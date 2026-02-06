@@ -9,7 +9,7 @@ import Foundation
 @testable import SynologySwiftKit
 
 /// 内存实现的 Mock 存储（用于测试）
-public final class MockKeyValueStorage: KeyValueStorage, @unchecked Sendable {
+public final class MockKeyValueStorage: KeyValueStorage {
     // 使用锁保护字典，模拟线程安全的存储
     private let lock = NSLock()
     private var storage: [String: Any] = [:]

@@ -11,13 +11,13 @@ import Foundation
 /// API Parameters Result Builder
 @resultBuilder
 public struct ApiParametersBuilder {
-    public typealias Parameter = (String, Any?)
-    public typealias Parameters = [String: Any]
+    public typealias Parameter = (String, ApiParameterValueConvertible?)
+    public typealias Parameters = ApiParameters
 
     // 支持单个参数元组 (Key, Value)
     public static func buildExpression(_ expression: Parameter) -> Parameters {
         if let value = expression.1 {
-            return [expression.0: value]
+            return [expression.0: value.apiParameterValue]
         }
         return [:]
     }

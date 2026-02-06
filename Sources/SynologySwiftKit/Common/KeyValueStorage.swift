@@ -9,7 +9,7 @@ import Foundation
 
 /// 键值存储协议（解耦 UserDefaults）
 /// Key-Value Storage Protocol (Decouple UserDefaults)
-public protocol KeyValueStorage: Sendable {
+public protocol KeyValueStorage {
     func string(forKey defaultName: String) -> String?
     func integer(forKey defaultName: String) -> Int
     func bool(forKey defaultName: String) -> Bool
@@ -26,7 +26,7 @@ public protocol KeyValueStorage: Sendable {
 // MARK: - UserDefaults Implementation
 
 /// 基于 UserDefaults 的存储实现
-public final class UserDefaultsStorage: KeyValueStorage, @unchecked Sendable {
+public final class UserDefaultsStorage: KeyValueStorage {
     private let userDefaults: UserDefaults
 
     public init(userDefaults: UserDefaults = .standard) {

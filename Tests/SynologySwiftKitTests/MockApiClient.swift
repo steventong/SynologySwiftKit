@@ -9,7 +9,7 @@ import Foundation
 @testable import SynologySwiftKit
 
 /// 模拟 API 客户端（用于测试上层业务逻辑）
-final class MockApiClient: ApiClientProviding, @unchecked Sendable {
+final class MockApiClient: ApiClientProviding {
     var connectionProvider: DeviceConnectionProviding
     var apiInfoProvider: ApiInfoProviding? // 协议要求
 

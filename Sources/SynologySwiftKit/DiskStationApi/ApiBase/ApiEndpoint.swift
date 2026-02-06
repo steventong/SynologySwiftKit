@@ -9,6 +9,69 @@ import Foundation
 
 // MARK: - ApiEndpoint
 
+public typealias ApiParameters = [String: ApiParameterValue]
+
+public enum ApiParameterValue: Sendable {
+    case string(String)
+    case int(Int)
+    case bool(Bool)
+    case double(Double)
+
+    var stringValue: String {
+        switch self {
+        case .string(let value):
+            return value
+        case .int(let value):
+            return String(value)
+        case .bool(let value):
+            return value ? "true" : "false"
+        case .double(let value):
+            return String(value)
+        }
+    }
+
+    static func from(_ value: Any) -> ApiParameterValue {
+        switch value {
+        case let v as String:
+            return .string(v)
+        case let v as Int:
+            return .int(v)
+        case let v as Bool:
+            return .bool(v)
+        case let v as Double:
+            return .double(v)
+        case let v as Float:
+            return .double(Double(v))
+        default:
+            return .string(String(describing: value))
+        }
+    }
+}
+
+public protocol ApiParameterValueConvertible {
+    var apiParameterValue: ApiParameterValue { get }
+}
+
+extension String: ApiParameterValueConvertible {
+    public var apiParameterValue: ApiParameterValue { .string(self) }
+}
+
+extension Int: ApiParameterValueConvertible {
+    public var apiParameterValue: ApiParameterValue { .int(self) }
+}
+
+extension Bool: ApiParameterValueConvertible {
+    public var apiParameterValue: ApiParameterValue { .bool(self) }
+}
+
+extension Double: ApiParameterValueConvertible {
+    public var apiParameterValue: ApiParameterValue { .double(self) }
+}
+
+extension Float: ApiParameterValueConvertible {
+    public var apiParameterValue: ApiParameterValue { .double(Double(self)) }
+}
+
 /// API 端点（纯数据结构，描述一个 API 请求）
 /// API endpoint (pure data structure describing an API request)
 ///
@@ -23,7 +86,7 @@ public struct ApiEndpoint {
     public let method: String
     public let version: Int
     public let httpMethod: HTTPMethod
-    public let parameters: [String: Any]
+    public let parameters: ApiParameters
     public let timeout: TimeInterval
     public let pathSuffix: String?
     public let fullPath: String?
@@ -52,7 +115,7 @@ public struct ApiEndpoint {
 
     /// 标准初始化
     /// Standard initialization
-    public init(api: ApiDefinition, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: [String: Any] = [:],
+    public init(api: ApiDefinition, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: ApiParameters = [:],
                 timeout: TimeInterval = 10, pathSuffix: String? = nil, sidOnQuery: Bool? = nil, sidOnCookie: Bool? = nil) {
         self.api = api
         self.method = method
@@ -66,9 +129,18 @@ public struct ApiEndpoint {
         self.sidOnCookie = sidOnCookie
     }
 
+    /// 标准初始化（兼容 Any 参数）
+    /// Standard initialization (compatible with Any parameters)
+    public init(api: ApiDefinition, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: [String: Any],
+                timeout: TimeInterval = 10, pathSuffix: String? = nil, sidOnQuery: Bool? = nil, sidOnCookie: Bool? = nil) {
+        let converted = parameters.mapValues { ApiParameterValue.from($0) }
+        self.init(api: api, method: method, version: version, httpMethod: httpMethod, parameters: converted,
+                  timeout: timeout, pathSuffix: pathSuffix, sidOnQuery: sidOnQuery, sidOnCookie: sidOnCookie)
+    }
+
     /// 自定义路径初始化
     /// Custom path initialization
-    public init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, parameters: [String: Any] = [:],
+    public init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, parameters: ApiParameters = [:],
                 timeout: TimeInterval = 10) {
         self.api = api
         method = ""
@@ -81,6 +153,14 @@ public struct ApiEndpoint {
         sidOnQuery = nil
         sidOnCookie = nil
     }
+
+    /// 自定义路径初始化（兼容 Any 参数）
+    /// Custom path initialization (compatible with Any parameters)
+    public init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, parameters: [String: Any],
+                timeout: TimeInterval = 10) {
+        let converted = parameters.mapValues { ApiParameterValue.from($0) }
+        self.init(api: api, fullPath: fullPath, httpMethod: httpMethod, parameters: converted, timeout: timeout)
+    }
 }
 
 // MARK: - Convenience Factory Methods
@@ -88,19 +168,19 @@ public struct ApiEndpoint {
 extension ApiEndpoint {
     /// 创建 GET 请求端点
     /// Create GET request endpoint
-    public static func get(api: ApiDefinition, method: String, version: Int = 1, parameters: [String: Any] = [:]) -> ApiEndpoint {
+    public static func get(api: ApiDefinition, method: String, version: Int = 1, parameters: ApiParameters = [:]) -> ApiEndpoint {
         ApiEndpoint(api: api, method: method, version: version, httpMethod: .get, parameters: parameters)
     }
 
     /// 创建 POST 请求端点
     /// Create POST request endpoint
-    public static func post(api: ApiDefinition, method: String, version: Int = 1, parameters: [String: Any] = [:]) -> ApiEndpoint {
+    public static func post(api: ApiDefinition, method: String, version: Int = 1, parameters: ApiParameters = [:]) -> ApiEndpoint {
         ApiEndpoint(api: api, method: method, version: version, httpMethod: .post, parameters: parameters)
     }
 
     /// 创建自定义路径端点
     /// Create custom path endpoint
-    public static func custom(api: ApiDefinition, path: String, httpMethod: HTTPMethod = .post, parameters: [String: Any] = [:]) -> ApiEndpoint {
+    public static func custom(api: ApiDefinition, path: String, httpMethod: HTTPMethod = .post, parameters: ApiParameters = [:]) -> ApiEndpoint {
         ApiEndpoint(api: api, fullPath: path, httpMethod: httpMethod, parameters: parameters)
     }
 }
@@ -112,7 +192,7 @@ extension ApiEndpoint {
     /// Standard initialization with Result Builder
     public init(api: ApiDefinition, method: String, version: Int = 1, httpMethod: HTTPMethod = .get,
                 timeout: TimeInterval = 10, pathSuffix: String? = nil, sidOnQuery: Bool? = nil, sidOnCookie: Bool? = nil,
-                @ApiParametersBuilder parameters: () -> [String: Any]) {
+                @ApiParametersBuilder parameters: () -> ApiParameters) {
         self.init(api: api, method: method, version: version, httpMethod: httpMethod,
                   parameters: parameters(), timeout: timeout, pathSuffix: pathSuffix,
                   sidOnQuery: sidOnQuery, sidOnCookie: sidOnCookie)
@@ -121,7 +201,7 @@ extension ApiEndpoint {
     /// 自定义路径初始化 (使用 Result Builder)
     /// Custom path initialization with Result Builder
     public init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, timeout: TimeInterval = 10,
-                @ApiParametersBuilder parameters: () -> [String: Any]) {
+                @ApiParametersBuilder parameters: () -> ApiParameters) {
         self.init(api: api, fullPath: fullPath, httpMethod: httpMethod, parameters: parameters(), timeout: timeout)
     }
 }

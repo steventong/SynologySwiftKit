@@ -25,6 +25,7 @@ public final class AudioStationApi {
     /// API 客户端（internal 以便 extension 访问）
     /// API client (internal for extension access)
     let apiClient: ApiClientProviding
+    private let storage: KeyValueStorage
 
     // MARK: - API Modules
 
@@ -65,7 +66,7 @@ public final class AudioStationApi {
     public lazy var stream = StreamApi(apiClient: apiClient)
 
     /// 信息 API
-    public lazy var info = InfoApi(apiClient: apiClient)
+    public lazy var info = InfoApi(apiClient: apiClient, storage: storage)
 
     /// 标签编辑器 API
     public lazy var tagEditor = TagEditorApi(apiClient: apiClient)
@@ -75,8 +76,9 @@ public final class AudioStationApi {
     /// 初始化 AudioStation API
     /// Initialize AudioStation API
     /// - Parameter apiClient: API 客户端
-    public init(apiClient: ApiClientProviding) {
+    public init(apiClient: ApiClientProviding, storage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
+        self.storage = storage
     }
 }
 
@@ -90,7 +92,7 @@ extension AudioStationApi {
     /// - Returns: Session ID string
     func getSessionId() throws -> String {
         guard
-            let sid = UserDefaults.standard.string(
+            let sid = storage.string(
                 forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
         else {
             throw SynologyError.api(

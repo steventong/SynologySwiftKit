@@ -11,13 +11,15 @@ public actor QuickConnectApi {
     private let apiClient: ApiClientProviding
     private let deviceConnection: DeviceConnectionProviding
     private let pingpong: PingPongProviding
+    private let storage: KeyValueStorage
     private let timeout: TimeInterval
 
-    public init(deviceConnection: DeviceConnectionProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding, timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout) {
+    public init(deviceConnection: DeviceConnectionProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding, timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout, storage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
         self.deviceConnection = deviceConnection
         self.pingpong = pingpong
         self.timeout = timeout
+        self.storage = storage
     }
 
     /// 通过 QuickConnect ID 获取设备连接地址
@@ -141,7 +143,7 @@ extension QuickConnectApi {
     private func fetchSynologyServerFromCache(quickConnectId: String) -> String {
         let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
 
-        if let synologyServerUrl = UserDefaults.standard.string(forKey: key) {
+        if let synologyServerUrl = storage.string(forKey: key) {
             Logger.info(
                 "[SynologySwiftKit][QuickConnect]cached synology server: \(synologyServerUrl)")
             return synologyServerUrl
@@ -157,8 +159,7 @@ extension QuickConnectApi {
     private func saveSynologyServerToCache(quickConnectId: String, synologyServer: String) {
         let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
 
-        UserDefaults.standard.setValue(synologyServer, forKey: key)
-        UserDefaults.standard.synchronize()
+        storage.set(synologyServer, forKey: key)
 
         Logger.debug("persist user-defaults: \(key)=\(synologyServer)")
     }

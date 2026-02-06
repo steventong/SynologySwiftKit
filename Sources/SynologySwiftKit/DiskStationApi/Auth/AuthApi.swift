@@ -9,9 +9,11 @@ import Foundation
 
 public actor AuthApi {
     private let apiClient: ApiClientProviding
+    private let storage: KeyValueStorage
 
-    public init(apiClient: ApiClientProviding) {
+    public init(apiClient: ApiClientProviding, storage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
+        self.storage = storage
     }
 
     public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
@@ -60,21 +62,20 @@ public actor AuthApi {
 extension AuthApi {
     public func getDeviceName() -> String {
         let deviceNameKey = UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_NAME.keyName
-        if let deviceName = UserDefaults.standard.string(forKey: deviceNameKey) {
+        if let deviceName = storage.string(forKey: deviceNameKey) {
             return deviceName
         }
         let deviceName = UUID().uuidString
-        UserDefaults.standard.setValue(deviceName, forKey: deviceNameKey)
+        storage.set(deviceName, forKey: deviceNameKey)
         return deviceName
     }
 
     private func getDeviceId() -> String? {
-        UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_ID.keyName)
+        storage.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_ID.keyName)
     }
 
     private func setDeviceId(deviceId: String) {
-        UserDefaults.standard.setValue(
-            deviceId, forKey: UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_ID.keyName)
+        storage.set(deviceId, forKey: UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_ID.keyName)
     }
 
     private func handleAuthResult(authResult: AuthResult) -> AuthResult {

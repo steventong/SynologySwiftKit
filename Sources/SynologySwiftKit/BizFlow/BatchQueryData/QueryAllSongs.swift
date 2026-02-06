@@ -9,7 +9,7 @@ import Foundation
 
 /// 批量查询所有歌曲（依赖注入）
 /// Batch query all songs (dependency injection)
-public final class QueryAllSongs: @unchecked Sendable {
+public final class QueryAllSongs {
     private let audioStationApi: AudioStationApi
 
     /// 初始化查询器

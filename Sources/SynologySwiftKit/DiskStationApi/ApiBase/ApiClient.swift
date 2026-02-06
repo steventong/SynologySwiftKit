@@ -168,9 +168,9 @@ final class ApiClient: ApiClientProviding {
         let apiVersion = fetchApiVersion(version: endpoint.version, apiMinVersion: fetchedApiInfo.minVersion, apiMaxVersion: fetchedApiInfo.maxVersion)
 
         let mergedParameters = endpoint.parameters.merging([
-            "api": apiName,
-            "version": apiVersion,
-            "method": endpoint.method,
+            "api": .string(apiName),
+            "version": .int(apiVersion),
+            "method": .string(endpoint.method),
         ]) { current, _ in current }
 
         let apiPath: String
@@ -237,15 +237,15 @@ final class ApiClient: ApiClientProviding {
 
         // 构建基础参数
         var parameters = resolved.parameters
-        parameters["api"] = resolved.name
+        parameters["api"] = .string(resolved.name)
         if !resolved.method.isEmpty {
-            parameters["method"] = resolved.method
-            parameters["version"] = resolved.version
+            parameters["method"] = .string(resolved.method)
+            parameters["version"] = .int(resolved.version)
         }
 
         // 添加 sid 参数
         if let sid = try await buildAuthQueryParameter(name: resolved.name, method: resolved.method, requireAuthQuery: resolved.requireAuthQuery) {
-            parameters["_sid"] = sid
+            parameters["_sid"] = .string(sid)
         }
 
         switch endpoint.httpMethod {
@@ -257,7 +257,7 @@ final class ApiClient: ApiClientProviding {
                 if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") { return false }
                 if !$0.key.hasPrefix("_") && $1.key.hasPrefix("_") { return true }
                 return $0.key < $1.key
-            }.map { URLQueryItem(name: $0.key, value: "\($0.value)") }
+            }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
             guard let url = components.url else {
                 throw SynologyError.api(.hostNotConfigured)
@@ -277,7 +277,7 @@ final class ApiClient: ApiClientProviding {
                 if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") { return false }
                 if !$0.key.hasPrefix("_") && $1.key.hasPrefix("_") { return true }
                 return $0.key < $1.key
-            }.map { "\($0.key)=\(UrlUtils.urlEncode("\($0.value)"))" }.joined(separator: "&")
+            }.map { "\($0.key)=\(UrlUtils.urlEncode($0.value.stringValue))" }.joined(separator: "&")
             request.httpBody = bodyString.data(using: .utf8)
         }
 
@@ -307,10 +307,10 @@ final class ApiClient: ApiClientProviding {
         let apiUrl = try await buildApiUrl(apiPath: resolved.apiPath)
 
         var parameters = resolved.parameters
-        parameters["api"] = resolved.name
+        parameters["api"] = .string(resolved.name)
         if !resolved.method.isEmpty {
-            parameters["method"] = resolved.method
-            parameters["version"] = resolved.version
+            parameters["method"] = .string(resolved.method)
+            parameters["version"] = .int(resolved.version)
         }
 
         if let sid = try await buildAuthQueryParameter(
@@ -318,7 +318,7 @@ final class ApiClient: ApiClientProviding {
             method: resolved.method,
             requireAuthQuery: resolved.requireAuthQuery
         ) {
-            parameters["_sid"] = sid
+            parameters["_sid"] = .string(sid)
         }
 
         guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
@@ -329,7 +329,7 @@ final class ApiClient: ApiClientProviding {
             if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") { return false }
             if !$0.key.hasPrefix("_") && $1.key.hasPrefix("_") { return true }
             return $0.key < $1.key
-        }.map { URLQueryItem(name: $0.key, value: "\($0.value)") }
+        }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
         guard let requestUrl = components.url else {
             throw SynologyError.api(.hostNotConfigured)
@@ -339,7 +339,7 @@ final class ApiClient: ApiClientProviding {
     }
 
     /// 构建 Cookie 请求头
-    private func buildAuthCookieHeader(name: String, method: String, parameters: [String: Any], requireAuthCookie: Bool) async throws -> String? {
+    private func buildAuthCookieHeader(name: String, method: String, parameters: ApiParameters, requireAuthCookie: Bool) async throws -> String? {
         if requireAuthCookie {
             guard
                 let session = await connectionProvider.getLoginSession()
@@ -353,8 +353,8 @@ final class ApiClient: ApiClientProviding {
                 return "id=\(session.sid); did=\(did)"
             }
             return "id=\(session.sid)"
-        } else if let sid = parameters["sid"] {
-            if let did = parameters["did"] {
+        } else if let sid = parameters["sid"]?.stringValue {
+            if let did = parameters["did"]?.stringValue {
                 return "id=\(sid); did=\(did)"
             }
             return "id=\(sid)"

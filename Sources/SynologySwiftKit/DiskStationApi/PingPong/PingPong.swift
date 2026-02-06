@@ -7,7 +7,7 @@
 
 import Foundation
 
-public final class PingPong: PingPongProviding, @unchecked Sendable {
+public final class PingPong: PingPongProviding {
     private let apiClient: ApiClientProviding
     private let timeout: TimeInterval
 

@@ -9,9 +9,11 @@ import Foundation
 
 public final class InfoApi {
     private let apiClient: ApiClientProviding
+    private let storage: KeyValueStorage
 
-    public init(apiClient: ApiClientProviding) {
+    public init(apiClient: ApiClientProviding, storage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
+        self.storage = storage
     }
 
     /**
@@ -36,7 +38,7 @@ public final class InfoApi {
      Query from Cache
      */
     public func getFromCache() -> AudioStationInfo? {
-        if let json = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
+        if let json = storage.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
            let data = json.data(using: .utf8) {
             let info = try? JSONDecoder().decode(AudioStationInfo.self, from: data)
             if let info {
@@ -50,39 +52,27 @@ public final class InfoApi {
     // MARK: - Private Methods
 
     private func queryFromDsm(sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
-        let result: AudioStationInfo = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.INFO,
-                method: "getinfo",
-                version: 6,
-                httpMethod: .post,
-                sidOnQuery: sid == nil,
-                sidOnCookie: sid == nil
-            ) {
-                if let sid {
-                    ("sid", sid)
-                    ("did", did)
-                }
-            },
-            resultType: AudioStationInfo.self
-        )
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.INFO, method: "getinfo", version: 6, httpMethod: .post, sidOnQuery: sid == nil, sidOnCookie: sid == nil) {
+            if let sid {
+                ("sid", sid)
+                ("did", did)
+            }
+        }
+        let result: AudioStationInfo = try await apiClient.request(api, resultType: AudioStationInfo.self)
         return result
     }
-    
+
     private func saveToCache(info: AudioStationInfo) {
         if let encoded = try? JSONEncoder().encode(info),
            let json = String(data: encoded, encoding: .utf8) {
-            UserDefaults.standard.setValue(
-                json, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
-            UserDefaults.standard.set(
-                Date(), forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName
+            storage.set(json, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
+            storage.set(Date(), forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName
             )
         }
     }
 
     private func isCacheValid() -> Bool {
-        if let updateTime = UserDefaults.standard.object(
-            forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
+        if let updateTime = storage.object(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
             return Date().timeIntervalSince(updateTime) < 24 * 60 * 60
         }
         return false

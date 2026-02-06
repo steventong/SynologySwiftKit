@@ -14,7 +14,7 @@ import Foundation
 ///
 /// 统一的服务入口，管理所有依赖和 API 模块。
 /// Unified service entry point, managing all dependencies and API modules.
-public final class SynologyClient: @unchecked Sendable {
+public final class SynologyClient {
     // MARK: - Core Services
 
     /// 设备连接管理
@@ -84,14 +84,16 @@ public final class SynologyClient: @unchecked Sendable {
         client.apiInfoProvider = info
 
         // 初始化各个 API 模块
-        audioStation = AudioStationApi(apiClient: client)
+        audioStation = AudioStationApi(apiClient: client, storage: storage)
         fileStation = FileStationApi(apiClient: client)
-        auth = AuthApi(apiClient: client)
+        let storage = UserDefaultsStorage()
+        auth = AuthApi(apiClient: client, storage: storage)
         client.addInterceptor(LoggerInterceptor(enableLogging: config.enableNetworkLogging))
         quickConnect = QuickConnectApi(deviceConnection: connection,
                                        apiClient: client,
                                        pingpong: pingpong,
-                                       timeout: config.quickConnectTimeout)
+                                       timeout: config.quickConnectTimeout,
+                                       storage: storage)
         dsmInfo = DsmInfoApi(apiClient: client)
         encryption = EncryptionApi(apiClient: client)
 

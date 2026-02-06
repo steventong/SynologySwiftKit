@@ -45,7 +45,7 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiInfo/ApiInfoApi.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/QuickConnect/QuickConnectApi.swift`
 
-### 4) 强化 API 层与业务流的边界
+### 4) 强化 API 层与业务流的边界 ✅ 已完成
 **为什么重要**  
 `BizFlow` 理应只依赖 API 层接口，避免直接依赖存储和配置细节。当前 `AuthApi`/`QuickConnectApi` 直接使用 `UserDefaults`，耦合强、不利测试。
 
@@ -71,7 +71,7 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiBase/ApiClient.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/Common/HTTPClient.swift`
 
-### 6) ApiInfo 缓存 TTL 应可配置
+### 6) ApiInfo 缓存 TTL 应可配置 ✅ 已完成
 **为什么重要**  
 `ApiInfoApi` 仍硬编码 TTL，导致 `SynologyConfig.apiInfoCacheValidity` 实际无效。
 
@@ -82,7 +82,7 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiInfo/ApiInfoApi.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/Common/SynologyConfig.swift`
 
-### 7) 移除对 UserDefaults.standard 的直依赖
+### 7) 移除对 UserDefaults.standard 的直依赖 ✅ 已完成
 **为什么重要**  
 直接用 `UserDefaults.standard` 会降低可测试性，也让存储策略无法切换。
 
@@ -94,18 +94,7 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/Auth/AuthApi.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/QuickConnect/QuickConnectApi.swift`
 
-### 8) 日志脱敏与开关控制
-**为什么重要**  
-日志可能包含 Cookie、SID、密码、OTP 等敏感字段，生产环境存在严重风险。
-
-**建议调整**  
-增加字段脱敏规则（`Cookie`、`Authorization`、`passwd`、`otp_code`、`_sid` 等），并通过 `SynologyConfig.enableNetworkLogging` 统一控制。
-
-**涉及文件**  
-- `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/Common/NetworkLogger.swift`
-- `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/Common/Logger.swift`
-
-### 9) SSL 信任逻辑增强
+### 8) SSL 信任逻辑增强（已跳过，保留信任自签证书）
 **为什么重要**  
 当前 `SSLTrustDelegate` 只校验 host 就直接信任证书，绕过了系统信任评估。
 
@@ -115,7 +104,9 @@
 **涉及文件**  
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/Common/URLSessionFactory.swift`
 
-### 10) 减少 `Any` 参数
+### 9) 减少 `Any` 参数 ✅ 已完成
+**已完成内容**  
+引入 `ApiParameterValue` / `ApiParameters`，并将 `ApiEndpoint` / `ApiParametersBuilder` / `ApiClient` 统一迁移到强类型参数。
 **为什么重要**  
 `ApiEndpoint.parameters` 使用 `[String: Any]`，丢失编译期类型检查，容易出现运行时错误。
 
@@ -126,7 +117,7 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiBase/ApiEndpoint.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiBase/ApiParametersBuilder.swift`
 
-### 11) 去掉 `@unchecked Sendable` 风险
+### 10) 去掉 `@unchecked Sendable` 风险 ✅ 已完成
 **为什么重要**  
 `SynologyClient` 被标记为 `@unchecked Sendable`，但内部包含可变状态（例如 `ApiClient` 的拦截器列表），存在并发安全隐患。
 
@@ -137,7 +128,9 @@
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/SynologyClient.swift`
 - `/Users/tongwanglin/Workspace/XcodeProjects/SynologySwiftKit/Sources/SynologySwiftKit/DiskStationApi/ApiBase/ApiClient.swift`
 
-### 12) 移除 `.DS_Store`
+### 11) 移除 `.DS_Store` ✅ 已完成
+**已完成内容**  
+已清理所有 `.DS_Store` 并加入 `.gitignore`。
 **为什么重要**  
 `.DS_Store` 是系统文件，进入仓库会污染版本历史。
 

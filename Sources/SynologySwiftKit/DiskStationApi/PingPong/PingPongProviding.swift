@@ -7,7 +7,7 @@
 
 import Foundation
 
-public protocol PingPongProviding: Sendable {
+public protocol PingPongProviding {
     func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String]
     func pingpong(url: String) async -> Bool
 }
