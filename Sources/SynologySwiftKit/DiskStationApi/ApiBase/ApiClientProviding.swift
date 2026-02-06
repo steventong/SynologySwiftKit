@@ -30,6 +30,16 @@ public protocol ApiClientProviding {
     /// 构建请求 URL（不发送请求）
     /// Build request URL (without sending request)
     func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL
+
+    /// 发送原始 HTTP 请求（非 DSM API 场景）
+    /// Send raw HTTP request (non-DSM API scenarios)
+    func requestRaw<T: Decodable>(
+        url: URL,
+        httpMethod: HTTPMethod,
+        headers: [String: String]?,
+        body: Data?,
+        timeout: TimeInterval
+    ) async throws -> T
 }
 
 extension ApiClientProviding {

@@ -68,6 +68,54 @@ final class ApiClient: ApiClientProviding {
         }
     }
 
+    /// 发送原始 HTTP 请求（非 DSM API 场景）
+    /// Send raw HTTP request (non-DSM API scenarios)
+    public func requestRaw<T: Decodable>(
+        url: URL,
+        httpMethod: HTTPMethod = .get,
+        headers: [String: String]? = nil,
+        body: Data? = nil,
+        timeout: TimeInterval = 10
+    ) async throws -> T {
+        let session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
+        let httpClient = HTTPClient(session: session)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = httpMethod.rawValue
+        headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+        request.httpBody = body
+
+        let startTime = Date()
+        do {
+            let (data, response) = try await httpClient.send(request)
+            let duration = Date().timeIntervalSince(startTime)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw SynologyError.http("Invalid response type")
+            }
+
+            NetworkLogger.logResponse(url: url, statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, data: data,
+                                      duration: duration)
+
+            guard (200 ... 299).contains(httpResponse.statusCode) else {
+                throw SynologyError.http("Invalid http status code: \(httpResponse.statusCode)")
+            }
+
+            do {
+                return try JSONDecoderProvider.shared.decode(T.self, from: data)
+            } catch {
+                Logger.error("JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")")
+                throw SynologyError.http("Failed to decode response: \(error.localizedDescription)")
+            }
+        } catch let error as SynologyError {
+            NetworkLogger.logError(url: url, error: error, duration: Date().timeIntervalSince(startTime))
+            throw error
+        } catch {
+            NetworkLogger.logError(url: url, error: error, duration: Date().timeIntervalSince(startTime))
+            throw SynologyError.http("http request failed: \(error.localizedDescription)")
+        }
+    }
+
     /// 发送请求（无返回值）
     /// Send request without return value
     func request(_ endpoint: ApiEndpoint) async throws {
@@ -206,6 +254,7 @@ final class ApiClient: ApiClientProviding {
                                                    apiUrl: URL, headers: [String: String]?,
                                                    resultType: Value.Type = Value.self) async throws -> Value {
         let session = await createSession(timeout: endpoint.timeout)
+        let httpClient = HTTPClient(session: session)
         var request: URLRequest
         var requestUrl: URL = apiUrl
         let startTime = Date()
@@ -263,7 +312,7 @@ final class ApiClient: ApiClientProviding {
         NetworkLogger.logRequest(url: requestUrl, method: request.httpMethod ?? "GET", headers: request.allHTTPHeaderFields, body: request.httpBody)
 
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await httpClient.send(request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw SynologyError.http("Invalid response type")
@@ -400,7 +449,7 @@ final class ApiClient: ApiClientProviding {
         let sessionErrorCodes: Set<Int> = [105, 106, 107, 119]
 
         if sessionErrorCodes.contains(errorCode) {
-            let message = SynologyErrorMapper.description(for: errorCode) ?? "Session error"
+            let message = SynologyErrorCodeMapper.description(for: errorCode) ?? "Session error"
             throw SynologyError.api(.invalidSession(code: errorCode, message: message))
         }
 
@@ -408,7 +457,7 @@ final class ApiClient: ApiClientProviding {
             throw SynologyError.api(.businessError(code: errorCode, message: "Preserve for other purpose."))
         }
 
-        let message = SynologyErrorMapper.description(for: errorCode) ?? "errorCode = \(errorCode)"
+        let message = SynologyErrorCodeMapper.description(for: errorCode) ?? "errorCode = \(errorCode)"
         throw SynologyError.api(.businessError(code: errorCode, message: message))
     }
 

@@ -33,7 +33,10 @@ public actor SynologyUserLogin {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
 
-        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
+        let pingpong = PingPong(apiClient: apiClient)
+        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection,
+                                          apiClient: apiClient,
+                                          pingpong: pingpong)
         authApi = AuthApi(apiClient: apiClient)
         audioStationApi = AudioStationApi(apiClient: apiClient)
     }

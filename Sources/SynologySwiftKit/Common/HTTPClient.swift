@@ -31,6 +31,11 @@ final class HTTPClient {
         self.session = session
     }
 
+    /// 发送原始请求（不做解码/日志，交由上层处理）
+    func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try await session.data(for: request)
+    }
+
     /// 发送 GET 请求
     /// - Parameters:
     ///   - url: 请求 URL
@@ -85,7 +90,7 @@ final class HTTPClient {
 
         do {
             let startTime = Date()
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await send(request)
             let duration = Date().timeIntervalSince(startTime)
 
             guard let httpResponse = response as? HTTPURLResponse else {
@@ -115,7 +120,7 @@ extension HTTPClient {
         let startTime = Date()
 
         do {
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await send(request)
             let duration = Date().timeIntervalSince(startTime)
 
             guard let httpResponse = response as? HTTPURLResponse else {

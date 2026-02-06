@@ -58,4 +58,20 @@ final class MockApiClient: ApiClientProviding, @unchecked Sendable {
     func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
         return URL(string: "https://mockApi.com")!
     }
+
+    func requestRaw<T>(
+        url: URL,
+        httpMethod: HTTPMethod,
+        headers: [String : String]?,
+        body: Data?,
+        timeout: TimeInterval
+    ) async throws -> T where T : Decodable {
+        if let error = mockError {
+            throw error
+        }
+        if let response = mockResponse as? T {
+            return response
+        }
+        fatalError("Mock response type mismatch or not set")
+    }
 }

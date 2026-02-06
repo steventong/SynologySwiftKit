@@ -29,13 +29,15 @@ public class CheckDeviceConnection {
     ///   - deviceConnection: 设备连接提供者
     ///   - apiInfoApi: API 信息提供者
     ///   - apiClient: API 客户端
-    ///   - pingpong: PingPong 服务（可选，默认使用 PingPong()）
+    ///   - pingpong: PingPong 服务
     public init(deviceConnection: DeviceConnectionProviding, apiInfoApi: ApiInfoProviding, pingpong: PingPongProviding, apiClient: ApiClientProviding) {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
         self.pingpong = pingpong
 
-        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection)
+        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection,
+                                          apiClient: apiClient,
+                                          pingpong: pingpong)
         audioStationApi = AudioStationApi(apiClient: apiClient)
         dsmInfoApi = DsmInfoApi(apiClient: apiClient)
     }

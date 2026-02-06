@@ -23,22 +23,19 @@ public final class ArtistApi {
         filter: String? = nil, keyword: String? = nil,
         sort: (sort_by: String, sort_direction: String)? = nil
     ) async throws -> (total: Int, data: [Artist]) {
-        let result: ArtistListResult = try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.ARTIST, method: "list", version: 4, httpMethod: .post
-            ) {
-                ("library", library)
-                ("limit", limit)
-                ("offset", offset)
-                ("additional", additional)
-                ("filter", filter)
-                ("keyword", keyword)
-                if let sort {
-                    ("sort_by", sort.sort_by)
-                    ("sort_direction", sort.sort_direction)
-                }
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.ARTIST, method: "list", version: 4, httpMethod: .post) {
+            ("library", library)
+            ("limit", limit)
+            ("offset", offset)
+            ("additional", additional)
+            ("filter", filter)
+            ("keyword", keyword)
+            if let sort {
+                ("sort_by", sort.sort_by)
+                ("sort_direction", sort.sort_direction)
             }
-        )
+        }
+        let result: ArtistListResult = try await apiClient.request(api)
         return (result.total, result.artists)
     }
 }

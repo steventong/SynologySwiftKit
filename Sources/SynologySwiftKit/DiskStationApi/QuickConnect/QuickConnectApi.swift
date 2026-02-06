@@ -8,13 +8,18 @@
 import Foundation
 
 public actor QuickConnectApi {
-    private let httpClient: HTTPClient
+    private let apiClient: ApiClientProviding
     private let deviceConnection: DeviceConnectionProviding
-    let pingpong = PingPong()
+    private let pingpong: PingPongProviding
 
-    public init(deviceConnection: DeviceConnectionProviding) {
-        httpClient = HTTPClient(timeout: 10)
+    public init(
+        deviceConnection: DeviceConnectionProviding,
+        apiClient: ApiClientProviding,
+        pingpong: PingPongProviding
+    ) {
+        self.apiClient = apiClient
         self.deviceConnection = deviceConnection
+        self.pingpong = pingpong
     }
 
     /// 通过 QuickConnect ID 获取设备连接地址
@@ -214,7 +219,14 @@ extension QuickConnectApi {
             throw SynologyError.quickConnect(.invalidURL)
         }
 
-        return try await httpClient.postJSON(url: url, body: requestParams)
+        let body = try JSONEncoder().encode(requestParams)
+        return try await apiClient.requestRaw(
+            url: url,
+            httpMethod: .post,
+            headers: ["Content-Type": "application/json"],
+            body: body,
+            timeout: 10
+        )
     }
 
     /// 解析地址

@@ -7,16 +7,11 @@
 
 import Foundation
 
-public protocol PingPongProviding: Sendable {
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String]
-    func pingpong(url: String) async -> Bool
-}
-
 public final class PingPong: PingPongProviding, @unchecked Sendable {
-    private let httpClient: HTTPClient
+    private let apiClient: ApiClientProviding
 
-    public init() {
-        httpClient = HTTPClient(timeout: 3.6)
+    public init(apiClient: ApiClientProviding) {
+        self.apiClient = apiClient
     }
 
     /// 并发测试多个连接地址的可达性
@@ -62,7 +57,13 @@ public final class PingPong: PingPongProviding, @unchecked Sendable {
         }
 
         do {
-            let result: PingPongResult = try await httpClient.get(url: url)
+            let result: PingPongResult = try await apiClient.requestRaw(
+                url: url,
+                httpMethod: .get,
+                headers: nil,
+                body: nil,
+                timeout: 3.6
+            )
             return result.success
         } catch {
             return false
