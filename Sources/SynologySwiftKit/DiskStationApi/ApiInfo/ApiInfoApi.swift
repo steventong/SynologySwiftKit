@@ -50,7 +50,7 @@ public actor ApiInfoApi: ApiInfoProviding {
             throw SynologyError.api(.apiNotExists(name: apiName))
         }
 
-        Logger.info("ApiInfoApi#getApiInfoByApiName get apiInfo, key = : \(apiName), value = \(apiInfo)")
+        Logger.info("ApiInfoApi#getApiInfoByApiName get apiInfo, key: \(apiName), value = \(apiInfo)")
         return apiInfo
     }
 

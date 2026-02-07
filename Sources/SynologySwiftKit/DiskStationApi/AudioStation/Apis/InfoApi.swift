@@ -21,7 +21,7 @@ public final class InfoApi {
      */
     public func query(cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
         // Cache Check
-        if cacheEnabled == true, isCacheValid(), let cachedInfo = getFromCache() {
+        if cacheEnabled == true, isCacheValid(), let cachedInfo = getAudioStationInfo() {
             return cachedInfo
         }
 
@@ -37,7 +37,7 @@ public final class InfoApi {
     /**
      Query from Cache
      */
-    public func getFromCache() -> AudioStationInfo? {
+    public func getAudioStationInfo() -> AudioStationInfo? {
         if let json = storage.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
            let data = json.data(using: .utf8) {
             let info = try? JSONDecoder().decode(AudioStationInfo.self, from: data)
