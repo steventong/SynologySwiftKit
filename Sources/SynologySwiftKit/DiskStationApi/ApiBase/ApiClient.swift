@@ -24,6 +24,7 @@ final class ApiClient: ApiClientProviding {
     /// 设备连接提供者
     /// Device connection provider
     public let connectionProvider: DeviceConnectionProviding
+    private let httpTransport: HTTPTransporting
 
     /// 网络拦截器链
     private var interceptors: [RequestInterceptor] = []
@@ -37,8 +38,10 @@ final class ApiClient: ApiClientProviding {
     /// 初始化 API 客户端
     /// Initialize API client
     /// - Parameter connectionProvider: 设备连接提供者
-    init(connectionProvider: DeviceConnectionProviding) {
+    /// - Parameter httpTransport: HTTP transport adapter
+    init(connectionProvider: DeviceConnectionProviding, httpTransport: HTTPTransporting = SwiftHttpClientTransport()) {
         self.connectionProvider = connectionProvider
+        self.httpTransport = httpTransport
     }
 
     /// 注册拦截器
@@ -70,8 +73,6 @@ final class ApiClient: ApiClientProviding {
 
     public func requestRaw<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil,
                                          timeout: TimeInterval = 10) async throws -> T {
-        let httpClient = HTTPClient(timeout: timeout)
-
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
         headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
@@ -79,9 +80,9 @@ final class ApiClient: ApiClientProviding {
 
         return try await executeRequest(
             request: request,
-            requestUrl: url,
             endpoint: rawEndpoint,
-            httpClient: httpClient
+            timeout: timeout,
+            trustedSSLDomain: nil
         )
     }
 
@@ -123,15 +124,14 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - Private Methods
 
-    /// 创建 HTTPClient
-    /// Create HTTPClient with appropriate configuration
-    private func createHTTPClient(timeout: TimeInterval) async -> HTTPClient {
-        if let connectionUrl = await connectionProvider.getCurrentConnectionUrl(),
-           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
-           let url = URL(string: connectionUrl.url) {
-            return HTTPClient(timeout: timeout, trustedSSLDomain: url.host)
+    private func trustedSSLDomainForCurrentConnection() async -> String? {
+        guard let connectionUrl = await connectionProvider.getCurrentConnectionUrl(),
+              connectionUrl.type == .custom_domain,
+              connectionUrl.url.hasPrefix("https://"),
+              let url = URL(string: connectionUrl.url) else {
+            return nil
         }
-        return HTTPClient(timeout: timeout)
+        return url.host
     }
 
     /// 解析 Endpoint 信息
@@ -219,9 +219,7 @@ final class ApiClient: ApiClientProviding {
                                                    resolved: (name: String, method: String, version: Int, parameters: ApiParameters, apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool),
                                                    apiUrl: URL, headers: [String: String]?,
                                                    resultType: Value.Type = Value.self) async throws -> Value {
-        let httpClient = await createHTTPClient(timeout: endpoint.timeout)
         var request: URLRequest
-        var requestUrl: URL = apiUrl
 
         // 构建基础参数
         var parameters = resolved.parameters
@@ -250,7 +248,6 @@ final class ApiClient: ApiClientProviding {
             guard let url = components.url else {
                 throw SynologyError.api(.hostNotConfigured)
             }
-            requestUrl = url
             request = URLRequest(url: url)
             request.httpMethod = "GET"
 
@@ -274,9 +271,9 @@ final class ApiClient: ApiClientProviding {
 
         return try await executeRequest(
             request: request,
-            requestUrl: requestUrl,
             endpoint: endpoint,
-            httpClient: httpClient
+            timeout: endpoint.timeout,
+            trustedSSLDomain: await trustedSSLDomainForCurrentConnection()
         )
     }
 
@@ -439,9 +436,9 @@ final class ApiClient: ApiClientProviding {
 
     private func executeRequest<Value: Decodable>(
         request: URLRequest,
-        requestUrl: URL,
         endpoint: ApiEndpoint,
-        httpClient: HTTPClient
+        timeout: TimeInterval,
+        trustedSSLDomain: String?
     ) async throws -> Value {
         var context = RequestContext()
         var currentRequest = request
@@ -449,8 +446,11 @@ final class ApiClient: ApiClientProviding {
         currentRequest = try await applyRequestInterceptors(currentRequest, endpoint: endpoint, context: &context)
 
         do {
-            // 通过 HTTPClient 发送请求（底层自动记录日志）
-            let (data, response) = try await httpClient.send(currentRequest)
+            let (data, response) = try await httpTransport.send(
+                currentRequest,
+                timeout: timeout,
+                trustedSSLDomain: trustedSSLDomain
+            )
             context.duration = Date().timeIntervalSince(context.startTime)
 
             let processed = try await applyResponseInterceptors(.success((data, response)), endpoint: endpoint, context: &context)
@@ -486,7 +486,7 @@ final class ApiClient: ApiClientProviding {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)
             try handleURLError(urlError)
-            throw SynologyError.network(.connectionFailed(underlying: urlError))
+            throw SynologyError.network(.requestFailed(message: urlError.localizedDescription))
         } catch {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
