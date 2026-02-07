@@ -89,7 +89,7 @@ public final class SynologyClient {
         audioStation = AudioStationApi(apiClient: client, storage: storage)
         fileStation = FileStationApi(apiClient: client)
         auth = AuthApi(apiClient: client, storage: storage)
-        client.addInterceptor(LoggerInterceptor(enableLogging: config.enableNetworkLogging))
+
         quickConnect = QuickConnectApi(deviceConnection: connection,
                                        apiClient: client,
                                        pingpong: pingpong,

@@ -68,17 +68,9 @@ final class ApiClient: ApiClientProviding {
         }
     }
 
-    /// 发送原始 HTTP 请求（非 DSM API 场景）
-    /// Send raw HTTP request (non-DSM API scenarios)
-    public func requestRaw<T: Decodable>(
-        url: URL,
-        httpMethod: HTTPMethod = .get,
-        headers: [String: String]? = nil,
-        body: Data? = nil,
-        timeout: TimeInterval = 10
-    ) async throws -> T {
-        let session = URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
-        let httpClient = HTTPClient(session: session)
+    public func requestRaw<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil,
+                                         timeout: TimeInterval = 10) async throws -> T {
+        let httpClient = HTTPClient(timeout: timeout)
 
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
@@ -131,16 +123,15 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - Private Methods
 
-    /// 创建 URLSession
-    /// 创建 URLSession
-    private func createSession(timeout: TimeInterval) async -> URLSession {
+    /// 创建 HTTPClient
+    /// Create HTTPClient with appropriate configuration
+    private func createHTTPClient(timeout: TimeInterval) async -> HTTPClient {
         if let connectionUrl = await connectionProvider.getCurrentConnectionUrl(),
            connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
            let url = URL(string: connectionUrl.url) {
-            return URLSessionFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+            return HTTPClient(timeout: timeout, trustedSSLDomain: url.host)
         }
-
-        return URLSessionFactory.createSession(timeoutIntervalForRequest: timeout)
+        return HTTPClient(timeout: timeout)
     }
 
     /// 解析 Endpoint 信息
@@ -224,13 +215,11 @@ final class ApiClient: ApiClientProviding {
         throw SynologyError.api(.businessError(code: errorCode, message: "errorCode = \(errorCode)"))
     }
 
-    /// 发送 HTTP 请求
     private func sendHttpRequest<Value: Decodable>(endpoint: ApiEndpoint,
                                                    resolved: (name: String, method: String, version: Int, parameters: ApiParameters, apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool),
                                                    apiUrl: URL, headers: [String: String]?,
                                                    resultType: Value.Type = Value.self) async throws -> Value {
-        let session = await createSession(timeout: endpoint.timeout)
-        let httpClient = HTTPClient(session: session)
+        let httpClient = await createHTTPClient(timeout: endpoint.timeout)
         var request: URLRequest
         var requestUrl: URL = apiUrl
 
@@ -458,12 +447,9 @@ final class ApiClient: ApiClientProviding {
         var currentRequest = request
 
         currentRequest = try await applyRequestInterceptors(currentRequest, endpoint: endpoint, context: &context)
-        let finalUrl = currentRequest.url ?? requestUrl
-
-        // 记录请求日志
-        NetworkLogger.logRequest(url: finalUrl, method: currentRequest.httpMethod ?? "GET", headers: currentRequest.allHTTPHeaderFields, body: currentRequest.httpBody)
 
         do {
+            // 通过 HTTPClient 发送请求（底层自动记录日志）
             let (data, response) = try await httpClient.send(currentRequest)
             context.duration = Date().timeIntervalSince(context.startTime)
 
@@ -482,9 +468,6 @@ final class ApiClient: ApiClientProviding {
                 throw SynologyError.network(.invalidResponse)
             }
 
-            NetworkLogger.logResponse(url: finalUrl, statusCode: httpResponse.statusCode, headers: httpResponse.allHeaderFields, data: processedData,
-                                      duration: context.duration ?? 0)
-
             guard (200 ... 299).contains(httpResponse.statusCode) else {
                 throw SynologyError.network(.httpStatus(code: httpResponse.statusCode))
             }
@@ -498,18 +481,15 @@ final class ApiClient: ApiClientProviding {
         } catch let error as SynologyError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
-            NetworkLogger.logError(url: finalUrl, error: error, duration: context.duration ?? 0)
             throw error
         } catch let urlError as URLError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)
-            NetworkLogger.logError(url: finalUrl, error: urlError, duration: context.duration ?? 0)
             try handleURLError(urlError)
             throw SynologyError.network(.connectionFailed(underlying: urlError))
         } catch {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
-            NetworkLogger.logError(url: finalUrl, error: error, duration: context.duration ?? 0)
             throw SynologyError.network(.requestFailed(message: error.localizedDescription))
         }
     }
