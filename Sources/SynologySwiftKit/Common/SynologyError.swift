@@ -104,6 +104,8 @@ extension SynologyError {
     public enum SynologyApiError: Error, LocalizedError {
         /// 操作失败
         case processFail(message: String)
+        /// 幂等成功（例如重复 pin）
+        case idempotentSuccess(message: String)
         /// 会话无效/过期
         case invalidSession(code: Int, message: String)
         /// API 不存在
@@ -115,6 +117,8 @@ extension SynologyError {
 
         public var errorDescription: String? {
             switch self {
+            case let .idempotentSuccess(message):
+                return "Idempotent success: \(message)"
             case let .invalidSession(_, message):
                 return "Session expired: \(message)"
             case let .apiNotExists(name):
@@ -126,12 +130,6 @@ extension SynologyError {
             case let .processFail(message):
                 return "process fail: \(message)"
             }
-        }
-
-        /// 是否为会话过期错误
-        public var isSessionExpired: Bool {
-            if case .invalidSession = self { return true }
-            return false
         }
     }
 }
@@ -168,39 +166,27 @@ extension SynologyError {
         public var errorDescription: String? {
             switch self {
             case .invalidCredentials:
-                return NSLocalizedString(
-                    "NO_SUCH_ACCOUNT_OR_INCORRECT_PASSWORD", comment: "Invalid credentials")
+                return Localization.text("NO_SUCH_ACCOUNT_OR_INCORRECT_PASSWORD")
             case .accountDisabled:
-                return NSLocalizedString("DISABLED_ACCOUNT", comment: "Account disabled")
+                return Localization.text("DISABLED_ACCOUNT")
             case .permissionDenied:
-                return NSLocalizedString("DENIED_PERMISSION", comment: "Permission denied")
+                return Localization.text("DENIED_PERMISSION")
             case .otpRequired:
-                return NSLocalizedString("AUTHENTICATION_CODE_REQUIRED", comment: "OTP required")
+                return Localization.text("AUTHENTICATION_CODE_REQUIRED")
             case .otpFailed:
-                return NSLocalizedString("AUTHENTICATION_CODE_FAILED", comment: "OTP failed")
+                return Localization.text("AUTHENTICATION_CODE_FAILED")
             case .otpEnforced:
-                return NSLocalizedString(
-                    "ENFORCE_AUTHENTICATION_WITH_CODE", comment: "OTP enforced")
+                return Localization.text("ENFORCE_AUTHENTICATION_WITH_CODE")
             case .ipBlocked:
-                return NSLocalizedString("BLOCKED_IP_SOURCE", comment: "IP blocked")
+                return Localization.text("BLOCKED_IP_SOURCE")
             case .passwordExpiredCannotChange:
-                return NSLocalizedString(
-                    "EXPIRED_PASSWORD_CANNOT_CHANGE", comment: "Password expired")
+                return Localization.text("EXPIRED_PASSWORD_CANNOT_CHANGE")
             case .passwordExpired:
-                return NSLocalizedString("EXPIRED_PASSWORD", comment: "Password expired")
+                return Localization.text("EXPIRED_PASSWORD")
             case .passwordMustChange:
-                return NSLocalizedString(
-                    "PASSWORD_MUST_BE_CHANGED", comment: "Password must change")
+                return Localization.text("PASSWORD_MUST_BE_CHANGED")
             case let .undefined(_, message):
                 return message
-            }
-        }
-
-        /// 是否需要两步验证
-        public var requiresOTP: Bool {
-            switch self {
-            case .otpRequired, .otpEnforced: return true
-            default: return false
             }
         }
 
@@ -269,21 +255,5 @@ extension SynologyError {
                 return "Connection not configured"
             }
         }
-    }
-}
-
-// MARK: - Convenience Extensions
-
-extension SynologyError {
-    /// 是否为会话过期错误
-    public var isSessionExpired: Bool {
-        if case let .api(error) = self, error.isSessionExpired { return true }
-        return false
-    }
-
-    /// 是否需要两步验证
-    public var requiresOTP: Bool {
-        if case let .auth(error) = self, error.requiresOTP { return true }
-        return false
     }
 }

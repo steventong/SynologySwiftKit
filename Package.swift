@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "SynologySwiftKit",
+    defaultLocalization: "en",
     platforms: [
         .iOS(.v13),
         .macOS(.v10_15)
@@ -25,6 +26,9 @@ let package = Package(
             name: "SynologySwiftKit",
             dependencies: [
                 .product(name: "SwiftHttpClient", package: "SwiftHttpClient")
+            ],
+            resources: [
+                .process("Resources")
             ]
         ),
         .testTarget(

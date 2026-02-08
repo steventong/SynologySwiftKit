@@ -29,7 +29,7 @@ public final class PinApi {
 
     /// 固定项目（通用方法）
     /// Pin an item
-    /// - Throws: SynologyError.api(.pinFailed) when operation fails
+    /// - Throws: SynologyError.api(.idempotentSuccess) when item already pinned
     public func pin(type: PinType, name: String, criteria: PinCriteria) async throws -> PinItem {
         let item: [[String: Any]] = [
             [
@@ -42,13 +42,25 @@ public final class PinApi {
         let itemsJSON = try JSONSerialization.data(withJSONObject: item)
         let itemsString = String(data: itemsJSON, encoding: .utf8) ?? "[]"
 
-        let result: PinOperationResult = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "pin", httpMethod: .post, parameters: ["items": itemsString])
-        )
-        guard let pinItem = result.items.first else {
-            throw SynologyError.api(.processFail(message: "pin failed"))
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "pin", httpMethod: .post, parameters: ["items": itemsString])
+        let response: SynologyResponse<PinOperationResult> = try await apiClient.request(api, rawResponse: true)
+
+        if response.success {
+            guard let result = response.data, let pinItem = result.items.first else {
+                throw SynologyError.api(.processFail(message: "pin failed"))
+            }
+            return pinItem
         }
-        return pinItem
+
+        if let error = response.error {
+            // Pin API: 1002 + 1006 means "already pinned", treat as idempotent success.
+            if error.code == 1002, error.errors.contains(1006) {
+                throw SynologyError.api(.idempotentSuccess(message: "pin already exists"))
+            }
+            throw error.toSynologyError()
+        }
+
+        throw SynologyError.api(.processFail(message: "pin failed"))
     }
 
     /// 取消固定
