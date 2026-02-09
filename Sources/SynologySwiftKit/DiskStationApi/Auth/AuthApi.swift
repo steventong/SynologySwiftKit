@@ -18,27 +18,22 @@ public actor AuthApi {
 
     public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         Logger.debug("send request: userLogin, \(server), \(username)")
-
         let deviceName = getDeviceName()
         let deviceId = getDeviceId()
 
         do {
-            let authResult: AuthResult = try await apiClient.request(
-                ApiEndpoint(
-                    api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
-                    parameters: [
-                        "account": username,
-                        "passwd": password,
-                        "format": "cookie",
-                        "otp_code": otpCode ?? "",
-                        "enable_syno_token": "no",
-                        "enable_device_token": otpCode != nil ? "yes" : "no",
-                        "device_name": deviceName,
-                        "device_id": deviceId ?? "",
-                        "session": "AudioStation",
-                    ], timeout: 10),
-                resultType: AuthResult.self
-            )
+            let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
+                                  parameters: ["account": username,
+                                               "passwd": password,
+                                               "format": "cookie",
+                                               "otp_code": otpCode ?? "",
+                                               "enable_syno_token": "no",
+                                               "enable_device_token": otpCode != nil ? "yes" : "no",
+                                               "device_name": deviceName,
+                                               "device_id": deviceId ?? "",
+                                               "session": "AudioStation"],
+                                  timeout: 10)
+            let authResult: AuthResult = try await apiClient.request(api, resultType: AuthResult.self)
             return handleAuthResult(authResult: authResult)
         } catch let SynologyError.api(.invalidSession(code, msg)) {
             throw SynologyError.auth(.undefined(code: code, message: msg))
@@ -47,8 +42,7 @@ public actor AuthApi {
         } catch let error as SynologyError {
             throw error
         } catch {
-            throw SynologyError.auth(
-                .undefined(code: -1, message: "login failed: \(error.localizedDescription)"))
+            throw SynologyError.auth(.undefined(code: -1, message: "login failed: \(error.localizedDescription)"))
         }
     }
 
