@@ -78,12 +78,10 @@ final class ApiClient: ApiClientProviding {
         headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         request.httpBody = body
 
-        return try await executeRequest(
-            request: request,
-            endpoint: rawEndpoint,
-            timeout: timeout,
-            trustedSSLDomain: nil
-        )
+        return try await executeRequest(request: request,
+                                        endpoint: rawEndpoint,
+                                        timeout: timeout,
+                                        trustedSSLDomain: nil)
     }
 
     /// 发送请求（无返回值）

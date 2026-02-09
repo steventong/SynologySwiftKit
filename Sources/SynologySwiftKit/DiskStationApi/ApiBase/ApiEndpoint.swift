@@ -19,13 +19,13 @@ public enum ApiParameterValue: Sendable {
 
     var stringValue: String {
         switch self {
-        case .string(let value):
+        case let .string(value):
             return value
-        case .int(let value):
+        case let .int(value):
             return String(value)
-        case .bool(let value):
+        case let .bool(value):
             return value ? "true" : "false"
-        case .double(let value):
+        case let .double(value):
             return String(value)
         }
     }

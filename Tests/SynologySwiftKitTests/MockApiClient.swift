@@ -19,7 +19,7 @@ final class MockApiClient: ApiClientProviding {
 
     init() {
         // 简单的 Mock 连接提供者
-        self.connectionProvider = DeviceConnection(storage: MockKeyValueStorage())
+        connectionProvider = DeviceConnection(storage: MockKeyValueStorage())
     }
 
     func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T {
@@ -38,8 +38,8 @@ final class MockApiClient: ApiClientProviding {
         }
     }
 
-    func requestResult<T>(_ endpoint: ApiEndpoint) async -> Result<T, Error> where T : Decodable {
-         if let error = mockError {
+    func requestResult<T>(_ endpoint: ApiEndpoint) async -> Result<T, Error> where T: Decodable {
+        if let error = mockError {
             return .failure(error)
         }
         if let response = mockResponse as? T {
@@ -59,13 +59,11 @@ final class MockApiClient: ApiClientProviding {
         return URL(string: "https://mockApi.com")!
     }
 
-    func requestRaw<T>(
-        url: URL,
-        httpMethod: HTTPMethod,
-        headers: [String : String]?,
-        body: Data?,
-        timeout: TimeInterval
-    ) async throws -> T where T : Decodable {
+    func requestRaw<T>(url: URL,
+                       httpMethod: HTTPMethod,
+                       headers: [String: String]?,
+                       body: Data?,
+                       timeout: TimeInterval) async throws -> T where T: Decodable {
         if let error = mockError {
             throw error
         }

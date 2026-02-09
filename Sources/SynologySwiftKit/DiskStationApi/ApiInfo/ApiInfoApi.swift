@@ -40,6 +40,13 @@ public actor ApiInfoApi: ApiInfoProviding {
     }
 
     public func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
+        if apiName == SynologyApi.Core.INFO.name {
+            return ApiInfoNode(path: "entry.cgi",
+                               minVersion: 1,
+                               maxVersion: 1,
+                               requestFormat: nil)
+        }
+
         if cachedApiInfo.isEmpty, let cached = getApiInfoFromStorage() {
             cachedApiInfo = cached
             Logger.debug("ApiInfoApi#getApiInfoByApiName load from cache: \(cached.count)")
@@ -61,7 +68,7 @@ public actor ApiInfoApi: ApiInfoProviding {
             return true
         }
 
-        cachedApiInfo = try await queryApiInfoFromDsm()
+        cachedApiInfo = try await queryApiInfo()
         Logger.debug("ApiInfoApi#checkSynologyApiInfo from api: \(cachedApiInfo.count)")
 
         if updateCache == true, cachedApiInfo.isEmpty == false {
@@ -72,11 +79,11 @@ public actor ApiInfoApi: ApiInfoProviding {
 }
 
 extension ApiInfoApi {
-    private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
-        let apiInfo: [String: ApiInfoNode] = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.Core.INFO, method: "query", parameters: ["query": "all"]),
-            resultType: [String: ApiInfoNode].self
+    private func queryApiInfo() async throws -> [String: ApiInfoNode] {
+        let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query", parameters:
+            ["query": "all"]
         )
+        let apiInfo = try await apiClient.request(api, resultType: [String: ApiInfoNode].self)
         return apiInfo
     }
 
