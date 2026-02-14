@@ -39,9 +39,7 @@ public enum SynologyError: Error, LocalizedError {
     /// Authentication error (with error code, use authMessage(forCode:) for localized message)
     case auth(code: Int, message: String)
 
-    /// 连接不可用（QuickConnect 失败、地址不可达、未配置等）
-    /// Connection unavailable (QuickConnect failure, address unreachable, not configured, etc.)
-    case connectionUnavailable(message: String)
+
 
     // MARK: - LocalizedError
 
@@ -55,8 +53,7 @@ public enum SynologyError: Error, LocalizedError {
             return "Session expired: \(message)"
         case let .auth(_, message):
             return message
-        case let .connectionUnavailable(message):
-            return message
+
         }
     }
 }

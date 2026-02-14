@@ -34,7 +34,7 @@ public actor QuickConnectApi {
 
         guard let serverInfo else {
             Logger.error("QuickConnectApi.getDeviceConnectionByQuickConnectId query device serverInfo failed")
-            throw SynologyError.connectionUnavailable(message: "QuickConnect server info not available")
+            throw SynologyError.network(message: "QuickConnect server info not available")
         }
 
         // 从站点返回中解析设备连接信息
@@ -49,7 +49,7 @@ public actor QuickConnectApi {
                                                         enableHttps: enableHttps)
 
         guard let connectionUrl else {
-            throw SynologyError.connectionUnavailable(message: "Failed to establish QuickConnect connection")
+            throw SynologyError.network(message: "Failed to establish QuickConnect connection")
         }
 
         if save == true {
@@ -66,7 +66,7 @@ public actor QuickConnectApi {
 extension QuickConnectApi {
     /// 判断是否是 QuickConnect ID
     /// Check if the server string is a QuickConnect ID
-    func isQuickConnectId(server: String) -> Bool {
+    nonisolated func isQuickConnectId(server: String) -> Bool {
         return !server.contains(".")
     }
 
@@ -247,7 +247,7 @@ private extension QuickConnectApi {
         let synologyServerUrl = "https://\(synologyServer)/Serv.php"
 
         guard let url = URL(string: synologyServerUrl) else {
-            throw SynologyError.connectionUnavailable(message: "Invalid QuickConnect URL")
+            throw SynologyError.network(message: "Invalid QuickConnect URL")
         }
 
         let body = try JSONEncoder().encode(requestParams)

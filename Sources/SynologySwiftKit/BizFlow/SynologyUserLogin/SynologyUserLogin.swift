@@ -98,7 +98,7 @@ private extension SynologyUserLogin {
         // 获取连接地址
         // Fetch connection URL
         guard let connection = await fetchConnectionUrl(server: server, enableHttps: enableHttps) else {
-            continuation.yield(.failed(message: SynologyError.connectionUnavailable(message: "Device connection not available").localizedDescription))
+            continuation.yield(.failed(message: SynologyError.network(message: "Device connection not available").localizedDescription))
             continuation.finish()
             return
         }
@@ -183,7 +183,7 @@ private extension SynologyUserLogin {
             server: server,
             enableHttps: enableHttps
         ) else {
-            continuation.yield(.failed(message: SynologyError.connectionUnavailable(message: "Device connection not available").localizedDescription))
+            continuation.yield(.failed(message: SynologyError.network(message: "Device connection not available").localizedDescription))
             continuation.finish()
             return
         }

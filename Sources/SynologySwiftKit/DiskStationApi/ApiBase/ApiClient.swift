@@ -146,7 +146,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         guard let apiInfoProvider else {
-            throw SynologyError.connectionUnavailable(message: "Host not configured")
+                        throw SynologyError.network(message: "Host not configured")
         }
 
         // 获取 API 信息
@@ -235,7 +235,7 @@ final class ApiClient: ApiClientProviding {
         switch endpoint.httpMethod {
         case .get:
             guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-                throw SynologyError.connectionUnavailable(message: "Host not configured")
+                            throw SynologyError.network(message: "Host not configured")
             }
             components.queryItems = parameters.sorted {
                 if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") { return false }
@@ -244,7 +244,7 @@ final class ApiClient: ApiClientProviding {
             }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
             guard let url = components.url else {
-                throw SynologyError.connectionUnavailable(message: "Host not configured")
+                            throw SynologyError.network(message: "Host not configured")
             }
             request = URLRequest(url: url)
             request.httpMethod = "GET"
@@ -281,7 +281,7 @@ final class ApiClient: ApiClientProviding {
            let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
-        throw SynologyError.connectionUnavailable(message: "Host not configured")
+                    throw SynologyError.network(message: "Host not configured")
     }
 
     /// 构建带查询参数的 URL
@@ -305,7 +305,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-            throw SynologyError.connectionUnavailable(message: "Host not configured")
+                        throw SynologyError.network(message: "Host not configured")
         }
 
         components.queryItems = parameters.sorted {
@@ -315,7 +315,7 @@ final class ApiClient: ApiClientProviding {
         }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
         guard let requestUrl = components.url else {
-            throw SynologyError.connectionUnavailable(message: "Host not configured")
+                        throw SynologyError.network(message: "Host not configured")
         }
 
         return requestUrl
