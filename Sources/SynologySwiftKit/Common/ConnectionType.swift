@@ -8,6 +8,7 @@
 import Foundation
 
 public enum ConnectionType: String, CaseIterable, Sendable {
+    
     case lan
     case wan
     case lanv6
@@ -31,13 +32,21 @@ public enum ConnectionType: String, CaseIterable, Sendable {
 
     case custom_domain
 
+    /// 连接类型优先级（数值越小优先级越高）
+    /// Connection type priority (lower number = higher priority)
+    /// - lan: 局域网直连，最低延迟 / LAN direct, lowest latency
+    /// - lanv6: 局域网 IPv6 直连 / LAN IPv6 direct
+    /// - ddns: 动态 DNS 域名，稳定且自动解析 / DDNS hostname, stable with auto resolution
+    /// - wan: 公网 IPv4 直连 / WAN IPv4 direct
+    /// - wanv6: 公网 IPv6，地址可能不稳定 / WAN IPv6, address may be unstable
+    /// - relay: 中继转发，最后手段 / Relay forwarding, last resort
     private var priority: Int {
         switch self {
         case .lan: return 1
-        case .wan: return 2
-        case .lanv6: return 3
-        case .wanv6: return 4
-        case .ddns: return 5
+        case .lanv6: return 2
+        case .ddns: return 3
+        case .wan: return 4
+        case .wanv6: return 5
         case .relay: return 6
         case .custom_domain: return 99
         }
