@@ -148,19 +148,22 @@ public actor DeviceConnection: DeviceConnectionProviding {
      */
     public func removeLoginSession() {
         session = nil
-        loginServer = nil
+        // loginServer = nil // 保留内存中的 Login Preferences
         connection = nil
 
         // 清除 Keychain 中的 Session 和 Connection 信息
         keychainStorage.removeSessionInfo()
         keychainStorage.removeConnectionInfo()
-        keychainStorage.removeLoginPreferences()
+        
+        // ! 重要：保留 Login Preferences (Server, HTTPS) 以便下次登录回显
+        // ! Important: Retain Login Preferences (Server, HTTPS) for next login display
+        // keychainStorage.removeLoginPreferences()
 
-        // 同时清除 Keychain 凭据
-        // Also remove Keychain credentials
+        // 同时清除 Keychain 凭据 (密码)
+        // Also remove Keychain credentials (password)
         keychainStorage.removeCredentials()
 
-        Logger.info("[DeviceConnection]removeLoginSession from storage")
+        Logger.info("[DeviceConnection]removeLoginSession from storage (retaining preferences)")
     }
 
     /**
