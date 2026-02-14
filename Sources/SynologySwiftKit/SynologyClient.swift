@@ -70,7 +70,10 @@ public final class SynologyClient {
     public init(config: SynologyConfig = .default) {
         self.config = config
 
-        let connection = DeviceConnection()
+        let storage = UserDefaultsStorage()
+        let keychainStorage = KeychainStorage()
+
+        let connection = DeviceConnection(storage: storage, keychainStorage: keychainStorage)
         let client = ApiClient(connectionProvider: connection)
         let info = ApiInfoApi(apiClient: client, connectionProvider: connection, cacheValidity: config.apiInfoCacheValidity)
         let pingpong = PingPong(apiClient: client, timeout: config.pingpongTimeout)
@@ -83,12 +86,12 @@ public final class SynologyClient {
         // 注入 API 信息提供者
         client.apiInfoProvider = info
 
-        let storage = UserDefaultsStorage()
+
 
         // 初始化各个 API 模块
         audioStation = AudioStationApi(apiClient: client, storage: storage)
         fileStation = FileStationApi(apiClient: client)
-        auth = AuthApi(apiClient: client, storage: storage)
+        auth = AuthApi(apiClient: client, deviceConnection: connection)
 
         quickConnect = QuickConnectApi(deviceConnection: connection,
                                        apiClient: client,

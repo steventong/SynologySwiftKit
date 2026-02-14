@@ -84,20 +84,4 @@ public final class AudioStationApi {
 
 // MARK: - Internal Helpers
 
-extension AudioStationApi {
 
-    /// 获取当前会话 ID
-    /// Get current session ID from UserDefaults
-    /// - Throws: SynologyError.api(.invalidSession) if session not exist
-    /// - Returns: Session ID string
-    func getSessionId() throws -> String {
-        guard
-            let sid = storage.string(
-                forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-        else {
-            throw SynologyError.api(
-                .invalidSession(code: 0, message: "invalid session, session not exist"))
-        }
-        return sid
-    }
-}

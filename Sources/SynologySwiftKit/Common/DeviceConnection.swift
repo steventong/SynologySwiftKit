@@ -16,14 +16,21 @@ public actor DeviceConnection: DeviceConnectionProviding {
     /// 注入的存储依赖
     private let storage: KeyValueStorage
 
+    /// Keychain 安全存储（用于凭据）
+    /// Keychain secure storage (for credentials)
+    private let keychainStorage: KeychainStorage
+
     private let ONE_WEEK_SECONDS = 604800
     private let ONE_YEAR_SECONDS = 31536000
 
     /// 初始化设备连接管理器
     /// Initialize device connection manager
-    /// - Parameter storage: 键值存储实现（默认 UserDefaults）
-    public init(storage: KeyValueStorage = UserDefaultsStorage()) {
+    /// - Parameters:
+    ///   - storage: 键值存储实现（默认 UserDefaults）/ Key-value storage implementation
+    ///   - keychainStorage: Keychain 存储实现 / Keychain storage implementation
+    public init(storage: KeyValueStorage = UserDefaultsStorage(), keychainStorage: KeychainStorage = KeychainStorage()) {
         self.storage = storage
+        self.keychainStorage = keychainStorage
     }
 
     /// 获取当前URL
@@ -32,10 +39,9 @@ public actor DeviceConnection: DeviceConnectionProviding {
             return connection
         }
 
-        if let connectionUrl = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName),
-           let typeRawValue = storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName),
-           let connectionType = ConnectionType(rawValue: typeRawValue) {
-            let current = (connectionType, connectionUrl)
+        if let connectionInfo = keychainStorage.getConnectionInfo(),
+           let connectionType = ConnectionType(rawValue: connectionInfo.typeString) {
+            let current = (connectionType, connectionInfo.url)
             connection = current
             Logger.info("[DeviceConnection]get connection-url from storage, connection url = \(current)")
             return current
@@ -48,8 +54,10 @@ public actor DeviceConnection: DeviceConnectionProviding {
     }
 
     /// 获取当前用户名
+    /// 获取当前用户名
     public func getSessionUsername() -> String? {
-        return storage.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
+        // 从 Keychain Session Info 中获取
+        return keychainStorage.getSessionInfo()?.username
     }
 
     /// 获取登录session
@@ -58,14 +66,19 @@ public actor DeviceConnection: DeviceConnectionProviding {
             return session
         }
 
-        let sid = storage.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-        let sidExpireAt = storage.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName) as? Date
-
-        let did = storage.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-        let didExpireAt = storage.object(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName) as? Date
-
-        if let sid, let sidExpireAt {
-            let current = (sid, sidExpireAt, did, didExpireAt)
+        // 从 Keychain 读取 Session Info
+        if let sessionInfo = keychainStorage.getSessionInfo() {
+            // Keychain 中没有存储过期时间，为了兼容现有接口：
+            // Session 过期时间只是为了本地判断，其实最终由 API 返回决定。
+            // 我们可以设置一个较长的过期时间，或依赖 API 报错来重新登录。
+            // 这里为了 logic continuity，重新计算过期时间（虽然不准确，但 Session 有效性最终由服务端决定）
+            // 或者，我们在 KeychainStorage 中如果需要存过期时间，也得改结构。
+            // 鉴于用户只要求存 sid/did，我们假设每次启动都在“有效期内”，直到 API 报错 4xx。
+            
+            let sidExpireAt = Date().addingTimeInterval(TimeInterval(ONE_WEEK_SECONDS))
+            let didExpireAt = Date().addingTimeInterval(TimeInterval(ONE_YEAR_SECONDS))
+            
+            let current = (sessionInfo.sid, sidExpireAt, Optional(sessionInfo.did), Optional(didExpireAt))
             session = current
             return current
         }
@@ -80,9 +93,8 @@ public actor DeviceConnection: DeviceConnectionProviding {
             return loginServer
         }
 
-        if let server = storage.string(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName) {
-            let isEnableHttps = storage.bool(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
-            let current = (server, isEnableHttps)
+        if let prefs = keychainStorage.getLoginPreferences() {
+            let current = (prefs.server, prefs.isEnableHttps)
             loginServer = current
             return current
         }
@@ -100,6 +112,10 @@ public actor DeviceConnection: DeviceConnectionProviding {
         if let did {
             let didExpireAt = addSecondsFromNow(seconds: ONE_YEAR_SECONDS)
             session = (sid, sidExpireAt, did, didExpireAt)
+            
+            // 持久化保存 Device ID (独立于 Session)
+            // Persist Device ID (independent of session)
+            keychainStorage.saveDeviceId(did)
         } else {
             session = (sid, sidExpireAt, nil, nil)
         }
@@ -109,19 +125,10 @@ public actor DeviceConnection: DeviceConnectionProviding {
         }
         Logger.debug("update login session, session: \(currentSession)")
 
-        storage.set(sid, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-        storage.set(currentSession.sidExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
-
-        if let did {
-            storage.set(did, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-            storage.set(currentSession.didExpireAt, forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
-        } else {
-            storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-            storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
-        }
-
-        storage.set(username, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
-        Logger.info("[DeviceConnection]updateLoginSession saved to storage")
+        // 保存 Session 到 Keychain
+        keychainStorage.saveSessionInfo(sid: sid, did: did ?? "", username: username)
+        
+        Logger.info("[DeviceConnection]updateLoginSession saved to storage (Keychain)")
     }
 
     /**
@@ -130,8 +137,8 @@ public actor DeviceConnection: DeviceConnectionProviding {
     public func updateCurrentConnectionUrl(type: ConnectionType, url: String) {
         connection = (type, url)
 
-        storage.set(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-        storage.set(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+        // 保存 Connection Info 到 Keychain
+        keychainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
 
         Logger.info("[DeviceConnection]update Connection to storage, url = \(url)")
     }
@@ -144,17 +151,14 @@ public actor DeviceConnection: DeviceConnectionProviding {
         loginServer = nil
         connection = nil
 
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
+        // 清除 Keychain 中的 Session 和 Connection 信息
+        keychainStorage.removeSessionInfo()
+        keychainStorage.removeConnectionInfo()
+        keychainStorage.removeLoginPreferences()
 
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
-
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID.keyName)
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
+        // 同时清除 Keychain 凭据
+        // Also remove Keychain credentials
+        keychainStorage.removeCredentials()
 
         Logger.info("[DeviceConnection]removeLoginSession from storage")
     }
@@ -165,8 +169,8 @@ public actor DeviceConnection: DeviceConnectionProviding {
     public func updateLoginPreferences(server: String, isEnableHttps: Bool) {
         loginServer = (server, isEnableHttps)
 
-        storage.set(server, forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
-        storage.set(isEnableHttps, forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
+        // 保存 Login Preferences 到 Keychain
+        keychainStorage.saveLoginPreferences(server: server, isEnableHttps: isEnableHttps)
 
         Logger.info("[DeviceConnection]updateLoginPreferences to storage")
     }
@@ -176,9 +180,9 @@ public actor DeviceConnection: DeviceConnectionProviding {
      */
     public func removeCurrentConnectionUrl() {
         connection = nil
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-        storage.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-        Logger.info("[DeviceConnection]removeCurrentConnectionUrl from storage")
+        connection = nil
+        keychainStorage.removeConnectionInfo()
+        Logger.info("[DeviceConnection]removeCurrentConnectionUrl from storage (Keychain)")
     }
 
     /**
@@ -189,5 +193,44 @@ public actor DeviceConnection: DeviceConnectionProviding {
             return newDate
         }
         return Date()
+    }
+
+    // MARK: - Credential Management
+
+    /// 保存登录凭据到 Keychain
+    /// Save login credentials to Keychain
+    public func saveCredentials(server: String, username: String, password: String) {
+        keychainStorage.saveCredentials(server: server, username: username, password: password)
+    }
+
+    /// 读取已保存的登录凭据
+    /// Read saved login credentials
+    public func getCredentials() -> (server: String, username: String, password: String)? {
+        return keychainStorage.getCredentials()
+    }
+
+    /// 删除已保存的登录凭据
+    /// Remove saved login credentials
+    public func removeCredentials() {
+        keychainStorage.removeCredentials()
+    }
+    
+    /// 获取持久化的 Device ID (用于登录参数)
+    /// Get persistent Device ID (for login parameters)
+    public func getPersistentDeviceId() -> String? {
+        keychainStorage.getDeviceId()
+    }
+    
+    // MARK: - Device Name
+    
+    /// 获取设备名称 (持久化)
+    /// Get Device Name (Persistent)
+    public func getDeviceName() -> String {
+        if let name = keychainStorage.getDeviceName() {
+            return name
+        }
+        let name = UUID().uuidString
+        keychainStorage.saveDeviceName(name)
+        return name
     }
 }

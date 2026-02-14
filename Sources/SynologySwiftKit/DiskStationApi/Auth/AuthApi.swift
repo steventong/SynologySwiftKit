@@ -9,17 +9,18 @@ import Foundation
 
 public actor AuthApi {
     private let apiClient: ApiClientProviding
-    private let storage: KeyValueStorage
+    private let deviceConnection: DeviceConnectionProviding
 
-    public init(apiClient: ApiClientProviding, storage: KeyValueStorage = UserDefaultsStorage()) {
+    public init(apiClient: ApiClientProviding, deviceConnection: DeviceConnectionProviding) {
         self.apiClient = apiClient
-        self.storage = storage
+        self.deviceConnection = deviceConnection
     }
 
     public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         Logger.debug("send request: userLogin, \(server), \(username)")
-        let deviceName = getDeviceName()
-        let deviceId = getDeviceId()
+
+        let deviceName = await deviceConnection.getDeviceName()
+        let deviceId = await deviceConnection.getPersistentDeviceId()
 
         do {
             let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
@@ -54,28 +55,8 @@ public actor AuthApi {
 }
 
 extension AuthApi {
-    public func getDeviceName() -> String {
-        let deviceNameKey = UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_NAME.keyName
-        if let deviceName = storage.string(forKey: deviceNameKey) {
-            return deviceName
-        }
-        let deviceName = UUID().uuidString
-        storage.set(deviceName, forKey: deviceNameKey)
-        return deviceName
-    }
-
-    private func getDeviceId() -> String? {
-        storage.string(forKey: UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_ID.keyName)
-    }
-
-    private func setDeviceId(deviceId: String) {
-        storage.set(deviceId, forKey: UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_ID.keyName)
-    }
-
     private func handleAuthResult(authResult: AuthResult) -> AuthResult {
-        if let did = authResult.did {
-            setDeviceId(deviceId: did)
-        }
+        // DeviceConnection will handle saving the new DID if present
         Logger.info("authResult: \(authResult)")
         return authResult
     }

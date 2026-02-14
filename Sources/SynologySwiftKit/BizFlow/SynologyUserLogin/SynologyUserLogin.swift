@@ -39,7 +39,7 @@ public actor SynologyUserLogin {
         quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection,
                                           apiClient: apiClient,
                                           pingpong: pingpong)
-        authApi = AuthApi(apiClient: apiClient)
+        authApi = AuthApi(apiClient: apiClient, deviceConnection: deviceConnection)
         audioStationApi = AudioStationApi(apiClient: apiClient)
     }
 
@@ -53,11 +53,12 @@ public actor SynologyUserLogin {
     ///   - username: 用户名
     ///   - password: 密码
     ///   - otpCode: 可选的 OTP 代码
+    ///   - shouldSavePassword: 是否保存密码（默认为 true）
     /// - Returns: AsyncStream 返回登录进度
-    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil) -> AsyncStream<LoginProgress> {
+    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<LoginProgress> {
         AsyncStream { continuation in
             Task {
-                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, continuation: continuation)
+                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, continuation: continuation)
             }
         }
     }
@@ -87,7 +88,7 @@ public actor SynologyUserLogin {
 private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
-    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?,
+    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool,
                               continuation: AsyncStream<LoginProgress>.Continuation) async {
         continuation.yield(.connecting)
 
@@ -128,6 +129,14 @@ private extension SynologyUserLogin {
             // 登录成功，保存会话
             // Login succeeded, save session
             await deviceConnection.updateLoginSession(username: username, sid: authResult.sid, did: authResult.did)
+
+            // 登录成功，根据用户选择保存或清除凭据
+            // Login succeeded, save or remove credentials based on user choice
+            if shouldSavePassword {
+                await deviceConnection.saveCredentials(server: server, username: username, password: password)
+            } else {
+                await deviceConnection.removeCredentials()
+            }
 
             Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
 
@@ -194,6 +203,9 @@ private extension SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, API info fetch failed: \(error)")
+            // 如果连 API Info 都获取失败，说明不仅仅是 Session 失效，可能是网络或服务问题
+            // 但也有可能仅仅是 Session 失效导致 API 访问被拒？通常 API Info 不需要 Session
+            // 这里为了保险，暂不自动重登，直接报错
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
             return
@@ -222,7 +234,27 @@ private extension SynologyUserLogin {
             continuation.finish()
 
         } catch {
-            Logger.error("SynologyUserLogin#performSessionLogin, session verification failed: \(error)")
+            Logger.warn("SynologyUserLogin#performSessionLogin, session verification failed: \(error)")
+
+            // Session 失效，尝试使用保存的凭据自动重登
+            // Session expired, try auto re-login with saved credentials
+            if let credentials = await deviceConnection.getCredentials(), credentials.server == server, credentials.username == username {
+                Logger.info("SynologyUserLogin#performSessionLogin, attempting auto re-login with saved credentials")
+
+                await performPasswordLogin(server: server,
+                                           enableHttps: enableHttps,
+                                           username: username,
+                                           password: credentials.password,
+
+                                           otpCode: nil,
+                                           shouldSavePassword: true, // 自动重登意味着之前用户选择保存了密码，所以继续保存
+                                           continuation: continuation
+                )
+                return
+            }
+
+            // 无凭据或不匹配，由用户手动登录
+            // No credentials or mismatch, manual login required
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
         }

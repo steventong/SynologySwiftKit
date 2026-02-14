@@ -53,4 +53,26 @@ public protocol DeviceConnectionProviding {
     /// 移除登录会话
     /// Remove login session
     func removeLoginSession() async
+
+    // MARK: - Credential Methods
+
+    /// 保存登录凭据到 Keychain
+    /// Save login credentials to Keychain
+    func saveCredentials(server: String, username: String, password: String) async
+
+    /// 读取已保存的登录凭据（供 App 登录页展示）
+    /// Read saved login credentials (for App login page display)
+    func getCredentials() async -> (server: String, username: String, password: String)?
+
+    /// 删除已保存的登录凭据
+    /// Remove saved login credentials
+    func removeCredentials() async
+    
+    /// 获取持久化的 Device ID (用于登录参数)
+    /// Get persistent Device ID (for login parameters)
+    func getPersistentDeviceId() async -> String?
+    
+    /// 获取设备名称 (持久化)
+    /// Get Device Name (Persistent)
+    func getDeviceName() async -> String
 }
