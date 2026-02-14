@@ -159,11 +159,11 @@ public actor DeviceConnection: DeviceConnectionProviding {
         // ! Important: Retain Login Preferences (Server, HTTPS) for next login display
         // keychainStorage.removeLoginPreferences()
 
-        // 同时清除 Keychain 凭据 (密码)
-        // Also remove Keychain credentials (password)
-        keychainStorage.removeCredentials()
+        // ! 修改：保留 Keychain 凭据 (密码)，只清除会话
+        // ! Modified: Retain Keychain credentials (password), only clear session
+        // keychainStorage.removeCredentials()
 
-        Logger.info("[DeviceConnection]removeLoginSession from storage (retaining preferences)")
+        Logger.info("[DeviceConnection]removeLoginSession from storage (retaining preferences & credentials)")
     }
 
     /**
