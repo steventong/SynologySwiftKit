@@ -15,7 +15,15 @@ public enum LoginProgress: Sendable {
     /// 登录开始
     /// Login started
     case started(server: String)
-    
+
+    /// 正在检查已保存的连接地址
+    /// Checking saved connection URL
+    case checkingSavedConnection(url: String)
+
+    /// 已保存的连接地址不可达，将通过 QuickConnect 重新获取
+    /// Saved connection unreachable, falling back to QuickConnect
+    case savedConnectionUnreachable(url: String)
+
     /// 正在获取 QuickConnect 连接
     /// Fetching QuickConnect connection
     case fetchingQuickConnect

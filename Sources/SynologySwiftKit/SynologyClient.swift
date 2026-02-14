@@ -99,7 +99,7 @@ public final class SynologyClient {
         encryption = EncryptionApi(apiClient: client)
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(deviceConnection: connection, apiInfoApi: info, apiClient: client)
+        userLogin = SynologyUserLogin(deviceConnection: connection, apiInfoApi: info, apiClient: client, pingpong: pingpong)
         checkConnection = CheckDeviceConnection(deviceConnection: connection, apiInfoApi: info, pingpong: pingpong, apiClient: client)
         queryAllSongs = QueryAllSongs(apiClient: client)
     }

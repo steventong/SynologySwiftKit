@@ -19,6 +19,7 @@ public actor SynologyUserLogin {
     private let apiInfoApi: ApiInfoProviding
     private let quickConnectApi: QuickConnectApi
     private let authApi: AuthApi
+    private let pingpong: PingPongProviding
     private let audioStationApi: AudioStationApi
 
     // MARK: - Initialization
@@ -26,14 +27,15 @@ public actor SynologyUserLogin {
     /// 初始化登录管理器
     /// Initialize login manager
     /// - Parameters:
-    ///   - deviceConnection: 设备连接提供者
-    ///   - apiInfoApi: API 信息提供者
-    ///   - apiClient: API 客户端
-    public init(deviceConnection: DeviceConnectionProviding, apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding) {
+    ///   - deviceConnection: 设备连接提供者 / Device connection provider
+    ///   - apiInfoApi: API 信息提供者 / API info provider
+    ///   - apiClient: API 客户端 / API client
+    ///   - pingpong: PingPong 服务 / PingPong service
+    public init(deviceConnection: DeviceConnectionProviding, apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding) {
         self.deviceConnection = deviceConnection
         self.apiInfoApi = apiInfoApi
+        self.pingpong = pingpong
 
-        let pingpong = PingPong(apiClient: apiClient)
         quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection,
                                           apiClient: apiClient,
                                           pingpong: pingpong)
@@ -163,8 +165,9 @@ private extension SynologyUserLogin {
         // 保存登录偏好设置
         await deviceConnection.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
 
-        // 获取连接地址
-        guard let connection = await fetchConnectionUrl(
+        // 获取连接地址（优先使用保存的地址）
+        // Fetch connection URL (prefer saved address)
+        guard let connection = await fetchConnectionUrlWithCachedPriority(
             server: server,
             enableHttps: enableHttps,
             continuation: continuation
@@ -223,13 +226,11 @@ private extension SynologyUserLogin {
         }
     }
 
-    /// 获取连接地址
-    /// Fetch connection URL
-    func fetchConnectionUrl(
-        server: String,
-        enableHttps: Bool,
-        continuation: AsyncStream<LoginProgress>.Continuation
-    ) async -> (type: ConnectionType, url: String)? {
+    /// 获取连接地址（直接通过 QuickConnect 查找）
+    /// Fetch connection URL (directly via QuickConnect)
+    func fetchConnectionUrl(server: String,
+                            enableHttps: Bool,
+                            continuation: AsyncStream<LoginProgress>.Continuation) async -> (type: ConnectionType, url: String)? {
         if await !quickConnectApi.isQuickConnectId(server: server) {
             // 自定义域名直接返回
             return (.custom_domain, server)
@@ -248,5 +249,40 @@ private extension SynologyUserLogin {
         }
 
         return nil
+    }
+
+    /// 获取连接地址（优先使用已保存的地址，不可达时再通过 QuickConnect 重新查找）
+    /// Fetch connection URL with cached address priority.
+    /// First tries the saved connection URL; falls back to QuickConnect if unreachable.
+    func fetchConnectionUrlWithCachedPriority(server: String,
+                                              enableHttps: Bool,
+                                              continuation: AsyncStream<LoginProgress>.Continuation) async -> (type: ConnectionType, url: String)? {
+        // 检查已保存的连接地址
+        // Check saved connection URL
+        if let savedConnection = await deviceConnection.getCurrentConnectionUrl() {
+            continuation.yield(.checkingSavedConnection(url: savedConnection.url))
+            Logger.info("SynologyUserLogin#fetchConnectionUrlWithCachedPriority, checking saved connection: \(savedConnection)")
+
+            let pingOK = await pingpong.pingpong(url: savedConnection.url)
+            if pingOK {
+                Logger.info("SynologyUserLogin#fetchConnectionUrlWithCachedPriority, saved connection is reachable")
+                return (savedConnection.type, savedConnection.url)
+            }
+
+            // 已保存地址不可达
+            // Saved connection is unreachable
+            Logger.warn("SynologyUserLogin#fetchConnectionUrlWithCachedPriority, saved connection unreachable: \(savedConnection.url)")
+            continuation.yield(.savedConnectionUnreachable(url: savedConnection.url))
+
+            // 自定义域名不可达，不回退 QuickConnect
+            // Custom domain unreachable, do not fallback to QuickConnect
+            if savedConnection.type == .custom_domain {
+                return nil
+            }
+        }
+
+        // 回退到 QuickConnect 查找
+        // Fallback to QuickConnect lookup
+        return await fetchConnectionUrl(server: server, enableHttps: enableHttps, continuation: continuation)
     }
 }
