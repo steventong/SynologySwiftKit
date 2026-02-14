@@ -199,13 +199,13 @@ public actor DeviceConnection: DeviceConnectionProviding {
 
     /// 保存登录凭据到 Keychain
     /// Save login credentials to Keychain
-    public func saveCredentials(server: String, username: String, password: String) {
-        keychainStorage.saveCredentials(server: server, username: username, password: password)
+    public func saveCredentials(server: String, username: String, password: String, isEnableHttps: Bool?) {
+        keychainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: isEnableHttps)
     }
 
     /// 读取已保存的登录凭据
     /// Read saved login credentials
-    public func getCredentials() -> (server: String, username: String, password: String)? {
+    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
         return keychainStorage.getCredentials()
     }
 

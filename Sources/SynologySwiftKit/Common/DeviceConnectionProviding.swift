@@ -58,11 +58,17 @@ public protocol DeviceConnectionProviding {
 
     /// 保存登录凭据到 Keychain
     /// Save login credentials to Keychain
-    func saveCredentials(server: String, username: String, password: String) async
+    /// - Parameters:
+    ///   - server: 服务器地址（QuickConnect ID 或自定义域名）/ Server address
+    ///   - username: 用户名 / Username
+    ///   - password: 密码 / Password
+    ///   - isEnableHttps: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
+    func saveCredentials(server: String, username: String, password: String, isEnableHttps: Bool?) async
 
     /// 读取已保存的登录凭据（供 App 登录页展示）
     /// Read saved login credentials (for App login page display)
-    func getCredentials() async -> (server: String, username: String, password: String)?
+    /// - Returns: 凭据元组（server, username, password, isEnableHttps），如果不存在则返回 nil
+    func getCredentials() async -> (server: String, username: String, password: String, isEnableHttps: Bool?)?
 
     /// 删除已保存的登录凭据
     /// Remove saved login credentials

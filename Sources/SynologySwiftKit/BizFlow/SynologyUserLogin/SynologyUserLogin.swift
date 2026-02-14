@@ -36,9 +36,7 @@ public actor SynologyUserLogin {
         self.apiInfoApi = apiInfoApi
         self.pingpong = pingpong
 
-        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection,
-                                          apiClient: apiClient,
-                                          pingpong: pingpong)
+        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection, apiClient: apiClient, pingpong: pingpong)
         authApi = AuthApi(apiClient: apiClient, deviceConnection: deviceConnection)
         audioStationApi = AudioStationApi(apiClient: apiClient)
     }
@@ -59,25 +57,6 @@ public actor SynologyUserLogin {
         AsyncStream { continuation in
             Task {
                 await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, continuation: continuation)
-            }
-        }
-    }
-
-    // MARK: - Session Login (AsyncStream)
-
-    /// 通过 Session 登录（AsyncStream 版本）
-    /// Login with session (AsyncStream version)
-    /// - Parameters:
-    ///   - server: QuickConnect ID 或自定义域名
-    ///   - enableHttps: 是否启用 HTTPS
-    ///   - username: 用户名
-    ///   - sid: Session ID
-    ///   - did: Device ID
-    /// - Returns: AsyncStream 返回登录进度
-    public func login(server: String, enableHttps: Bool, username: String, sid: String, did: String?) -> AsyncStream<LoginProgress> {
-        AsyncStream { continuation in
-            Task {
-                await self.performSessionLogin(server: server, enableHttps: enableHttps, username: username, sid: sid, did: did, continuation: continuation)
             }
         }
     }
@@ -107,7 +86,7 @@ private extension SynologyUserLogin {
         await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
 
         // 确定服务器类型
-        let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
+        let isQuickConnectID = quickConnectApi.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
         // 更新 API 信息 + 认证
@@ -133,7 +112,7 @@ private extension SynologyUserLogin {
             // 登录成功，根据用户选择保存或清除凭据
             // Login succeeded, save or remove credentials based on user choice
             if shouldSavePassword {
-                await deviceConnection.saveCredentials(server: server, username: username, password: password)
+                await deviceConnection.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
             } else {
                 await deviceConnection.removeCredentials()
             }
@@ -218,7 +197,7 @@ private extension SynologyUserLogin {
         }
 
         // 确定服务器类型
-        let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
+        let isQuickConnectID = quickConnectApi.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
         // 更新 API 信息 + 验证会话
@@ -279,7 +258,7 @@ private extension SynologyUserLogin {
     /// 获取连接地址（直接通过 QuickConnect 查找）
     /// Fetch connection URL (directly via QuickConnect)
     func fetchConnectionUrl(server: String, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
-        if await !quickConnectApi.isQuickConnectId(server: server) {
+        if !quickConnectApi.isQuickConnectId(server: server) {
             // 自定义域名直接返回
             return (.custom_domain, server)
         }

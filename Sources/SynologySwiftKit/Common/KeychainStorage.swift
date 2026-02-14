@@ -32,8 +32,9 @@ public final class KeychainStorage: @unchecked Sendable {
     ///   - server: 服务器地址（QuickConnect ID 或自定义域名）/ Server address
     ///   - username: 用户名 / Username
     ///   - password: 密码 / Password
-    public func saveCredentials(server: String, username: String, password: String) {
-        let credentials = CredentialData(server: server, username: username, password: password)
+    ///   - isEnableHttps: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
+    public func saveCredentials(server: String, username: String, password: String, isEnableHttps: Bool? = nil) {
+        let credentials = CredentialData(server: server, username: username, password: password, isEnableHttps: isEnableHttps)
         guard let data = try? JSONEncoder().encode(credentials) else {
             Logger.error("[KeychainStorage] Failed to encode credentials")
             return
@@ -61,8 +62,8 @@ public final class KeychainStorage: @unchecked Sendable {
 
     /// 从 Keychain 读取已保存的凭据
     /// Read saved credentials from Keychain
-    /// - Returns: 凭据元组（server, username, password），如果不存在则返回 nil
-    public func getCredentials() -> (server: String, username: String, password: String)? {
+    /// - Returns: 凭据元组（server, username, password, isEnableHttps），如果不存在则返回 nil
+    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -84,7 +85,7 @@ public final class KeychainStorage: @unchecked Sendable {
             return nil
         }
 
-        return (credentials.server, credentials.username, credentials.password)
+        return (credentials.server, credentials.username, credentials.password, credentials.isEnableHttps)
     }
 
     // MARK: - Session Info
@@ -106,12 +107,12 @@ public final class KeychainStorage: @unchecked Sendable {
     func getSessionInfo() -> (sid: String, did: String, username: String)? {
         let account = "synology_session_info"
         guard let data: [String: String] = read(account: account),
-              let sid = data["sid"],
-              let did = data["did"],
-              let username = data["username"] else {
-            return nil
-        }
-        return (sid, did, username)
+               let sid = data["sid"],
+               let did = data["did"],
+               let username = data["username"] else {
+             return nil
+         }
+         return (sid, did, username)
     }
     
     /// 移除 Session 信息
@@ -323,4 +324,5 @@ private struct CredentialData: Codable {
     let server: String
     let username: String
     let password: String
+    let isEnableHttps: Bool?
 }
