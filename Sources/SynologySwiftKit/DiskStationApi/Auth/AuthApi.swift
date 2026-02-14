@@ -36,14 +36,14 @@ public actor AuthApi {
                                   timeout: 10)
             let authResult: AuthResult = try await apiClient.request(api, resultType: AuthResult.self)
             return handleAuthResult(authResult: authResult)
-        } catch let SynologyError.api(.invalidSession(code, msg)) {
-            throw SynologyError.auth(.undefined(code: code, message: msg))
-        } catch let SynologyError.api(.businessError(code, msg)) {
-            throw SynologyError.auth(SynologyError.AuthError.fromCode(code, message: msg))
+        } catch let SynologyError.sessionExpired(code, msg) {
+            throw SynologyError.auth(code: code, message: msg)
+        } catch let SynologyError.api(code, _) {
+            throw SynologyError.authError(code: code)
         } catch let error as SynologyError {
             throw error
         } catch {
-            throw SynologyError.auth(.undefined(code: -1, message: "login failed: \(error.localizedDescription)"))
+            throw SynologyError.auth(code: -1, message: "login failed: \(error.localizedDescription)")
         }
     }
 

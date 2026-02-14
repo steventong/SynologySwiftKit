@@ -26,7 +26,7 @@ public final class LyricsApi {
 
         let result: LyricsResult = try await apiClient.request(api)
         guard let lyrics = result.lyrics, !lyrics.lyrics.isEmpty else {
-            throw SynologyError.api(.processFail(message: "lyrices not found"))
+            throw SynologyError.api(code: 404, message: "lyrics not found")
         }
         return lyrics.lyrics
     }

@@ -98,7 +98,7 @@ private extension SynologyUserLogin {
         // 获取连接地址
         // Fetch connection URL
         guard let connection = await fetchConnectionUrl(server: server, enableHttps: enableHttps) else {
-            continuation.yield(.failed(message: SynologyError.connection(.unavailable).localizedDescription))
+            continuation.yield(.failed(message: SynologyError.connectionUnavailable(message: "Device connection not available").localizedDescription))
             continuation.finish()
             return
         }
@@ -118,7 +118,7 @@ private extension SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(message: SynologyError.network(.requestFailed(message: error.localizedDescription)).localizedDescription))
+            continuation.yield(.failed(message: SynologyError.network(message: error.localizedDescription).localizedDescription))
             continuation.finish()
             return
         }
@@ -149,7 +149,7 @@ private extension SynologyUserLogin {
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
 
-        } catch let error as SynologyError where error.isOtpRequired {
+        } catch let SynologyError.auth(code, _) where code == 403 {
             // 需要 OTP 验证码（不算失败，需要用户输入）
             // OTP required (not a failure, user input needed)
             Logger.info("SynologyUserLogin#performPasswordLogin, OTP required")
@@ -183,13 +183,39 @@ private extension SynologyUserLogin {
             server: server,
             enableHttps: enableHttps
         ) else {
-            continuation.yield(.failed(message: SynologyError.connection(.unavailable).localizedDescription))
+            continuation.yield(.failed(message: SynologyError.connectionUnavailable(message: "Device connection not available").localizedDescription))
             continuation.finish()
             return
         }
 
         // 保存可用地址
         await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
+
+        // 如果 URL 是重新获取的（非缓存），旧 Session 在新地址上几乎必然无效
+        // 直接尝试使用保存的凭据密码登录，跳过无意义的 Session 验证
+        // If URL was re-fetched (not from cache), old session is almost certainly invalid on new address.
+        // Skip session verification and attempt password login directly with saved credentials.
+        if !connection.fromCache {
+            Logger.info("SynologyUserLogin#performSessionLogin, URL re-fetched, skipping session verification")
+
+            if let credentials = await deviceConnection.getCredentials(), credentials.server == server, credentials.username == username {
+                Logger.info("SynologyUserLogin#performSessionLogin, auto re-login with saved credentials on new URL")
+                await performPasswordLogin(server: server,
+                                           enableHttps: enableHttps,
+                                           username: username,
+                                           password: credentials.password,
+                                           otpCode: nil,
+                                           shouldSavePassword: true,
+                                           continuation: continuation)
+                return
+            }
+
+            // 无凭据，由用户手动登录
+            // No credentials, manual login required
+            continuation.yield(.failed(message: SynologyError.auth(code: -1, message: "Session expired and no saved credentials").localizedDescription))
+            continuation.finish()
+            return
+        }
 
         // 确定服务器类型
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
@@ -203,9 +229,6 @@ private extension SynologyUserLogin {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, API info fetch failed: \(error)")
-            // 如果连 API Info 都获取失败，说明不仅仅是 Session 失效，可能是网络或服务问题
-            // 但也有可能仅仅是 Session 失效导致 API 访问被拒？通常 API Info 不需要 Session
-            // 这里为了保险，暂不自动重登，直接报错
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
             return
@@ -240,16 +263,9 @@ private extension SynologyUserLogin {
             // Session expired, try auto re-login with saved credentials
             if let credentials = await deviceConnection.getCredentials(), credentials.server == server, credentials.username == username {
                 Logger.info("SynologyUserLogin#performSessionLogin, attempting auto re-login with saved credentials")
-
-                await performPasswordLogin(server: server,
-                                           enableHttps: enableHttps,
-                                           username: username,
-                                           password: credentials.password,
-
-                                           otpCode: nil,
-                                           shouldSavePassword: true, // 自动重登意味着之前用户选择保存了密码，所以继续保存
-                                           continuation: continuation
-                )
+                await performPasswordLogin(server: server, enableHttps: enableHttps, username: username,
+                                           password: credentials.password, otpCode: nil,
+                                           shouldSavePassword: true, continuation: continuation)
                 return
             }
 
@@ -283,7 +299,8 @@ private extension SynologyUserLogin {
     /// 获取连接地址（优先使用已保存的地址，不可达时再通过 QuickConnect 重新查找）
     /// Fetch connection URL with cached address priority.
     /// First tries the saved connection URL; falls back to QuickConnect if unreachable.
-    func fetchConnectionUrlWithCachedPriority(server: String, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
+    /// - Returns: 连接信息和 fromCache 标志，fromCache=true 表示使用了缓存地址
+    func fetchConnectionUrlWithCachedPriority(server: String, enableHttps: Bool) async -> (type: ConnectionType, url: String, fromCache: Bool)? {
         // 检查已保存的连接地址
         // Check saved connection URL
         if let savedConnection = await deviceConnection.getCurrentConnectionUrl() {
@@ -292,7 +309,7 @@ private extension SynologyUserLogin {
             let pingOK = await pingpong.pingpong(url: savedConnection.url)
             if pingOK {
                 Logger.info("SynologyUserLogin#fetchConnectionUrlWithCachedPriority, saved connection is reachable")
-                return (savedConnection.type, savedConnection.url)
+                return (savedConnection.type, savedConnection.url, true)
             }
 
             // 已保存地址不可达
@@ -308,6 +325,9 @@ private extension SynologyUserLogin {
 
         // 回退到 QuickConnect 查找
         // Fallback to QuickConnect lookup
-        return await fetchConnectionUrl(server: server, enableHttps: enableHttps)
+        if let result = await fetchConnectionUrl(server: server, enableHttps: enableHttps) {
+            return (result.type, result.url, false)
+        }
+        return nil
     }
 }

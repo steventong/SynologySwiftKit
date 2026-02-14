@@ -111,7 +111,7 @@ private extension CheckDeviceConnection {
             // 验证 AudioStation
             // Verify AudioStation
             await verifyAudioStation(connectionType: connection.type, connectionUrl: connection.url, continuation: continuation)
-        } catch SynologyError.api(.invalidSession) {
+        } catch SynologyError.sessionExpired {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, invalidSession")
             continuation.yield(.sessionInvalid(reason: .sessionInvalid))
             continuation.finish()
@@ -141,7 +141,7 @@ private extension CheckDeviceConnection {
 
             continuation.yield(.success(type: connectionType, url: connectionUrl, audioStationInfo: audioStationInfo))
             continuation.finish()
-        } catch SynologyError.api(.invalidSession) {
+        } catch SynologyError.sessionExpired {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, invalidSession during AudioStation query")
             continuation.yield(.sessionInvalid(reason: .sessionInvalid))
             continuation.finish()

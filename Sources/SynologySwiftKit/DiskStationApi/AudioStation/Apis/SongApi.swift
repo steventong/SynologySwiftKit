@@ -80,7 +80,7 @@ public final class SongApi {
             }
         )
         guard let song = result.songs.first else {
-            throw SynologyError.api(.processFail(message: "query song failed"))
+            throw SynologyError.api(code: -1, message: "query song failed")
         }
 
         return song

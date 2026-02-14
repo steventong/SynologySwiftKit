@@ -49,12 +49,12 @@ public struct SynologyApiError: Error, Decodable, Sendable {
         switch code {
         case 105, 106, 107, 119:
             let message = SynologyErrorCodeMapper.description(for: code) ?? "Session error (code: \(code))"
-            return .api(.invalidSession(code: code, message: message))
+            return .sessionExpired(code: code, message: message)
         case 102:
-            return .api(.apiNotExists(name: "unknown"))
+            return .api(code: code, message: "API not found (code: 102)")
         default:
             let message = SynologyErrorCodeMapper.description(for: code) ?? "errorCode = \(code)"
-            return .api(.businessError(code: code, message: message))
+            return .api(code: code, message: message)
         }
     }
 }

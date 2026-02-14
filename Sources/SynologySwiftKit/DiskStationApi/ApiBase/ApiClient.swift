@@ -146,7 +146,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         guard let apiInfoProvider else {
-            throw SynologyError.api(.hostNotConfigured)
+            throw SynologyError.connectionUnavailable(message: "Host not configured")
         }
 
         // 获取 API 信息
@@ -203,14 +203,14 @@ final class ApiClient: ApiClientProviding {
 
         // 解析错误码
         guard let errorCode = parseErrorCode(response) else {
-            throw SynologyError.api(.businessError(code: -1, message: "Unknown error, fetch errorCode fail"))
+            throw SynologyError.api(code: -1, message: "Unknown error, fetch errorCode fail")
         }
 
         // 处理常见错误码
         try handleErrorCode(errorCode)
 
         // 其他业务错误码
-        throw SynologyError.api(.businessError(code: errorCode, message: "errorCode = \(errorCode)"))
+        throw SynologyError.api(code: errorCode, message: "errorCode = \(errorCode)")
     }
 
     private func sendHttpRequest<Value: Decodable>(endpoint: ApiEndpoint,
@@ -235,7 +235,7 @@ final class ApiClient: ApiClientProviding {
         switch endpoint.httpMethod {
         case .get:
             guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-                throw SynologyError.api(.hostNotConfigured)
+                throw SynologyError.connectionUnavailable(message: "Host not configured")
             }
             components.queryItems = parameters.sorted {
                 if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") { return false }
@@ -244,7 +244,7 @@ final class ApiClient: ApiClientProviding {
             }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
             guard let url = components.url else {
-                throw SynologyError.api(.hostNotConfigured)
+                throw SynologyError.connectionUnavailable(message: "Host not configured")
             }
             request = URLRequest(url: url)
             request.httpMethod = "GET"
@@ -281,7 +281,7 @@ final class ApiClient: ApiClientProviding {
            let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
-        throw SynologyError.api(.hostNotConfigured)
+        throw SynologyError.connectionUnavailable(message: "Host not configured")
     }
 
     /// 构建带查询参数的 URL
@@ -305,7 +305,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-            throw SynologyError.api(.hostNotConfigured)
+            throw SynologyError.connectionUnavailable(message: "Host not configured")
         }
 
         components.queryItems = parameters.sorted {
@@ -315,7 +315,7 @@ final class ApiClient: ApiClientProviding {
         }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
         guard let requestUrl = components.url else {
-            throw SynologyError.api(.hostNotConfigured)
+            throw SynologyError.connectionUnavailable(message: "Host not configured")
         }
 
         return requestUrl
@@ -328,8 +328,7 @@ final class ApiClient: ApiClientProviding {
                 let session = await connectionProvider.getLoginSession()
             else {
                 Logger.error("接口: \(name) \(method) 必须配置 sid/did cookie，但 session 不存在。")
-                throw SynologyError.api(
-                    .invalidSession(code: 0, message: "session invalid, sid not exist"))
+                throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
             }
 
             if let did = session.did {
@@ -352,8 +351,7 @@ final class ApiClient: ApiClientProviding {
                 let session = await connectionProvider.getLoginSession()
             else {
                 Logger.error("接口: \(name) \(method) 必须配置 sid 参数，但 session 不存在。")
-                throw SynologyError.api(
-                    .invalidSession(code: 0, message: "session invalid, sid not exist"))
+                throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
             }
             return session.sid
         }
@@ -365,16 +363,16 @@ final class ApiClient: ApiClientProviding {
         switch error.code {
         case .secureConnectionFailed:
             Logger.error("secureConnectionFailed ssl error, \(error.localizedDescription)")
-            throw SynologyError.network(.connectionFailed(underlying: error))
+            throw SynologyError.network(message: "Connection failed: \(error.localizedDescription)")
         case .cannotFindHost:
             Logger.error("cannotFindHost error, \(error.localizedDescription)")
-            throw SynologyError.network(.connectionFailed(underlying: error))
+            throw SynologyError.network(message: "Connection failed: \(error.localizedDescription)")
         case .timedOut:
             Logger.error("timeout error, \(error.localizedDescription)")
-            throw SynologyError.network(.timeout)
+            throw SynologyError.network(message: "Request timeout")
         default:
             Logger.error("http error, \(error.localizedDescription)")
-            throw SynologyError.network(.requestFailed(message: error.localizedDescription))
+            throw SynologyError.network(message: error.localizedDescription)
         }
     }
 
@@ -384,15 +382,15 @@ final class ApiClient: ApiClientProviding {
 
         if sessionErrorCodes.contains(errorCode) {
             let message = SynologyErrorCodeMapper.description(for: errorCode) ?? "Session error"
-            throw SynologyError.api(.invalidSession(code: errorCode, message: message))
+            throw SynologyError.sessionExpired(code: errorCode, message: message)
         }
 
         if errorCode >= 120 && errorCode <= 149 {
-            throw SynologyError.api(.businessError(code: errorCode, message: "Preserve for other purpose."))
+            throw SynologyError.api(code: errorCode, message: "Preserve for other purpose.")
         }
 
         let message = SynologyErrorCodeMapper.description(for: errorCode) ?? "errorCode = \(errorCode)"
-        throw SynologyError.api(.businessError(code: errorCode, message: message))
+        throw SynologyError.api(code: errorCode, message: message)
     }
 
     /// 获取适配的 API 版本
@@ -463,18 +461,18 @@ final class ApiClient: ApiClientProviding {
             }
 
             guard let httpResponse = processedResponse as? HTTPURLResponse else {
-                throw SynologyError.network(.invalidResponse)
+                throw SynologyError.network(message: "Invalid response")
             }
 
             guard (200 ... 299).contains(httpResponse.statusCode) else {
-                throw SynologyError.network(.httpStatus(code: httpResponse.statusCode))
+                throw SynologyError.network(message: "Invalid HTTP status: \(httpResponse.statusCode)")
             }
 
             do {
                 return try JSONDecoderProvider.shared.decode(Value.self, from: processedData)
             } catch {
                 Logger.error("JSON decode error: \(error), data: \(String(data: processedData, encoding: .utf8) ?? "nil")")
-                throw SynologyError.network(.decodingFailed(message: error.localizedDescription))
+                throw SynologyError.network(message: "Decoding failed: \(error.localizedDescription)")
             }
         } catch let error as SynologyError {
             context.duration = Date().timeIntervalSince(context.startTime)
@@ -484,11 +482,11 @@ final class ApiClient: ApiClientProviding {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)
             try handleURLError(urlError)
-            throw SynologyError.network(.requestFailed(message: urlError.localizedDescription))
+            throw SynologyError.network(message: urlError.localizedDescription)
         } catch {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
-            throw SynologyError.network(.requestFailed(message: error.localizedDescription))
+            throw SynologyError.network(message: error.localizedDescription)
         }
     }
 }

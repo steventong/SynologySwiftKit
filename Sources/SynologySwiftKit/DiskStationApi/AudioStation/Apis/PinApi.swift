@@ -47,7 +47,7 @@ public final class PinApi {
 
         if response.success {
             guard let result = response.data, let pinItem = result.items.first else {
-                throw SynologyError.api(.processFail(message: "pin failed"))
+                throw SynologyError.api(code: -1, message: "pin failed")
             }
             return pinItem
         }
@@ -55,12 +55,12 @@ public final class PinApi {
         if let error = response.error {
             // Pin API: 1002 + 1006 means "already pinned", treat as idempotent success.
             if error.code == 1002, error.errors.contains(1006) {
-                throw SynologyError.api(.idempotentSuccess(message: "pin already exists"))
+                throw SynologyError.api(code: 0, message: "pin already exists")
             }
             throw error.toSynologyError()
         }
 
-        throw SynologyError.api(.processFail(message: "pin failed"))
+        throw SynologyError.api(code: -1, message: "pin failed")
     }
 
     /// 取消固定

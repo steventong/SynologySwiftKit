@@ -18,11 +18,11 @@ struct SwiftHttpClientTransport: HTTPTransporting {
     private func mapHTTPClientError(_ error: SwiftHttpClient.HTTPClientError) -> SynologyError {
         switch error {
         case .invalidResponse:
-            return .network(.invalidResponse)
+            return .network(message: "Invalid response")
         case let .httpStatus(code):
-            return .network(.httpStatus(code: code))
+            return .network(message: "HTTP status: \(code)")
         case let .decodingFailed(message):
-            return .network(.decodingFailed(message: message))
+            return .network(message: "Decoding failed: \(message)")
         }
     }
 }

@@ -33,6 +33,6 @@ public struct SynologyResponse<T: Decodable & Sendable>: Decodable, Sendable {
             throw error.toSynologyError()
         }
 
-        throw SynologyError.api(.businessError(code: -1, message: "Unknown error"))
+        throw SynologyError.api(code: -1, message: "Unknown error")
     }
 }
