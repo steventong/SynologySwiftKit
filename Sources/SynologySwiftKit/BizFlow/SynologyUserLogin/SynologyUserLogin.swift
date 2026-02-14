@@ -89,14 +89,15 @@ private extension SynologyUserLogin {
     /// Perform password login
     func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?,
                               continuation: AsyncStream<LoginProgress>.Continuation) async {
-        continuation.yield(.started(server: server))
+        continuation.yield(.connecting)
 
         // 保存登录偏好设置
         await deviceConnection.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
 
         // 获取连接地址
-        guard let connection = await fetchConnectionUrl(server: server, enableHttps: enableHttps, continuation: continuation) else {
-            continuation.yield(.failed(error: .connection(.unavailable)))
+        // Fetch connection URL
+        guard let connection = await fetchConnectionUrl(server: server, enableHttps: enableHttps) else {
+            continuation.yield(.failed(message: SynologyError.connection(.unavailable).localizedDescription))
             continuation.finish()
             return
         }
@@ -108,44 +109,46 @@ private extension SynologyUserLogin {
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // 更新 API 信息
-        continuation.yield(.updatingApiInfo)
+        // 更新 API 信息 + 认证
+        // Update API info + authenticate
+        continuation.yield(.authenticating)
 
         do {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .network(.requestFailed(message: error.localizedDescription))))
+            continuation.yield(.failed(message: SynologyError.network(.requestFailed(message: error.localizedDescription)).localizedDescription))
             continuation.finish()
             return
         }
-
-        // 开始认证
-        continuation.yield(.authenticating(serverType: serverType))
 
         do {
             let authResult = try await authApi.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
 
             // 登录成功，保存会话
+            // Login succeeded, save session
             await deviceConnection.updateLoginSession(username: username, sid: authResult.sid, did: authResult.did)
 
             Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
 
-            let loginResult = LoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
-            continuation.yield(.loginSuccess(result: loginResult))
-
             // 验证 AudioStation
-            continuation.yield(.verifyingAudioStation)
+            // Verify AudioStation
             let audioStationInfo = try await audioStationApi.info.query()
             Logger.info("SynologyUserLogin#performPasswordLogin, audioStationInfo: \(audioStationInfo)")
 
-            // 完成
+            let loginResult = LoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
 
+        } catch let error as SynologyError where error.isOtpRequired {
+            // 需要 OTP 验证码（不算失败，需要用户输入）
+            // OTP required (not a failure, user input needed)
+            Logger.info("SynologyUserLogin#performPasswordLogin, OTP required")
+            continuation.yield(.otpRequired)
+            continuation.finish()
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, auth failed: \(error)")
-            continuation.yield(.failed(error: .auth(.undefined(code: 0, message: error.localizedDescription))))
+            continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
         }
     }
@@ -160,7 +163,7 @@ private extension SynologyUserLogin {
         did: String?,
         continuation: AsyncStream<LoginProgress>.Continuation
     ) async {
-        continuation.yield(.started(server: server))
+        continuation.yield(.connecting)
 
         // 保存登录偏好设置
         await deviceConnection.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
@@ -169,10 +172,9 @@ private extension SynologyUserLogin {
         // Fetch connection URL (prefer saved address)
         guard let connection = await fetchConnectionUrlWithCachedPriority(
             server: server,
-            enableHttps: enableHttps,
-            continuation: continuation
+            enableHttps: enableHttps
         ) else {
-            continuation.yield(.failed(error: .connection(.unavailable)))
+            continuation.yield(.failed(message: SynologyError.connection(.unavailable).localizedDescription))
             continuation.finish()
             return
         }
@@ -184,25 +186,26 @@ private extension SynologyUserLogin {
         let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // 更新 API 信息
-        continuation.yield(.updatingApiInfo)
+        // 更新 API 信息 + 验证会话
+        // Update API info + verify session
+        continuation.yield(.authenticating)
+
         do {
             _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, API info fetch failed: \(error)")
-            continuation.yield(.failed(error: .network(.requestFailed(message: error.localizedDescription))))
+            continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
             return
         }
 
-        // 开始验证会话
-        continuation.yield(.authenticating(serverType: serverType))
-
         do {
             // 通过查询 AudioStation 验证会话
+            // Verify session by querying AudioStation
             let audioStationInfo = try await audioStationApi.info.query(sid: sid, did: did)
 
             // 登录成功，保存会话
+            // Login succeeded, save session
             await deviceConnection.updateLoginSession(username: username, sid: sid, did: did)
 
             Logger.info("SynologyUserLogin#performSessionLogin, audioStationInfo: \(audioStationInfo)")
@@ -215,34 +218,28 @@ private extension SynologyUserLogin {
                 serverType: serverType
             )
 
-            continuation.yield(.loginSuccess(result: loginResult))
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
 
         } catch {
             Logger.error("SynologyUserLogin#performSessionLogin, session verification failed: \(error)")
-            continuation.yield(.failed(error: .api(.invalidSession(code: 0, message: error.localizedDescription))))
+            continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
         }
     }
 
     /// 获取连接地址（直接通过 QuickConnect 查找）
     /// Fetch connection URL (directly via QuickConnect)
-    func fetchConnectionUrl(server: String,
-                            enableHttps: Bool,
-                            continuation: AsyncStream<LoginProgress>.Continuation) async -> (type: ConnectionType, url: String)? {
+    func fetchConnectionUrl(server: String, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
         if await !quickConnectApi.isQuickConnectId(server: server) {
             // 自定义域名直接返回
             return (.custom_domain, server)
         }
 
         // QuickConnect 模式，获取设备地址
-        continuation.yield(.fetchingQuickConnect)
-
+        // QuickConnect mode, fetch device address
         do {
             let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps)
-
-            continuation.yield(.quickConnectFetched(type: connection.type, url: connection.url))
             return (connection.type, connection.url)
         } catch {
             Logger.error("SynologyUserLogin#fetchConnectionUrl, error: \(error)")
@@ -254,13 +251,10 @@ private extension SynologyUserLogin {
     /// 获取连接地址（优先使用已保存的地址，不可达时再通过 QuickConnect 重新查找）
     /// Fetch connection URL with cached address priority.
     /// First tries the saved connection URL; falls back to QuickConnect if unreachable.
-    func fetchConnectionUrlWithCachedPriority(server: String,
-                                              enableHttps: Bool,
-                                              continuation: AsyncStream<LoginProgress>.Continuation) async -> (type: ConnectionType, url: String)? {
+    func fetchConnectionUrlWithCachedPriority(server: String, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
         // 检查已保存的连接地址
         // Check saved connection URL
         if let savedConnection = await deviceConnection.getCurrentConnectionUrl() {
-            continuation.yield(.checkingSavedConnection(url: savedConnection.url))
             Logger.info("SynologyUserLogin#fetchConnectionUrlWithCachedPriority, checking saved connection: \(savedConnection)")
 
             let pingOK = await pingpong.pingpong(url: savedConnection.url)
@@ -272,7 +266,6 @@ private extension SynologyUserLogin {
             // 已保存地址不可达
             // Saved connection is unreachable
             Logger.warn("SynologyUserLogin#fetchConnectionUrlWithCachedPriority, saved connection unreachable: \(savedConnection.url)")
-            continuation.yield(.savedConnectionUnreachable(url: savedConnection.url))
 
             // 自定义域名不可达，不回退 QuickConnect
             // Custom domain unreachable, do not fallback to QuickConnect
@@ -283,6 +276,6 @@ private extension SynologyUserLogin {
 
         // 回退到 QuickConnect 查找
         // Fallback to QuickConnect lookup
-        return await fetchConnectionUrl(server: server, enableHttps: enableHttps, continuation: continuation)
+        return await fetchConnectionUrl(server: server, enableHttps: enableHttps)
     }
 }

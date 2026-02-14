@@ -59,6 +59,13 @@ public enum SynologyError: Error, LocalizedError {
             return error.errorDescription
         }
     }
+
+    /// 是否是需要输入 OTP 验证码的错误（不算登录失败，需要用户提供验证码）
+    /// Whether this error indicates OTP input is required (not a login failure, user needs to provide verification code)
+    public var isOtpRequired: Bool {
+        if case .auth(.otpRequired) = self { return true }
+        return false
+    }
 }
 
 // MARK: - NetworkError
