@@ -21,9 +21,16 @@ import Foundation
 final class ApiClient: ApiClientProviding {
     // MARK: - Dependencies
 
-    /// 设备连接提供者
-    /// Device connection provider
-    public let connectionProvider: DeviceConnectionProviding
+    // MARK: - internal State
+    
+    /// 当前连接信息
+    /// Current connection info
+    private(set) var currentConnection: (type: ConnectionType, url: String)?
+    
+    /// 当前会话信息
+    /// Current session info
+    private(set) var session: (sid: String, did: String?)?
+    
     private let httpTransport: HTTPTransporting
 
     /// 网络拦截器链
@@ -37,10 +44,8 @@ final class ApiClient: ApiClientProviding {
 
     /// 初始化 API 客户端
     /// Initialize API client
-    /// - Parameter connectionProvider: 设备连接提供者
     /// - Parameter httpTransport: HTTP transport adapter
-    init(connectionProvider: DeviceConnectionProviding, httpTransport: HTTPTransporting = SwiftHttpClientTransport()) {
-        self.connectionProvider = connectionProvider
+    init(httpTransport: HTTPTransporting = SwiftHttpClientTransport()) {
         self.httpTransport = httpTransport
     }
 
@@ -114,16 +119,32 @@ final class ApiClient: ApiClientProviding {
 
     /// 构建请求 URL（不发送请求）
     /// Build request URL (without sending request)
-    /// 构建请求 URL（不发送请求）
-    /// Build request URL (without sending request)
     func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
         try await buildApiUrlWithQueryParameters(endpoint: endpoint)
+    }
+
+    /// 更新连接信息
+    /// Update connection info
+    public func updateConnection(type: ConnectionType, url: String) {
+        self.currentConnection = (type, url)
+    }
+    
+    /// 更新会话信息
+    /// Update session info
+    public func updateSession(sid: String, did: String?) {
+        self.session = (sid, did)
+    }
+    
+    /// 清除会话
+    /// Clear session
+    public func clearSession() {
+        self.session = nil
     }
 
     // MARK: - Private Methods
 
     private func trustedSSLDomainForCurrentConnection() async -> String? {
-        guard let connectionUrl = await connectionProvider.getCurrentConnectionUrl(),
+        guard let connectionUrl = currentConnection,
               connectionUrl.type == .custom_domain,
               connectionUrl.url.hasPrefix("https://"),
               let url = URL(string: connectionUrl.url) else {
@@ -277,7 +298,7 @@ final class ApiClient: ApiClientProviding {
 
     /// 构建 API URL
     private func buildApiUrl(apiPath: String) async throws -> URL {
-        if let connection = await connectionProvider.getCurrentConnectionUrl(),
+        if let connection = currentConnection,
            let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
@@ -324,8 +345,7 @@ final class ApiClient: ApiClientProviding {
     /// 构建 Cookie 请求头
     private func buildAuthCookieHeader(name: String, method: String, parameters: ApiParameters, requireAuthCookie: Bool) async throws -> String? {
         if requireAuthCookie {
-            guard
-                let session = await connectionProvider.getLoginSession()
+            guard let session = session
             else {
                 Logger.error("接口: \(name) \(method) 必须配置 sid/did cookie，但 session 不存在。")
                 throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
@@ -347,8 +367,7 @@ final class ApiClient: ApiClientProviding {
     /// 构建查询参数中的 sid
     private func buildAuthQueryParameter(name: String, method: String, requireAuthQuery: Bool) async throws -> String? {
         if requireAuthQuery {
-            guard
-                let session = await connectionProvider.getLoginSession()
+            guard let session = session
             else {
                 Logger.error("接口: \(name) \(method) 必须配置 sid 参数，但 session 不存在。")
                 throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
