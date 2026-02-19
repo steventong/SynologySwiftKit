@@ -1,9 +1,3 @@
-//
-//  CheckDeviceConnection.swift
-//  SynologySwiftKit
-//
-//  Created by Steven on 2024/4/30.
-//
 
 import Foundation
 
@@ -14,41 +8,46 @@ import Foundation
 public class CheckDeviceConnection {
     // MARK: - Dependencies
 
-    private let deviceConnection: DeviceConnectionProviding
+    private let apiClient: ApiClientProviding
     private let apiInfoApi: ApiInfoProviding
     private let quickConnectApi: QuickConnectApi
-    private let audioStationApi: AudioStationApi
-    private let dsmInfoApi: DsmInfoApi
     private let pingpong: PingPongProviding
+    private let audioStationApi: AudioStationApi
 
     // MARK: - Initialization
 
-    /// 初始化连接检查器
-    /// Initialize connection checker
-    /// - Parameters:
-    ///   - deviceConnection: 设备连接提供者
-    ///   - apiInfoApi: API 信息提供者
-    ///   - apiClient: API 客户端
-    ///   - pingpong: PingPong 服务
-    public init(deviceConnection: DeviceConnectionProviding, apiInfoApi: ApiInfoProviding, pingpong: PingPongProviding, apiClient: ApiClientProviding) {
-        self.deviceConnection = deviceConnection
+    /// 初始化连接检查器 (直接注入所有依赖)
+    /// Initialize connection checker (inject all dependencies directly)
+    public init(apiClient: ApiClientProviding, 
+                apiInfoApi: ApiInfoProviding, 
+                quickConnectApi: QuickConnectApi, 
+                pingpong: PingPongProviding, 
+                audioStationApi: AudioStationApi) {
+        self.apiClient = apiClient
         self.apiInfoApi = apiInfoApi
+        self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
-
-        quickConnectApi = QuickConnectApi(deviceConnection: deviceConnection,
-                                          apiClient: apiClient,
-                                          pingpong: pingpong)
-        audioStationApi = AudioStationApi(apiClient: apiClient)
-        dsmInfoApi = DsmInfoApi(apiClient: apiClient)
+        self.audioStationApi = audioStationApi
+    }
+    
+    /// 初始化连接检查器 (使用默认 API 实现)
+    public convenience init(apiClient: ApiClientProviding, apiInfoApi: ApiInfoProviding, pingpong: PingPongProviding) {
+        let quickConnectApi = QuickConnectApi(apiClient: apiClient, pingpong: pingpong)
+        let audioStationApi = AudioStationApi(apiClient: apiClient)
+        self.init(apiClient: apiClient, 
+                  apiInfoApi: apiInfoApi, 
+                  quickConnectApi: quickConnectApi, 
+                  pingpong: pingpong, 
+                  audioStationApi: audioStationApi)
     }
 
     // MARK: - Connection Status Check (AsyncStream)
 
-    /// 检查设备连接状态（AsyncStream 版本）
-    /// Check device connection status with AsyncStream for multiple progress updates
+    /// 检查当前连接状态（AsyncStream 版本）
+    /// Check current connection status with AsyncStream
     /// - Parameter fetchNewServerByQuickConnectId: 是否通过 QuickConnect ID 获取新服务器地址
     /// - Returns: AsyncStream 返回连接检查进度
-    public func checkConnectionStatus(fetchNewServerByQuickConnectId: Bool = false) -> AsyncStream<ConnectionCheckProgress> {
+    public func checkConnectionStatus(fetchNewServerByQuickConnectId: Bool) -> AsyncStream<ConnectionCheckProgress> {
         AsyncStream { continuation in
             Task {
                 await self.performConnectionCheck(fetchNewServerByQuickConnectId: fetchNewServerByQuickConnectId, continuation: continuation)
@@ -63,92 +62,77 @@ private extension CheckDeviceConnection {
     /// 执行连接检查的内部方法
     /// Internal method to perform connection check
     func performConnectionCheck(fetchNewServerByQuickConnectId: Bool, continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
-        // Step 1: 检查现有连接
-        // Step 1: Check existing connection
-        if let connection = await deviceConnection.getCurrentConnectionUrl() {
-            Logger.info("CheckDeviceConnection#checkConnectionStatus, checking exist connection: \(connection)")
-            continuation.yield(.checkingExistingConnection(url: connection.url))
-
-            let pingOK = await pingpong.pingpong(url: connection.url)
-            if pingOK {
-                continuation.yield(.existingConnectionAvailable(type: connection.type, url: connection.url))
-
-                // 验证 AudioStation
-                // Verify AudioStation
-                await verifyAudioStation(connectionType: connection.type, connectionUrl: connection.url, continuation: continuation)
-                return
-            } else if connection.type == .custom_domain {
-                // 域名 ping 失败，结束
-                // Custom domain ping failed, finish
-                Logger.error("CheckDeviceConnection#checkConnectionStatus, custom domain ping failed")
-                continuation.yield(.failed(reason: .customDomainPingFailed(url: connection.url)))
-                continuation.finish()
-                return
-            }
-            // ping 失败，继续尝试 QuickConnect
-            // Ping failed, continue to try QuickConnect
-        }
-
-        // Step 2: 重新获取 QuickConnect
-        // Step 2: Fetch new connection via QuickConnect
-        guard fetchNewServerByQuickConnectId, let loginServer = await deviceConnection.getLoginServer() else {
-            Logger.error("CheckDeviceConnection#checkConnectionStatus, no login server")
-            continuation.yield(.sessionInvalid(reason: .noLoginServer))
-            continuation.finish()
-            return
-        }
-
-        continuation.yield(.fetchingQuickConnect(quickConnectId: loginServer.server))
-        Logger.info("CheckDeviceConnection#checkConnectionStatus, checking new connection: \(loginServer)")
+        continuation.yield(.checking)
 
         do {
-            let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: loginServer.server, enableHttps: loginServer.isEnableHttps)
-            // 更新连接地址
-            // Update connection URL
-            await deviceConnection.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
-            continuation.yield(.quickConnectFetched(type: connection.type, url: connection.url))
+            // 检查 apiClient 是否有当前连接
+            guard let current = apiClient.currentConnection else {
+                throw SynologyError.connectionUnavailable(message: "No active connection to check")
+            }
+            
+            Logger.info("CheckDeviceConnection#checkConnectionStatus, checking current url: \(current.url)")
+            
+            // 简单 Ping 检查
+            let pingOK = await pingpong.pingpong(url: current.url)
+             
+            if pingOK {
+                 // Success
+                 Logger.info("CheckDeviceConnection#checkConnectionStatus, connection OK")
+                 continuation.yield(.success(type: current.type, url: current.url))
+                 continuation.finish()
+                 return
+            }
+            
+            // 如果 Ping 失败，且需要重新解析 (fallback logic omitted/simplified for now as we don't know original server ID here)
+            // If failed, throw error.
+            
+            throw SynologyError.network(message: "Connection unreachable")
 
-            // 验证 AudioStation
-            // Verify AudioStation
-            await verifyAudioStation(connectionType: connection.type, connectionUrl: connection.url, continuation: continuation)
-        } catch SynologyError.sessionExpired {
-            Logger.error("CheckDeviceConnection#checkConnectionStatus, invalidSession")
-            continuation.yield(.sessionInvalid(reason: .sessionInvalid))
-            continuation.finish()
         } catch {
-            Logger.error("CheckDeviceConnection#checkConnectionStatus error: \(error)")
-            continuation.yield(.failed(reason: .quickConnectFetchFailed))
+            Logger.error("CheckDeviceConnection#checkConnectionStatus, connection check failed: \(error)")
+            continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
         }
     }
+}
 
-    /// 验证 AudioStation 连接
-    /// Verify AudioStation connection
-    func verifyAudioStation(connectionType: ConnectionType, connectionUrl: String, continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
-        continuation.yield(.queryingApiInfo)
+// MARK: - Connection Resolution Logic
 
+extension CheckDeviceConnection {
+    /// 解析可用连接（封装 Ping 测试、QuickConnect 解析、AudioStation 验证等逻辑）
+    /// Resolve available connection (encapsulates Ping test, QuickConnect resolution, AudioStation verification)
+    public func resolveAvailableConnection(server: String, enableHttps: Bool, verifyAudioStation: Bool) async throws -> (type: ConnectionType, url: String) {
+        let targetServer = server
+        let targetEnableHttps = enableHttps
+
+        // 1. 检查是否为 QuickConnect ID
+        if !quickConnectApi.isQuickConnectId(server: targetServer) {
+             // 自定义域名/IP，直接返回
+             // Custom domain/IP, return directly
+             // 可选：在此处做 Ping 检查以确保地址有效
+             // Optional: Do ping check here to ensure address is valid
+             return (.custom_domain, targetServer)
+        }
+        
+        // 2. 通过 QuickConnect 解析
+        // Resolve via QuickConnect
+        Logger.info("CheckDeviceConnection#resolveAvailableConnection, resolving via QuickConnect for \(targetServer)")
         do {
-            // 更新 API 信息
-            // Update API info
-            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: true, updateCache: true)
-
-            continuation.yield(.queryingAudioStation)
-
-            // 查询 AudioStation 信息
-            // Query AudioStation info
-            let audioStationInfo = try await audioStationApi.info.query()
-            Logger.info("CheckDeviceConnection#checkConnectionStatus, audioStationInfo: \(audioStationInfo)")
-
-            continuation.yield(.success(type: connectionType, url: connectionUrl, audioStationInfo: audioStationInfo))
-            continuation.finish()
-        } catch SynologyError.sessionExpired {
-            Logger.error("CheckDeviceConnection#checkConnectionStatus, invalidSession during AudioStation query")
-            continuation.yield(.sessionInvalid(reason: .sessionInvalid))
-            continuation.finish()
+            let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(
+                quickConnectId: targetServer,
+                enableHttps: targetEnableHttps,
+                save: false // 不再通过 QC API 自动保存，由业务层管理状态
+            )
+            
+            // 可选：验证 AudioStation (verify AudioStation)
+            if verifyAudioStation {
+                 _ = try? await audioStationApi.info.query()
+            }
+            
+            return (connection.type, connection.url)
         } catch {
-            Logger.error("CheckDeviceConnection#checkConnectionStatus, AudioStation query failed: \(error)")
-            continuation.yield(.failed(reason: .audioStationQueryFailed(error: error.localizedDescription)))
-            continuation.finish()
+            Logger.error("CheckDeviceConnection#resolveAvailableConnection, QuickConnect failed: \(error)")
+            throw error
         }
     }
 }

@@ -9,21 +9,24 @@ import Foundation
 
 public actor AuthApi {
     private let apiClient: ApiClientProviding
-    private let deviceConnection: DeviceConnectionProviding
+    private let keychainStorage: KeychainStorage
 
-    public init(apiClient: ApiClientProviding, deviceConnection: DeviceConnectionProviding) {
+    public init(apiClient: ApiClientProviding, keychainStorage: KeychainStorage = KeychainStorage()) {
         self.apiClient = apiClient
-        self.deviceConnection = deviceConnection
+        self.keychainStorage = keychainStorage
     }
 
     public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         Logger.debug("send request: userLogin, \(server), \(username)")
 
-        let deviceName = await deviceConnection.getDeviceName()
-        let deviceId = await deviceConnection.getPersistentDeviceId()
+        let deviceName = keychainStorage.getDeviceName() ?? UUID().uuidString
+        let deviceId = keychainStorage.getDeviceId() ?? ""
 
         do {
-            let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
+            let api = ApiEndpoint(api: SynologyApi.Core.AUTH,
+                                  method: "login",
+                                  version: 6,
+                                  httpMethod: .post,
                                   parameters: ["account": username,
                                                "passwd": password,
                                                "format": "cookie",
@@ -31,10 +34,17 @@ public actor AuthApi {
                                                "enable_syno_token": "no",
                                                "enable_device_token": otpCode != nil ? "yes" : "no",
                                                "device_name": deviceName,
-                                               "device_id": deviceId ?? "",
+                                               "device_id": deviceId,
                                                "session": "AudioStation"],
                                   timeout: 10)
             let authResult: AuthResult = try await apiClient.request(api, resultType: AuthResult.self)
+
+            // Persist device identity for future use
+            keychainStorage.saveDeviceName(deviceName)
+            if let did = authResult.did, !did.isEmpty {
+                keychainStorage.saveDeviceId(did)
+            }
+
             return handleAuthResult(authResult: authResult)
         } catch let SynologyError.sessionExpired(code, msg) {
             throw SynologyError.auth(code: code, message: msg)
@@ -56,7 +66,6 @@ public actor AuthApi {
 
 extension AuthApi {
     private func handleAuthResult(authResult: AuthResult) -> AuthResult {
-        // DeviceConnection will handle saving the new DID if present
         Logger.info("authResult: \(authResult)")
         return authResult
     }

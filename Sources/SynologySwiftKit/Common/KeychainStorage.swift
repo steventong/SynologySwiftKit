@@ -92,27 +92,35 @@ public final class KeychainStorage: @unchecked Sendable {
     
     /// 保存 Session 信息
     /// Save session info
-    func saveSessionInfo(sid: String, did: String, username: String) {
+    func saveSessionInfo(sid: String, did: String) {
         let account = "synology_session_info"
-        let data: [String: String] = [
-            "sid": sid,
-            "did": did,
-            "username": username
-        ]
-        save(account: account, data: data)
+        let sessionInfo = SessionInfoData(sid: sid, did: did)
+        
+        guard let data = try? JSONEncoder().encode(sessionInfo) else {
+            Logger.error("[KeychainStorage] Failed to encode session info")
+            return
+        }
+        
+        save(account: account, rawData: data)
     }
     
     /// 获取 Session 信息
     /// Get session info
-    func getSessionInfo() -> (sid: String, did: String, username: String)? {
+    func getSessionInfo() -> (sid: String, did: String)? {
         let account = "synology_session_info"
-        guard let data: [String: String] = read(account: account),
-               let sid = data["sid"],
-               let did = data["did"],
-               let username = data["username"] else {
-             return nil
-         }
-         return (sid, did, username)
+        
+        // Try reading as SessionInfoData (new format)
+        if let data = readRaw(account: account),
+           let sessionInfo = try? JSONDecoder().decode(SessionInfoData.self, from: data) {
+            return (sessionInfo.sid, sessionInfo.did)
+        }
+        
+        // Fallback: Try reading as [String: String] (old format) for migration compatibility?
+        // Actually, let's just ignore old data or try to read it.
+        // Given this is a library, maybe strict migration is better if we want to force cleanup.
+        // But user data loss (session logout) is acceptable for update.
+        
+        return nil
     }
     
     /// 移除 Session 信息
@@ -189,41 +197,7 @@ public final class KeychainStorage: @unchecked Sendable {
         delete(account: accountName(for: "synology_connection_info"))
     }
     
-    // MARK: - Login Preferences
-    
-    /// 保存登录偏好
-    /// Save login preferences
-    func saveLoginPreferences(server: String, isEnableHttps: Bool) {
-        let account = "synology_login_preferences"
-        let data: [String: Any] = [
-            "server": server,
-            "isEnableHttps": isEnableHttps
-        ]
-        // JSONEncoder handle Any? No, dictionary to data needs Codable or manual.
-        // Let's use a struct or simpler Codable types.
-        if let jsonData = try? JSONSerialization.data(withJSONObject: data) {
-            save(account: account, rawData: jsonData)
-        }
-    }
-    
-    /// 获取登录偏好
-    /// Get login preferences
-    func getLoginPreferences() -> (server: String, isEnableHttps: Bool)? {
-        let account = "synology_login_preferences"
-        guard let jsonData = readRaw(account: account),
-              let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any],
-              let server = dict["server"] as? String,
-              let isEnableHttps = dict["isEnableHttps"] as? Bool else {
-            return nil
-        }
-        return (server, isEnableHttps)
-    }
-    
-    /// 移除登录偏好
-    /// Remove login preferences
-    func removeLoginPreferences() {
-        delete(account: accountName(for: "synology_login_preferences"))
-    }
+
     
     // MARK: - API Info Cache (Optional, maybe keep in UserDefaults for performance?)
     // API Info is not sensitive and accessed frequently. UserDefaults/Memory is better.
@@ -325,4 +299,11 @@ private struct CredentialData: Codable {
     let username: String
     let password: String
     let isEnableHttps: Bool?
+}
+
+/// Session 信息数据模型
+/// Session info data model
+private struct SessionInfoData: Codable {
+    let sid: String
+    let did: String
 }

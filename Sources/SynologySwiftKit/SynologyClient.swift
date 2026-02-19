@@ -88,7 +88,9 @@ public final class SynologyClient {
         // 初始化各个 API 模块
         audioStation = AudioStationApi(apiClient: client, storage: storage)
         fileStation = FileStationApi(apiClient: client)
-        auth = AuthApi(apiClient: client)
+        
+        // Inject device identity via KeychainStorage
+        auth = AuthApi(apiClient: client, keychainStorage: keychainStorage)
 
         quickConnect = QuickConnectApi(apiClient: client,
                                        pingpong: pingpong,
