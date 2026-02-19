@@ -110,12 +110,6 @@ public final class SynologyClient {
         keychainStorage.removeSessionInfo()
     }
 
-    /// 兼容旧方法名
-    /// Backward-compatible alias
-    public func removeSession() {
-        clearSession()
-    }
-
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
