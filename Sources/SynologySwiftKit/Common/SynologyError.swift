@@ -40,7 +40,6 @@ public enum SynologyError: Error, LocalizedError {
     case auth(code: Int, message: String)
 
 
-
     // MARK: - LocalizedError
 
     public var errorDescription: String? {
@@ -53,7 +52,6 @@ public enum SynologyError: Error, LocalizedError {
             return "Session expired: \(message)"
         case let .auth(_, message):
             return message
-
         }
     }
 }

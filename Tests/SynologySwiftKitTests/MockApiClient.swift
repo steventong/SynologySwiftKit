@@ -10,16 +10,28 @@ import Foundation
 
 /// 模拟 API 客户端（用于测试上层业务逻辑）
 final class MockApiClient: ApiClientProviding {
-    var connectionProvider: DeviceConnectionProviding
-    var apiInfoProvider: ApiInfoProviding? // 协议要求
+    var apiInfoProvider: ApiInfoProviding?
+
+    var currentConnection: (type: ConnectionType, url: String)?
+    var session: (sid: String, did: String?)?
+
+    func updateConnection(type: ConnectionType, url: String) {
+        currentConnection = (type, url)
+    }
+
+    func updateSession(sid: String, did: String?) {
+        session = (sid, did)
+    }
+
+    func clearSession() {
+        session = nil
+    }
 
     // 预设响应
     var mockResponse: Any?
     var mockError: Error?
 
     init() {
-        // 简单的 Mock 连接提供者
-        connectionProvider = DeviceConnection(storage: MockKeyValueStorage())
     }
 
     func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T {
