@@ -73,6 +73,18 @@ public final class SynologyClient {
         keychainStorage.getCredentials()
     }
 
+    /// 检查是否存在有效 Session（不暴露 sid/did）
+    /// Check whether a valid session exists (without exposing sid/did)
+    public func hasValidSession() -> Bool {
+        if let session = apiClient.session, !session.sid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        if let savedSession = keychainStorage.getSessionInfo(), !savedSession.sid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        return false
+    }
+
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
