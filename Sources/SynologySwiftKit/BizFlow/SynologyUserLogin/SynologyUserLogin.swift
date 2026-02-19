@@ -32,7 +32,10 @@ public actor SynologyUserLogin {
     ///   - apiInfoApi: API 信息提供者 / API info provider
     ///   - apiClient: API 客户端 / API client
     ///   - pingpong: PingPong 服务 / PingPong service
-    public init(keychainStorage: KeychainStorage = KeychainStorage(), apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding) {
+    public init(keychainStorage: KeychainStorage = KeychainStorage(),
+                apiInfoApi: ApiInfoProviding,
+                apiClient: ApiClientProviding,
+                pingpong: PingPongProviding) {
         self.keychainStorage = keychainStorage
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
@@ -132,7 +135,6 @@ private extension SynologyUserLogin {
             // 登录成功，保存会话
             // Login succeeded, save session
             apiClient.updateSession(sid: authResult.sid, did: authResult.did)
-            keychainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did ?? "")
 
             Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
 

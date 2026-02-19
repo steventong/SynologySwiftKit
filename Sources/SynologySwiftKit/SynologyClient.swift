@@ -20,6 +20,7 @@ public final class SynologyClient {
     /// API 客户端
     let apiClient: ApiClient
     private let keychainStorage: KeychainStorage
+    private let storage: KeyValueStorage
 
     /// 全局配置
     public let config: SynologyConfig
@@ -73,16 +74,46 @@ public final class SynologyClient {
         keychainStorage.getCredentials()
     }
 
+    /// 更新 Session（内存 + 本地持久化）
+    /// Update session (memory + local persistence)
+    public func updateSession(sid: String, did: String?) {
+        apiClient.updateSession(sid: sid, did: did)
+    }
+
+    /// 获取 Session（优先内存，其次本地持久化）
+    /// Get session (memory first, then local persistence)
+    public func getSession() -> (sid: String, did: String?)? {
+        if let current = apiClient.session, !current.sid.isEmpty {
+            return current
+        }
+
+        // Backward compatibility: migrate legacy Keychain session to UserDefaults.
+        if let session = keychainStorage.getSessionInfo(), !session.sid.isEmpty {
+            updateSession(sid: session.sid, did: session.did)
+            keychainStorage.removeSessionInfo()
+            return (session.sid, session.did)
+        }
+
+        return nil
+    }
+
     /// 检查是否存在有效 Session（不暴露 sid/did）
     /// Check whether a valid session exists (without exposing sid/did)
     public func hasValidSession() -> Bool {
-        if let session = apiClient.session, !session.sid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return true
-        }
-        if let savedSession = keychainStorage.getSessionInfo(), !savedSession.sid.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return true
-        }
-        return false
+        getSession() != nil
+    }
+
+    /// 移除当前 Session（内存 + 本地持久化）
+    /// Remove current session (memory + local persistence)
+    public func clearSession() {
+        apiClient.clearSession()
+        keychainStorage.removeSessionInfo()
+    }
+
+    /// 兼容旧方法名
+    /// Backward-compatible alias
+    public func removeSession() {
+        clearSession()
     }
 
     // MARK: - Initialization
@@ -94,11 +125,12 @@ public final class SynologyClient {
 
         let storage = UserDefaultsStorage()
         let keychainStorage = KeychainStorage()
+        self.storage = storage
         self.keychainStorage = keychainStorage
 
         // let connection = DeviceConnection(storage: storage, keychainStorage: keychainStorage)
         // DeviceConnection removed.
-        
+
         let client = ApiClient()
         let info = ApiInfoApi(apiClient: client, cacheValidity: config.apiInfoCacheValidity)
         let pingpong = PingPong(apiClient: client, timeout: config.pingpongTimeout)
@@ -114,7 +146,7 @@ public final class SynologyClient {
         // 初始化各个 API 模块
         audioStation = AudioStationApi(apiClient: client, storage: storage)
         fileStation = FileStationApi(apiClient: client)
-        
+
         // Inject device identity via KeychainStorage
         auth = AuthApi(apiClient: client, keychainStorage: keychainStorage)
 
@@ -126,8 +158,15 @@ public final class SynologyClient {
         encryption = EncryptionApi(apiClient: client)
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(keychainStorage: keychainStorage, apiInfoApi: info, apiClient: client, pingpong: pingpong)
+        userLogin = SynologyUserLogin(keychainStorage: keychainStorage,
+                                      apiInfoApi: info,
+                                      apiClient: client,
+                                      pingpong: pingpong)
         checkConnection = CheckDeviceConnection(apiClient: client, apiInfoApi: info, quickConnectApi: quickConnect, pingpong: pingpong, audioStationApi: audioStation)
         queryAllSongs = QueryAllSongs(apiClient: client)
+
+        // 恢复上次会话（在 getSession 内自动恢复/迁移）
+        // Restore previous session (auto restore/migrate in getSession).
+        _ = getSession()
     }
 }

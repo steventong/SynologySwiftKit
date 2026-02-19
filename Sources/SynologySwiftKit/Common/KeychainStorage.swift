@@ -92,9 +92,9 @@ public final class KeychainStorage: @unchecked Sendable {
     
     /// 保存 Session 信息
     /// Save session info
-    func saveSessionInfo(sid: String, did: String) {
+    func saveSessionInfo(sid: String, did: String?) {
         let account = "synology_session_info"
-        let sessionInfo = SessionInfoData(sid: sid, did: did)
+        let sessionInfo = SessionInfoData(sid: sid, did: did ?? "")
         
         guard let data = try? JSONEncoder().encode(sessionInfo) else {
             Logger.error("[KeychainStorage] Failed to encode session info")
