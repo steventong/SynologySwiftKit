@@ -11,14 +11,12 @@ import Foundation
 /// QuickConnect API for discovering device connection URLs via Synology QuickConnect service
 public actor QuickConnectApi {
     private let apiClient: ApiClientProviding
-    private let deviceConnection: DeviceConnectionProviding
     private let pingpong: PingPongProviding
     private let storage: KeyValueStorage
     private let timeout: TimeInterval
 
-    public init(deviceConnection: DeviceConnectionProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding, timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout, storage: KeyValueStorage = UserDefaultsStorage()) {
+    public init(apiClient: ApiClientProviding, pingpong: PingPongProviding, timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout, storage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
-        self.deviceConnection = deviceConnection
         self.pingpong = pingpong
         self.timeout = timeout
         self.storage = storage
@@ -27,7 +25,7 @@ public actor QuickConnectApi {
     /// 通过 QuickConnect ID 获取设备连接地址（竞速模式，首个最优连接立即返回）
     /// Get device connection URL by QuickConnect ID (race mode, returns first best connection)
     /// - Throws: SynologyError.quickConnect(.serverInfoNotFound) or SynologyError.quickConnect(.connectionFailed)
-    public func getDeviceConnectionByQuickConnectId(quickConnectId: String, enableHttps: Bool, save: Bool? = false) async throws -> (type: ConnectionType, url: String) {
+    public func getDeviceConnectionByQuickConnectId(quickConnectId: String, enableHttps: Bool) async throws -> (type: ConnectionType, url: String) {
         // 获取 serverInfo 信息
         // Fetch serverInfo
         let serverInfo = try await queryAvailableServerInfo(quickConnectId: quickConnectId, enableHttps: enableHttps)
@@ -50,11 +48,6 @@ public actor QuickConnectApi {
 
         guard let connectionUrl else {
             throw SynologyError.network(message: "Failed to establish QuickConnect connection")
-        }
-
-        if save == true {
-            await deviceConnection.updateCurrentConnectionUrl(
-                type: connectionUrl.type, url: connectionUrl.url)
         }
 
         return (connectionUrl.type, connectionUrl.url)
@@ -307,9 +300,7 @@ private extension QuickConnectApi {
 
     /// 从 ServerInfo 解析所有连接 URL（数据驱动，消除重复代码）
     /// Parse all connection URLs from ServerInfo (data-driven, eliminates duplicate code)
-    func parseConnectionUrls(
-        serverInfo: ServerInfo, enableHttps: Bool, isRequestTunnel: Bool
-    ) -> [ConnectionType: [String]] {
+    func parseConnectionUrls(serverInfo: ServerInfo, enableHttps: Bool, isRequestTunnel: Bool) -> [ConnectionType: [String]] {
         let scheme = enableHttps ? "https://" : "http://"
         let targetTypes: Set<ConnectionType> = isRequestTunnel ? [.relay] : [.lan, .wan, .lanv6, .wanv6, .ddns, .relay]
 

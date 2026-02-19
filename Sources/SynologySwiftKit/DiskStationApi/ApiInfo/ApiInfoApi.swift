@@ -31,7 +31,6 @@ public actor ApiInfoApi: ApiInfoProviding {
     /// 初始化 API 信息管理器
     /// Initialize API information manager
     public init(apiClient: ApiClientProviding,
-                connectionProvider: DeviceConnectionProviding? = nil,
                 storage: KeyValueStorage = UserDefaultsStorage(),
                 cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
         self.apiClient = apiClient
