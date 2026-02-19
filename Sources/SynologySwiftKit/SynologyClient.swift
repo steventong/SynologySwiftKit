@@ -60,6 +60,12 @@ public final class SynologyClient {
     /// PingPong
     public let pingpong: PingPong
 
+    /// 当前连接 URL（如果已建立连接）
+    /// Current connection URL if available
+    public var currentConnectionUrl: String? {
+        apiClient.currentConnection?.url
+    }
+
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
