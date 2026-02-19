@@ -60,10 +60,10 @@ public final class SynologyClient {
     /// PingPong
     public let pingpong: PingPong
 
-    /// 当前连接 URL（如果已建立连接）
-    /// Current connection URL if available
-    public var currentConnectionUrl: String? {
-        apiClient.currentConnection?.url
+    /// 当前连接信息（如果已建立连接）
+    /// Current connection info if available
+    public var currentConnection: (type: ConnectionType, url: String)? {
+        apiClient.currentConnection
     }
 
     // MARK: - Initialization
