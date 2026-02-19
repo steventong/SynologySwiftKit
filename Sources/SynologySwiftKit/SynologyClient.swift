@@ -23,9 +23,6 @@ public final class SynologyClient {
     /// 全局配置
     public let config: SynologyConfig
 
-    /// 设备连接管理
-    public let deviceConnection: DeviceConnection
-
     /// API 信息管理
     public let apiInfo: ApiInfoApi
 
@@ -73,12 +70,14 @@ public final class SynologyClient {
         let storage = UserDefaultsStorage()
         let keychainStorage = KeychainStorage()
 
-        let connection = DeviceConnection(storage: storage, keychainStorage: keychainStorage)
-        let client = ApiClient(connectionProvider: connection)
-        let info = ApiInfoApi(apiClient: client, connectionProvider: connection, cacheValidity: config.apiInfoCacheValidity)
+        // let connection = DeviceConnection(storage: storage, keychainStorage: keychainStorage)
+        // DeviceConnection removed.
+        
+        let client = ApiClient()
+        let info = ApiInfoApi(apiClient: client, cacheValidity: config.apiInfoCacheValidity)
         let pingpong = PingPong(apiClient: client, timeout: config.pingpongTimeout)
 
-        deviceConnection = connection
+        // deviceConnection = connection -> Removed
         apiClient = client
         apiInfo = info
         self.pingpong = pingpong
@@ -86,15 +85,12 @@ public final class SynologyClient {
         // 注入 API 信息提供者
         client.apiInfoProvider = info
 
-
-
         // 初始化各个 API 模块
         audioStation = AudioStationApi(apiClient: client, storage: storage)
         fileStation = FileStationApi(apiClient: client)
-        auth = AuthApi(apiClient: client, deviceConnection: connection)
+        auth = AuthApi(apiClient: client)
 
-        quickConnect = QuickConnectApi(deviceConnection: connection,
-                                       apiClient: client,
+        quickConnect = QuickConnectApi(apiClient: client,
                                        pingpong: pingpong,
                                        timeout: config.quickConnectTimeout,
                                        storage: storage)
@@ -102,8 +98,8 @@ public final class SynologyClient {
         encryption = EncryptionApi(apiClient: client)
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(deviceConnection: connection, apiInfoApi: info, apiClient: client, pingpong: pingpong)
-        checkConnection = CheckDeviceConnection(deviceConnection: connection, apiInfoApi: info, pingpong: pingpong, apiClient: client)
+        userLogin = SynologyUserLogin(keychainStorage: keychainStorage, apiInfoApi: info, apiClient: client, pingpong: pingpong)
+        checkConnection = CheckDeviceConnection(apiClient: client, apiInfoApi: info, quickConnectApi: quickConnect, pingpong: pingpong, audioStationApi: audioStation)
         queryAllSongs = QueryAllSongs(apiClient: client)
     }
 }
