@@ -8,7 +8,6 @@
 import Foundation
 
 public enum ConnectionType: String, CaseIterable, Sendable {
-    
     case lan
     case wan
     case lanv6
