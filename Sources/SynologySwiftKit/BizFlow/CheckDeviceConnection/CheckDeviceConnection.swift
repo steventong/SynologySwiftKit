@@ -13,6 +13,7 @@ public class CheckDeviceConnection {
     private let quickConnectApi: QuickConnectApi
     private let pingpong: PingPongProviding
     private let audioStationApi: AudioStationApi
+    private let keychainStorage = KeychainStorage()
 
     // MARK: - Initialization
 
@@ -67,9 +68,33 @@ private extension CheckDeviceConnection {
                 return
             }
 
-            // 如果 Ping 失败，且需要重新解析 (fallback logic omitted/simplified for now as we don't know original server ID here)
-            // If failed, throw error.
-            throw SynologyError.network(message: "Connection unreachable")
+            // Ping 失败后按需刷新连接 URL
+            // Refresh connection URL after ping failed if requested
+            guard fetchNewConnectionUrl else {
+                throw SynologyError.network(message: "Connection unreachable")
+            }
+
+            guard let credentials = keychainStorage.getCredentials() else {
+                throw SynologyError.network(message: "Connection unreachable and no saved credentials")
+            }
+
+            let enableHttps = credentials.isEnableHttps ?? true
+            Logger.info("CheckDeviceConnection#checkConnectionStatus, ping failed, refreshing connection for: \(credentials.server)")
+
+            let resolved = try await resolveAvailableConnection(server: credentials.server,
+                                                                enableHttps: enableHttps,
+                                                                verifySid: false)
+
+            guard await pingpong.pingpong(url: resolved.url) else {
+                throw SynologyError.network(message: "Refreshed connection unreachable")
+            }
+
+            apiClient.updateConnection(type: resolved.type, url: resolved.url)
+            keychainStorage.saveConnectionInfo(url: resolved.url, typeString: resolved.type.rawValue)
+            Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(resolved.url)")
+            continuation.yield(.success(type: resolved.type, url: resolved.url))
+            continuation.finish()
+            return
 
         } catch {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, connection check failed: \(error)")
@@ -84,12 +109,12 @@ private extension CheckDeviceConnection {
 extension CheckDeviceConnection {
     /// 解析可用连接（封装 Ping 测试、QuickConnect 解析、AudioStation 验证等逻辑）
     /// Resolve available connection (encapsulates Ping test, QuickConnect resolution, AudioStation verification)
-    public func resolveAvailableConnection(server: String, enableHttps: Bool, verifyAudioStation: Bool) async throws -> (type: ConnectionType, url: String) {
+    public func resolveAvailableConnection(server: String, enableHttps: Bool, verifySid: Bool) async throws -> (type: ConnectionType, url: String) {
         let targetServer = server
         let targetEnableHttps = enableHttps
 
         // 1. 检查是否为 QuickConnect ID
-        if !quickConnectApi.isQuickConnectId(server: targetServer) {
+        if !QuickConnectUtils.isQuickConnectId(server: targetServer) {
             // 自定义域名/IP，直接返回
             // Custom domain/IP, return directly
             // 可选：在此处做 Ping 检查以确保地址有效
@@ -100,15 +125,12 @@ extension CheckDeviceConnection {
         // 2. 通过 QuickConnect 解析
         // Resolve via QuickConnect
         Logger.info("CheckDeviceConnection#resolveAvailableConnection, resolving via QuickConnect for \(targetServer)")
+
         do {
-            let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(
-                quickConnectId: targetServer,
-                enableHttps: targetEnableHttps,
-                save: false // 不再通过 QC API 自动保存，由业务层管理状态
-            )
+            let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: targetServer, enableHttps: targetEnableHttps)
 
             // 可选：验证 AudioStation (verify AudioStation)
-            if verifyAudioStation {
+            if verifySid {
                 _ = try? await audioStationApi.info.query()
             }
 

@@ -39,45 +39,11 @@ public actor SynologyUserLogin {
         self.pingpong = pingpong
 
         quickConnectApi = QuickConnectApi(apiClient: apiClient, pingpong: pingpong)
-        
+
         authApi = AuthApi(apiClient: apiClient, keychainStorage: keychainStorage)
         audioStationApi = AudioStationApi(apiClient: apiClient)
     }
 
-    // MARK: - Password Login (AsyncStream)
-
-    /// 使用已保存的凭据自动登录（自动获取 Server 和 HTTPS 设置）
-    /// Auto-login with saved credentials (automatically retrieve Server and HTTPS settings)
-    /// - Returns: AsyncStream 返回登录进度
-    public func login() -> AsyncStream<LoginProgress> {
-        AsyncStream { continuation in
-            Task {
-                // 尝试获取已保存的凭据
-                if let credentials = keychainStorage.getCredentials() {
-                    let server = credentials.server
-                    // Credential 中如果没有保存 HTTPS 设置，默认为 true (与 DeviceConnection 逻辑一致)
-                    // If no HTTPS setting in credentials, default to true
-                    let enableHttps = credentials.isEnableHttps ?? true
-                    let username = credentials.username
-                    let password = credentials.password
-                    
-                    Logger.info("SynologyUserLogin#login(auto-full), found credentials for \(server)")
-                    await self.performPasswordLogin(server: server,
-                                                    enableHttps: enableHttps,
-                                                    username: username,
-                                                    password: password,
-                                                    otpCode: nil, // 自动登录无法提供OTP
-                                                    shouldSavePassword: true,
-                                                    continuation: continuation)
-                } else {
-                    Logger.warn("SynologyUserLogin#login(auto-full), no saved credentials found")
-                    continuation.yield(.failed(message: "No saved credentials found"))
-                    continuation.finish()
-                }
-            }
-        }
-    }
-    
     /// 通过密码登录（AsyncStream 版本）
     /// Login with password (AsyncStream version)
     /// - Parameters:
@@ -108,46 +74,34 @@ public actor SynologyUserLogin {
 private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
-    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, 
+    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String,
                               otpCode: String?, shouldSavePassword: Bool,
                               continuation: AsyncStream<LoginProgress>.Continuation) async {
         continuation.yield(.connecting)
 
         // 解析可用连接 (使用 CheckDeviceConnection)
         // Resolve available connection (using CheckDeviceConnection)
-        // 这里不需要验证 AudioStation (verifyAudioStation: false)，因为还没有 SID，验证会失败。
-        // 此处的目的是拿到一个物理上可通的 URL，以便后续进行 login。
         let connection: (type: ConnectionType, url: String)
+
         do {
             // 临时实例化 CheckDeviceConnection (Temporary instantiation of CheckDeviceConnection)
-            let connectionChecker = CheckDeviceConnection(
-                apiClient: apiClient,
-                apiInfoApi: apiInfoApi,
-                quickConnectApi: quickConnectApi,
-                pingpong: pingpong,
-                audioStationApi: audioStationApi
-            )
-            
-            connection = try await connectionChecker.resolveAvailableConnection(
-                server: server,
-                enableHttps: enableHttps,
-                verifyAudioStation: false // Login 前无需验证 AudioStation (无 Session) | Before login, no session to verify
-            )
+            let connectionChecker = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfoApi, quickConnectApi: quickConnectApi, pingpong: pingpong, audioStationApi: audioStationApi)
+            connection = try await connectionChecker.resolveAvailableConnection(server: server, enableHttps: enableHttps, verifySid: false)
         } catch {
-             Logger.error("SynologyUserLogin#performPasswordLogin, connection resolution failed: \(error)")
-             continuation.yield(.failed(message: SynologyError.network(message: error.localizedDescription).localizedDescription))
-             continuation.finish()
-             return
+            Logger.error("SynologyUserLogin#performPasswordLogin, connection resolution failed: \(error)")
+            continuation.yield(.failed(message: SynologyError.network(message: error.localizedDescription).localizedDescription))
+            continuation.finish()
+            return
         }
 
         // 更新 ApiClient 连接状态 (Update ApiClient connection status)
         apiClient.updateConnection(type: connection.type, url: connection.url)
-        
+
         // 保存可用地址 (Save available address to Keychain)
         keychainStorage.saveConnectionInfo(url: connection.url, typeString: connection.type.rawValue)
 
         // 确定服务器类型
-        let isQuickConnectID = quickConnectApi.isQuickConnectId(server: server)
+        let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
         // 更新 API 信息 + 认证
@@ -178,23 +132,26 @@ private extension SynologyUserLogin {
             // 登录成功，保存会话
             // Login succeeded, save session
             apiClient.updateSession(sid: authResult.sid, did: authResult.did)
-            keychainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did ?? "", expireDate: nil)
+            keychainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did ?? "")
 
             Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
 
-            // 验证 AudioStation
-            // Verify AudioStation
-            let audioStationInfo = try await audioStationApi.info.query()
-            Logger.info("SynologyUserLogin#performPasswordLogin, audioStationInfo: \(audioStationInfo)")
+//            // 验证 sid
+//            let audioStationInfo = try await audioStationApi.info.query()
+//            Logger.info("SynologyUserLogin#performPasswordLogin, audioStationInfo: \(audioStationInfo)")
 
-            let loginResult = LoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+            let loginResult = LoginResult(sid: authResult.sid,
+                                          did: authResult.did,
+                                          connectionType: connection.type,
+                                          connectionUrl: connection.url,
+                                          serverType: serverType)
+
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
-
-        } catch let SynologyError.auth(code, _) where code == 403 {
+        } catch let SynologyError.auth(code, msg) where code == 403 {
             // 需要 OTP 验证码（不算失败，需要用户输入）
             // OTP required (not a failure, user input needed)
-            Logger.info("SynologyUserLogin#performPasswordLogin, OTP required")
+            Logger.info("SynologyUserLogin#performPasswordLogin, OTP required, message: \(msg)")
             continuation.yield(.otpRequired)
             continuation.finish()
         } catch {
