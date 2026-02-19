@@ -19,6 +19,7 @@ public final class SynologyClient {
 
     /// API 客户端
     let apiClient: ApiClient
+    private let keychainStorage: KeychainStorage
 
     /// 全局配置
     public let config: SynologyConfig
@@ -66,6 +67,12 @@ public final class SynologyClient {
         apiClient.currentConnection
     }
 
+    /// 读取已保存的登录凭据
+    /// Read saved login credentials
+    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
+        keychainStorage.getCredentials()
+    }
+
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
@@ -75,6 +82,7 @@ public final class SynologyClient {
 
         let storage = UserDefaultsStorage()
         let keychainStorage = KeychainStorage()
+        self.keychainStorage = keychainStorage
 
         // let connection = DeviceConnection(storage: storage, keychainStorage: keychainStorage)
         // DeviceConnection removed.
