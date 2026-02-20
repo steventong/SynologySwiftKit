@@ -23,14 +23,6 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - internal State
 
-    /// 当前连接信息
-    /// Current connection info
-    private(set) var currentConnection: (type: ConnectionType, url: String)?
-
-    /// 当前会话信息
-    /// Current session info
-    private(set) var session: (sid: String, did: String?)?
-
     private let httpTransport: HTTPTransporting
 
     /// 网络拦截器链
@@ -39,6 +31,14 @@ final class ApiClient: ApiClientProviding {
     /// API 信息提供者（延迟设置以解决循环依赖）
     /// API info provider (lazy set to resolve circular dependency)
     var apiInfoProvider: ApiInfoProviding?
+
+    /// 当前连接信息
+    /// Current connection info
+    private(set) var currentConnection: (type: ConnectionType, url: String)?
+
+    /// 当前会话信息
+    /// Current session info
+    private(set) var session: (sid: String, did: String?)?
 
     // MARK: - Initialization
 
@@ -56,26 +56,28 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - Public Methods
 
+    /// 发送请求（无返回值）
+    /// Send request without return value
+    func request(_ endpoint: ApiEndpoint) async throws {
+        let _: EmptyData = try await request(endpoint, rawResponse: false)
+    }
+
     /// 发送请求并解码响应
     /// Send request and decode response
     /// 通用请求方法
     public func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool = false) async throws -> T {
         if rawResponse {
             // 返回原始响应
-            return try await sendApiRequest(endpoint: endpoint,
-                                            resultType: T.self,
-                                            checkResultIsSuccess: { _ in true },
-                                            parseErrorCode: { _ in nil })
+            return try await sendApiRequest(endpoint: endpoint, resultType: T.self, checkResultIsSuccess: { _ in true }, parseErrorCode: { _ in nil })
         } else {
             // 解包数据 (默认)
-            let response = try await sendApiRequest(endpoint: endpoint,
-                                                    resultType: SynologyResponse<T>.self,
-                                                    checkResultIsSuccess: { $0.success },
-                                                    parseErrorCode: { $0.error?.code })
+            let response = try await sendApiRequest(endpoint: endpoint, resultType: SynologyResponse<T>.self, checkResultIsSuccess: { $0.success }, parseErrorCode: { $0.error?.code })
             return try response.unwrap()
         }
     }
 
+    /// 发送原始 HTTP 请求
+    /// Send raw HTTP request (non-DSM API scenarios)
     public func requestRaw<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil,
                                          timeout: TimeInterval = 10) async throws -> T {
         var request = URLRequest(url: url)
@@ -89,29 +91,12 @@ final class ApiClient: ApiClientProviding {
                                         trustedSSLDomain: nil)
     }
 
-    /// 发送请求（无返回值）
-    /// Send request without return value
-    func request(_ endpoint: ApiEndpoint) async throws {
-        let _: EmptyData = try await request(endpoint, rawResponse: false)
-    }
-
     /// 发送请求并返回 Result 类型（带数据）
     /// Send request and return Result type (with data)
     func requestResult<T: Decodable>(_ endpoint: ApiEndpoint) async -> Result<T, Error> {
         do {
             let data: T = try await request(endpoint)
             return .success(data)
-        } catch {
-            return .failure(error)
-        }
-    }
-
-    /// 发送请求并返回 Result 类型（无返回值）
-    /// Send request and return Result type (without return value)
-    func requestResult(_ endpoint: ApiEndpoint) async -> Result<Void, Error> {
-        do {
-            try await request(endpoint)
-            return .success(())
         } catch {
             return .failure(error)
         }
