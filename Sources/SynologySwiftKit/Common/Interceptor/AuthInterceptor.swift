@@ -29,6 +29,7 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
     public func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
         var updatedRequest = request
 
+        // 需要在query请求参数中添加sid参数。
         if needsQuerySid(for: endpoint) {
             guard let sid = sessionProvider?()?.sid, !sid.isEmpty else {
                 throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
@@ -36,6 +37,7 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
             updatedRequest = injectQuerySidIfNeeded(sid, into: updatedRequest)
         }
 
+        // 需要在http header cookie 请求中添加sid/did参数
         if needsAuthCookie(for: endpoint) {
             guard let session = sessionProvider?(), !session.sid.isEmpty else {
                 throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
@@ -61,15 +63,26 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
         endpoint.sidOnCookie ?? endpoint.requireAuthCookie
     }
 
+    private func isSessionExpiredError(_ error: Error) -> Bool {
+        guard let synologyError = error as? SynologyError else {
+            return false
+        }
+        guard case let .sessionExpired(code, _) = synologyError else {
+            return false
+        }
+        return code == 0 || [105, 106, 107, 119].contains(code)
+    }
+}
+
+extension AuthInterceptor {
+    /// injectQuerySidIfNeeded
     private func injectQuerySidIfNeeded(_ sid: String, into request: URLRequest) -> URLRequest {
         var updatedRequest = request
         let method = HTTPMethod(rawValue: request.httpMethod ?? "GET") ?? .get
 
         switch method {
         case .get:
-            guard let url = request.url,
-                  var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-            else {
+            guard let url = request.url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
                 return request
             }
 
@@ -80,7 +93,6 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
             queryItems.append(URLQueryItem(name: "_sid", value: sid))
             components.queryItems = queryItems
             updatedRequest.url = components.url
-
         case .post, .put, .delete:
             let bodyString = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
             let hasSid = bodyString
@@ -98,6 +110,7 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
         return updatedRequest
     }
 
+    /// injectCookieIfNeeded
     private func injectCookieIfNeeded(sid: String, did: String?, into request: URLRequest) -> URLRequest {
         var updatedRequest = request
         let existingCookie = request.value(forHTTPHeaderField: "Cookie") ?? ""
@@ -114,15 +127,5 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
         let mergedCookie = existingCookie.isEmpty ? cookie : "\(existingCookie); \(cookie)"
         updatedRequest.setValue(mergedCookie, forHTTPHeaderField: "Cookie")
         return updatedRequest
-    }
-
-    private func isSessionExpiredError(_ error: Error) -> Bool {
-        guard let synologyError = error as? SynologyError else {
-            return false
-        }
-        guard case let .sessionExpired(code, _) = synologyError else {
-            return false
-        }
-        return code == 0 || [105, 106, 107, 119].contains(code)
     }
 }

@@ -123,13 +123,12 @@ public final class PlaylistApi {
      移除丢失歌曲
      */
     public func removeMissing(id: String) async throws -> Bool {
-        try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "removemissing", version: 3,
-                httpMethod: .post) {
-                    ("id", id)
-                }
-        )
+        let api = ApiEndpoint(
+            api: SynologyApi.AudioStation.PLAYLIST, method: "removemissing", version: 3,
+            httpMethod: .post) {
+                ("id", id)
+            }
+        let _: EmptyData = try await apiClient.request(api)
         return true
     }
 
@@ -137,19 +136,18 @@ public final class PlaylistApi {
      添加歌曲到播放列表
      */
     public func addSongs(id: String, songs: [String]) async throws -> Bool {
-        try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.PLAYLIST, method: "updatesongs", version: 3,
-                httpMethod: .post) {
-                    ("id", id)
-                    ("limit", 0)
-                    ("offset", -1)
-                    ("skip_duplicate", true)
-                    if !songs.isEmpty {
-                        ("songs", songs.joined(separator: ","))
-                    }
+        let api = ApiEndpoint(
+            api: SynologyApi.AudioStation.PLAYLIST, method: "updatesongs", version: 3,
+            httpMethod: .post) {
+                ("id", id)
+                ("limit", 0)
+                ("offset", -1)
+                ("skip_duplicate", true)
+                if !songs.isEmpty {
+                    ("songs", songs.joined(separator: ","))
                 }
-        )
+            }
+        let _: EmptyData = try await apiClient.request(api)
         return true
     }
 }

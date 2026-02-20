@@ -90,15 +90,14 @@ public final class SongApi {
      update song rating, from 1 - 5
      */
     public func setRating(id: String, rating: Int) async throws -> Bool {
-        try await apiClient.request(
-            ApiEndpoint(
-                api: SynologyApi.AudioStation.SONG, method: "setrating", version: 2,
-                httpMethod: .post
-            ) {
+        let api = ApiEndpoint(
+            api: SynologyApi.AudioStation.SONG, method: "setrating", version: 2,
+            httpMethod: .post) {
                 ("id", id)
                 ("rating", rating)
             }
-        )
+
+        let _: EmptyData = try await apiClient.request(api)
         return true
     }
 }

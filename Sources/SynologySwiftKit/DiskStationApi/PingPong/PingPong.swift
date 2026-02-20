@@ -117,11 +117,7 @@ public final class PingPong: PingPongProviding {
         }
 
         do {
-            let result: PingPongResult = try await apiClient.requestRaw(url: url,
-                                                                        httpMethod: .get,
-                                                                        headers: nil,
-                                                                        body: nil,
-                                                                        timeout: timeout)
+            let result: PingPongResult = try await apiClient.request(url: url, httpMethod: .get, headers: nil, body: nil, timeout: timeout)
             return result.success
         } catch {
             return false

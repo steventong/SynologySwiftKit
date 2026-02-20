@@ -60,7 +60,7 @@ public final class SynologyClient {
     /// 查询所有歌曲
     public let queryAllSongs: QueryAllSongs
 
-    private let keychainStorage: KeychainStorage
+    private let keyChainStorage: KeyChainStorage
     private let storage: KeyValueStorage
 
     /// 注册请求拦截器
@@ -77,7 +77,7 @@ public final class SynologyClient {
         self.config = config
 
         storage = UserDefaultsStorage()
-        keychainStorage = KeychainStorage()
+        keyChainStorage = KeyChainStorage()
 
         apiClient = ApiClient()
         apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
@@ -91,7 +91,7 @@ public final class SynologyClient {
         fileStation = FileStationApi(apiClient: apiClient)
 
         // Inject device identity via KeychainStorage
-        auth = AuthApi(apiClient: apiClient, keychainStorage: keychainStorage)
+        auth = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
 
         quickConnect = QuickConnectApi(apiClient: apiClient,
                                        pingpong: pingpong,
@@ -101,7 +101,7 @@ public final class SynologyClient {
         encryption = EncryptionApi(apiClient: apiClient)
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(keychainStorage: keychainStorage,
+        userLogin = SynologyUserLogin(keyChainStorage: keyChainStorage,
                                       apiInfoApi: apiInfo,
                                       apiClient: apiClient,
                                       pingpong: pingpong)
@@ -121,9 +121,9 @@ public final class SynologyClient {
             sessionProvider: { [weak apiClient] in
                 apiClient?.session
             },
-            onSessionExpired: { [weak apiClient, weak keychainStorage] in
+            onSessionExpired: { [weak apiClient, weak keyChainStorage] in
                 apiClient?.clearSession()
-                keychainStorage?.removeSessionInfo()
+                keyChainStorage?.removeSessionInfo()
             }
         ))
     }
@@ -139,7 +139,7 @@ extension SynologyClient {
     /// 读取已保存的登录凭据
     /// Read saved login credentials
     public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
-        keychainStorage.getCredentials()
+        keyChainStorage.getCredentials()
     }
 
     /// 更新 Session（内存 + 本地持久化）
@@ -155,7 +155,7 @@ extension SynologyClient {
             return current
         }
 
-        if let session = keychainStorage.getSessionInfo(), !session.sid.isEmpty {
+        if let session = keyChainStorage.getSessionInfo(), !session.sid.isEmpty {
             updateSession(sid: session.sid, did: session.did)
             return (session.sid, session.did)
         }
@@ -173,6 +173,6 @@ extension SynologyClient {
     /// Remove current session (memory + local persistence)
     public func clearSession() {
         apiClient.clearSession()
-        keychainStorage.removeSessionInfo()
+        keyChainStorage.removeSessionInfo()
     }
 }

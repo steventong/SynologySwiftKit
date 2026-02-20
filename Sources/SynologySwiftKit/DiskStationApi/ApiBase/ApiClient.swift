@@ -56,12 +56,6 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - Public Methods
 
-    /// 发送请求（无返回值）
-    /// Send request without return value
-    func request(_ endpoint: ApiEndpoint) async throws {
-        let _: EmptyData = try await request(endpoint, rawResponse: false)
-    }
-
     /// 发送请求并解码响应
     /// Send request and decode response
     /// 通用请求方法
@@ -78,8 +72,8 @@ final class ApiClient: ApiClientProviding {
 
     /// 发送原始 HTTP 请求
     /// Send raw HTTP request (non-DSM API scenarios)
-    public func requestRaw<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil,
-                                         timeout: TimeInterval = 10) async throws -> T {
+    public func request<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil,
+                                      timeout: TimeInterval = 10) async throws -> T {
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
         headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }

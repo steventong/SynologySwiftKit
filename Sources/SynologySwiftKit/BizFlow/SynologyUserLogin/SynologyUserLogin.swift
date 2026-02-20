@@ -15,35 +15,31 @@ import OSLog
 public actor SynologyUserLogin {
     // MARK: - Dependencies
 
-    private let keychainStorage: KeychainStorage
     private let apiInfoApi: ApiInfoProviding
     private let quickConnectApi: QuickConnectApi
     private let authApi: AuthApi
     private let pingpong: PingPongProviding
     private let audioStationApi: AudioStationApi
     private let apiClient: ApiClientProviding
+    private let keyChainStorage: KeyChainStorage
 
     // MARK: - Initialization
 
     /// 初始化登录管理器
     /// Initialize login manager
     /// - Parameters:
-    ///   - keychainStorage: Keychain 存储 / Keychain Storage
+    ///   - keyChainStorage: Keychain 存储 / Keychain Storage
     ///   - apiInfoApi: API 信息提供者 / API info provider
     ///   - apiClient: API 客户端 / API client
     ///   - pingpong: PingPong 服务 / PingPong service
-    public init(keychainStorage: KeychainStorage = KeychainStorage(),
-                apiInfoApi: ApiInfoProviding,
-                apiClient: ApiClientProviding,
-                pingpong: PingPongProviding) {
-        self.keychainStorage = keychainStorage
+    public init(keyChainStorage: KeyChainStorage = KeyChainStorage(), apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding) {
+        self.keyChainStorage = keyChainStorage
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.pingpong = pingpong
 
         quickConnectApi = QuickConnectApi(apiClient: apiClient, pingpong: pingpong)
-
-        authApi = AuthApi(apiClient: apiClient, keychainStorage: keychainStorage)
+        authApi = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
         audioStationApi = AudioStationApi(apiClient: apiClient)
     }
 
@@ -99,7 +95,7 @@ private extension SynologyUserLogin {
         apiClient.updateConnection(type: connection.type, url: connection.url)
 
         // 保存可用地址 (Save available address to Keychain)
-        keychainStorage.saveConnectionInfo(url: connection.url, typeString: connection.type.rawValue)
+        keyChainStorage.saveConnectionInfo(url: connection.url, typeString: connection.type.rawValue)
 
         // 确定服务器类型
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
@@ -121,9 +117,9 @@ private extension SynologyUserLogin {
         // 根据用户选择保存或清除凭据
         // save or remove credentials based on user choice
         if shouldSavePassword {
-            keychainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
+            keyChainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
         } else {
-            keychainStorage.removeCredentials()
+            keyChainStorage.removeCredentials()
         }
 
         do {

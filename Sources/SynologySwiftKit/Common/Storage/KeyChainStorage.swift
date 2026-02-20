@@ -12,7 +12,7 @@ import Security
 
 /// Keychain 安全存储（用于保存账号密码等敏感信息）
 /// Keychain secure storage for saving credentials and other sensitive data
-public final class KeychainStorage: @unchecked Sendable {
+public final class KeyChainStorage: @unchecked Sendable {
     /// Keychain 服务名称前缀
     /// Keychain service name prefix
     private let service: String
@@ -89,49 +89,49 @@ public final class KeychainStorage: @unchecked Sendable {
     }
 
     // MARK: - Session Info
-    
+
     /// 保存 Session 信息
     /// Save session info
     func saveSessionInfo(sid: String, did: String?) {
         let account = "synology_session_info"
         let sessionInfo = SessionInfoData(sid: sid, did: did ?? "")
-        
+
         guard let data = try? JSONEncoder().encode(sessionInfo) else {
             Logger.error("[KeychainStorage] Failed to encode session info")
             return
         }
-        
+
         save(account: account, rawData: data)
     }
-    
+
     /// 获取 Session 信息
     /// Get session info
     func getSessionInfo() -> (sid: String, did: String)? {
         let account = "synology_session_info"
-        
+
         // Try reading as SessionInfoData (new format)
         if let data = readRaw(account: account),
            let sessionInfo = try? JSONDecoder().decode(SessionInfoData.self, from: data) {
             return (sessionInfo.sid, sessionInfo.did)
         }
-        
+
         // Fallback: Try reading as [String: String] (old format) for migration compatibility?
         // Actually, let's just ignore old data or try to read it.
         // Given this is a library, maybe strict migration is better if we want to force cleanup.
         // But user data loss (session logout) is acceptable for update.
-        
+
         return nil
     }
-    
+
     /// 移除 Session 信息
     /// Remove session info
     func removeSessionInfo() {
         let account = "synology_session_info"
         delete(account: account)
     }
-    
+
     // MARK: - Device ID (Persistent)
-    
+
     /// 保存设备 ID (持久化，不随登出清除)
     /// Save Device ID (Persistent, not cleared on logout)
     func saveDeviceId(_ did: String) {
@@ -139,7 +139,7 @@ public final class KeychainStorage: @unchecked Sendable {
         let data: [String: String] = ["did": did]
         save(account: account, data: data)
     }
-    
+
     /// 获取设备 ID
     /// Get Device ID
     func getDeviceId() -> String? {
@@ -147,9 +147,9 @@ public final class KeychainStorage: @unchecked Sendable {
         guard let data: [String: String] = read(account: account) else { return nil }
         return data["did"]
     }
-    
+
     // MARK: - Device Name
-    
+
     /// 保存设备名称 (持久化)
     /// Save Device Name (Persistent)
     func saveDeviceName(_ name: String) {
@@ -157,7 +157,7 @@ public final class KeychainStorage: @unchecked Sendable {
         let data: [String: String] = ["name": name]
         save(account: account, data: data)
     }
-    
+
     /// 获取设备名称
     /// Get Device Name
     func getDeviceName() -> String? {
@@ -165,20 +165,20 @@ public final class KeychainStorage: @unchecked Sendable {
         guard let data: [String: String] = read(account: account) else { return nil }
         return data["name"]
     }
-    
+
     // MARK: - Connection URL
-    
+
     /// 保存连接地址信息
     /// Save connection URL info
     func saveConnectionInfo(url: String, typeString: String) {
         let account = "synology_connection_info"
         let data: [String: String] = [
             "url": url,
-            "type": typeString
+            "type": typeString,
         ]
         save(account: account, data: data)
     }
-    
+
     /// 获取连接地址信息
     /// Get connection URL info
     func getConnectionInfo() -> (url: String, typeString: String)? {
@@ -190,21 +190,20 @@ public final class KeychainStorage: @unchecked Sendable {
         }
         return (url, typeString)
     }
-    
+
     /// 移除连接地址信息
     /// Remove connection URL info
     func removeConnectionInfo() {
         delete(account: accountName(for: "synology_connection_info"))
     }
-    
 
-    
     // MARK: - API Info Cache (Optional, maybe keep in UserDefaults for performance?)
+
     // API Info is not sensitive and accessed frequently. UserDefaults/Memory is better.
     // User only asked for sid/did/quickconnectid.
-    
+
     // MARK: - Helper Methods
-    
+
     private func save<T: Encodable>(account: String, data: T) {
         guard let encoded = try? JSONEncoder().encode(data) else {
             Logger.error("[KeychainStorage] Failed to encode data for \(account)")
@@ -212,7 +211,7 @@ public final class KeychainStorage: @unchecked Sendable {
         }
         save(account: account, rawData: encoded)
     }
-    
+
     private func read<T: Decodable>(account: String) -> T? {
         guard let data = readRaw(account: account) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
@@ -232,34 +231,34 @@ public final class KeychainStorage: @unchecked Sendable {
             Logger.error("[KeychainStorage] Failed to save \(account), status: \(status)")
         }
     }
-    
+
     private func readRaw(account: String) -> Data? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceInfo(for: account),
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
+            kSecMatchLimit as String: kSecMatchLimitOne,
         ]
-        
+
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        
+
         if status == errSecSuccess, let data = item as? Data {
             return data
         }
         return nil
     }
-    
+
     private func delete(account: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: serviceInfo(for: account),
-            kSecAttrAccount as String: account
+            kSecAttrAccount as String: account,
         ]
         SecItemDelete(query as CFDictionary)
     }
-    
+
     private func serviceInfo(for account: String) -> String {
         return "com.synologyswiftkit.storage"
     }
@@ -286,9 +285,8 @@ public final class KeychainStorage: @unchecked Sendable {
     }
 }
 
-// 扩展现有的 saveCredentials 使用新的通用方法? 
+// 扩展现有的 saveCredentials 使用新的通用方法?
 // 为了保持兼容性，先保留原有代码，重构一下。
-
 
 // MARK: - CredentialData
 

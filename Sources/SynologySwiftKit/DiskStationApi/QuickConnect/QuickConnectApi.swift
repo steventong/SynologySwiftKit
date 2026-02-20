@@ -234,11 +234,7 @@ private extension QuickConnectApi {
         }
 
         let requestParams = SynoGetServerInfoRequest(id: enableHttps ? .dsm_https : .dsm, command: command, serverID: quickConnectId)
-        let result: ServerInfo = try await apiClient.requestRaw(url: url,
-                                                                httpMethod: .post,
-                                                                headers: ["Content-Type": "application/json"],
-                                                                body: try JSONEncoder().encode(requestParams),
-                                                                timeout: timeout)
+        let result: ServerInfo = try await apiClient.request(url: url, httpMethod: .post, headers: ["Content-Type": "application/json"], body: try JSONEncoder().encode(requestParams), timeout: timeout)
         return result
     }
 }
@@ -246,6 +242,7 @@ private extension QuickConnectApi {
 // MARK: - Connection URL Parsing
 
 private extension QuickConnectApi {
+    
     /// 从 ServerInfo 解析所有连接 URL（数据驱动，消除重复代码）
     /// Parse all connection URLs from ServerInfo (data-driven, eliminates duplicate code)
     func parseConnectionUrls(serverInfo: ServerInfo, enableHttps: Bool, isRequestTunnel: Bool) -> [ConnectionType: [String]] {

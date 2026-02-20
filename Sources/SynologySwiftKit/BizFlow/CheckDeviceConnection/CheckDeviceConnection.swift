@@ -13,7 +13,7 @@ public class CheckDeviceConnection {
     private let quickConnectApi: QuickConnectApi
     private let pingpong: PingPongProviding
     private let audioStationApi: AudioStationApi
-    private let keychainStorage = KeychainStorage()
+    private let keyChainStorage = KeyChainStorage()
 
     // MARK: - Initialization
 
@@ -73,7 +73,7 @@ private extension CheckDeviceConnection {
                 throw SynologyError.network(message: "Connection unreachable")
             }
 
-            guard let credentials = keychainStorage.getCredentials() else {
+            guard let credentials = keyChainStorage.getCredentials() else {
                 throw SynologyError.network(message: "Connection unreachable and no saved credentials")
             }
 
@@ -89,12 +89,11 @@ private extension CheckDeviceConnection {
             }
 
             apiClient.updateConnection(type: resolved.type, url: resolved.url)
-            keychainStorage.saveConnectionInfo(url: resolved.url, typeString: resolved.type.rawValue)
+            keyChainStorage.saveConnectionInfo(url: resolved.url, typeString: resolved.type.rawValue)
             Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(resolved.url)")
             continuation.yield(.success(type: resolved.type, url: resolved.url))
             continuation.finish()
             return
-
         } catch {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, connection check failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))

@@ -9,18 +9,18 @@ import Foundation
 
 public actor AuthApi {
     private let apiClient: ApiClientProviding
-    private let keychainStorage: KeychainStorage
+    private let keyChainStorage: KeyChainStorage
 
-    public init(apiClient: ApiClientProviding, keychainStorage: KeychainStorage = KeychainStorage()) {
+    public init(apiClient: ApiClientProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
         self.apiClient = apiClient
-        self.keychainStorage = keychainStorage
+        self.keyChainStorage = keyChainStorage
     }
 
     public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         Logger.debug("send request: userLogin, \(server), \(username)")
 
-        let deviceName = keychainStorage.getDeviceName() ?? UUID().uuidString
-        let deviceId = keychainStorage.getDeviceId() ?? ""
+        let deviceName = keyChainStorage.getDeviceName() ?? UUID().uuidString
+        let deviceId = keyChainStorage.getDeviceId() ?? ""
 
         do {
             let api = ApiEndpoint(api: SynologyApi.Core.AUTH,
@@ -40,9 +40,9 @@ public actor AuthApi {
             let authResult: AuthResult = try await apiClient.request(api, resultType: AuthResult.self)
 
             // Persist device identity for future use
-            keychainStorage.saveDeviceName(deviceName)
+            keyChainStorage.saveDeviceName(deviceName)
             if let did = authResult.did, !did.isEmpty {
-                keychainStorage.saveDeviceId(did)
+                keyChainStorage.saveDeviceId(did)
             }
 
             return handleAuthResult(authResult: authResult)
@@ -58,9 +58,8 @@ public actor AuthApi {
     }
 
     public func logout() async throws {
-        try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
-        )
+        let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
+        let _: EmptyData = try await apiClient.request(api, rawResponse: false)
     }
 }
 

@@ -27,6 +27,17 @@ public protocol ApiClientProviding {
     /// Send request and decode response
     func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T
 
+    /// 构建请求 URL（不发送请求）
+    /// Build request URL (without sending request)
+    func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL
+
+    /// 发送原始 HTTP 请求
+    /// Send raw HTTP request (non-DSM API scenarios)
+    func request<T: Decodable>(url: URL,
+                               httpMethod: HTTPMethod,
+                               headers: [String: String]?,
+                               body: Data?,
+                               timeout: TimeInterval) async throws -> T
     /// 更新连接信息
     /// Update connection info
     func updateConnection(type: ConnectionType, url: String)
@@ -38,22 +49,6 @@ public protocol ApiClientProviding {
     /// 清除会话
     /// Clear session
     func clearSession()
-
-    /// 构建请求 URL（不发送请求）
-    /// Build request URL (without sending request)
-    func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL
-
-    /// 发送请求（无返回值）
-    /// Send request without return value
-    func request(_ endpoint: ApiEndpoint) async throws
-
-    /// 发送原始 HTTP 请求
-    /// Send raw HTTP request (non-DSM API scenarios)
-    func requestRaw<T: Decodable>(url: URL,
-                                  httpMethod: HTTPMethod,
-                                  headers: [String: String]?,
-                                  body: Data?,
-                                  timeout: TimeInterval) async throws -> T
 }
 
 extension ApiClientProviding {
