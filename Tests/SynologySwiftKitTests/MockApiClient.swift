@@ -57,7 +57,7 @@ final class MockApiClient: ApiClientProviding {
         if let response = mockResponse as? T {
             return .success(response)
         }
-        return .failure(SynologyError.network(.responseEmpty))
+        return .failure(SynologyError.network(message: "response is empty"))
     }
 
     func requestResult(_ endpoint: ApiEndpoint) async -> Result<Void, Error> {
