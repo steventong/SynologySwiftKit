@@ -82,7 +82,7 @@ extension ApiInfoApi {
         let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query", parameters:
             ["query": "all"]
         )
-        let apiInfo = try await apiClient.request(api, resultType: [String: ApiInfoNode].self)
+        let apiInfo: [String: ApiInfoNode] = try await apiClient.request(api)
         return apiInfo
     }
 

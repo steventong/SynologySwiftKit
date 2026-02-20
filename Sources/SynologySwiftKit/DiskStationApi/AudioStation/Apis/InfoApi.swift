@@ -58,7 +58,7 @@ public final class InfoApi {
                 ("did", did)
             }
         }
-        let result: AudioStationInfo = try await apiClient.request(api, resultType: AudioStationInfo.self)
+        let result: AudioStationInfo = try await apiClient.request(api)
         return result
     }
 

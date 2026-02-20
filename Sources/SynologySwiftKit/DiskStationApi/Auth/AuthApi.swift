@@ -37,7 +37,7 @@ public actor AuthApi {
                                                "device_id": deviceId,
                                                "session": "AudioStation"],
                                   timeout: 10)
-            let authResult: AuthResult = try await apiClient.request(api, resultType: AuthResult.self)
+            let authResult: AuthResult = try await apiClient.request(api)
 
             // Persist device identity for future use
             keyChainStorage.saveDeviceName(deviceName)

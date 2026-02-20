@@ -31,9 +31,7 @@ public final class FileStationApi {
                         parameters: [
                             "accurate_progress": true,
                             "path": "[\"\(path)\"]",
-                        ]),
-            resultType: DeleteTask.self
-        )
+                        ]))
         Logger.info("delete: \(path), result = \(delete)")
         return delete.taskid != nil
     }

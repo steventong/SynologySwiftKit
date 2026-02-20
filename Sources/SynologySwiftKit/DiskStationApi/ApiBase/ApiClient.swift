@@ -62,6 +62,11 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - Public Methods
 
+    /// 默认请求（解包数据）
+    public func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
+        try await request(endpoint, rawResponse: false)
+    }
+
     /// 发送请求并解码响应
     /// Send request and decode response
     /// 通用请求方法
@@ -88,7 +93,9 @@ final class ApiClient: ApiClientProviding {
 
         return try await executeRequest(request: request, endpoint: rawEndpoint, timeout: timeout, trustedSSLDomain: nil)
     }
+}
 
+extension ApiClient {
     /// 更新连接信息
     /// Update connection info
     public func updateConnection(type: ConnectionType, url: String) {

@@ -18,6 +18,7 @@ import Foundation
 /// // 失败：{ "success": false, "error": { "code": 1002, "errors": [1006] } }
 /// ```
 public struct SynologyResponse<T: Decodable & Sendable>: Decodable, Sendable {
+    
     public let success: Bool
     public let error: SynologyApiError?
     public let data: T?

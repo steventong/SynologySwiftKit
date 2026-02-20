@@ -20,7 +20,7 @@ public final class DsmInfoApi {
     /// Query DSM information
     public func queryDmsInfo() async throws -> DsmInfo {
         let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2)
-        let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint, resultType: DsmInfo.self)
+        let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint)
 
         return dsmInfo
     }
@@ -34,7 +34,7 @@ public final class DsmInfoApi {
     public func queryDsmInfo() async throws -> DsmInfo {
         do {
             let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2)
-            let dsmInfo = try await apiClient.request(apiEndpoint, resultType: DsmInfo.self)
+            let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint)
 
             Logger.info("DsmInfoApi#queryDmsInfo result: \(dsmInfo.model ?? "unknown")")
             return dsmInfo
