@@ -55,8 +55,7 @@ public actor SynologyUserLogin {
     /// - Returns: AsyncStream 返回登录进度
     public func login(server: String, enableHttps: Bool,
                       username: String, password: String,
-                      otpCode: String? = nil, shouldSavePassword: Bool = true,
-                      continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) -> AsyncStream<SynologyUserLoginProgress> {
+                      otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             Task {
                 await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
