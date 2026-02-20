@@ -16,17 +16,12 @@ public actor AuthApi {
         self.keyChainStorage = keyChainStorage
     }
 
-    public func userLogin(server: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
-        Logger.debug("send request: userLogin, \(server), \(username)")
-
+    public func userLogin(username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         let deviceName = keyChainStorage.getDeviceName() ?? UUID().uuidString
         let deviceId = keyChainStorage.getDeviceId() ?? ""
 
         do {
-            let api = ApiEndpoint(api: SynologyApi.Core.AUTH,
-                                  method: "login",
-                                  version: 6,
-                                  httpMethod: .post,
+            let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
                                   parameters: ["account": username,
                                                "passwd": password,
                                                "format": "cookie",

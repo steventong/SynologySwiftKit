@@ -32,12 +32,28 @@ public class CheckDeviceConnection: CheckDeviceConnectionProviding {
 
     /// 检查当前连接状态（AsyncStream 版本）
     /// Check current connection status with AsyncStream
-    /// - Parameter fetchNewServerByQuickConnectId: 是否通过 QuickConnect ID 获取新服务器地址
     /// - Returns: AsyncStream 返回连接检查进度
-    public func checkConnectionStatus(fetchNewConnectionUrl: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
+    public func checkConnectionStatus() -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
             Task {
-                await self.performConnectionCheck(fetchNewConnectionUrl: fetchNewConnectionUrl, continuation: continuation)
+                guard let credentials = keyChainStorage.getCredentials() else {
+                    throw SynologyError.network(message: "Connection unreachable and no saved credentials")
+                }
+
+                let server = credentials.server
+                let isEnableHttps = credentials.isEnableHttps ?? false
+                await self.performConnectionCheck(server: server, isHttps: isEnableHttps, continuation: continuation)
+            }
+        }
+    }
+
+    /// 检查当前连接状态（AsyncStream 版本）
+    /// Check current connection status with AsyncStream
+    /// - Returns: AsyncStream 返回连接检查进度
+    public func checkConnectionStatus(server: String, isHttps: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
+        AsyncStream { continuation in
+            Task {
+                await self.performConnectionCheck(server: server, isHttps: isHttps, continuation: continuation)
             }
         }
     }
@@ -48,41 +64,23 @@ public class CheckDeviceConnection: CheckDeviceConnectionProviding {
 private extension CheckDeviceConnection {
     /// 执行连接检查的内部方法
     /// Internal method to perform connection check
-    private func performConnectionCheck(fetchNewConnectionUrl: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
+    private func performConnectionCheck(server: String, isHttps: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
         continuation.yield(.checking)
 
         do {
-            // 检查 apiClient 是否有当前连接
-            guard let current = apiClient.connection else {
-                throw SynologyError.network(message: "No active connection to check")
-            }
-
-            Logger.info("CheckDeviceConnection#checkConnectionStatus, checking current url: \(current.url)")
-
-            // 简单 Ping 检查
-            if await pingpong.pingpong(url: current.url) {
+            // 如果连接信息存在，测试简单 Ping 检查
+            if let currentConn = apiClient.connection, await pingpong.pingpong(url: currentConn.url) {
                 // Success
-                Logger.info("CheckDeviceConnection#checkConnectionStatus, connection OK")
-                continuation.yield(.success(type: current.type, url: current.url, cached: true))
+                Logger.info("CheckDeviceConnection#checkConnectionStatus, checking current url: \(currentConn.url)")
+                /// cached 表示不需要再次登录用户。
+                /// cached = false 表示地址切换了，需要重新登录的。
+                continuation.yield(.success(type: currentConn.type, url: currentConn.url, cached: true))
                 continuation.finish()
                 return
             }
 
-            // Ping 失败后按需刷新连接 URL
-            // Refresh connection URL after ping failed if requested
-            guard fetchNewConnectionUrl else {
-                throw SynologyError.network(message: "Connection unreachable")
-            }
-
-            guard let credentials = keyChainStorage.getCredentials() else {
-                throw SynologyError.network(message: "Connection unreachable and no saved credentials")
-            }
-
-            let enableHttps = credentials.isEnableHttps ?? false
-            Logger.info("CheckDeviceConnection#checkConnectionStatus, ping failed, refreshing connection for: \(credentials.server)")
-
-            // 获取新的地址
-            let resolved = try await resolveAvailableConnection(server: credentials.server, enableHttps: enableHttps, verifySid: false)
+            // 获取新的地址 - quickconnectid
+            let resolved = try await resolveAvailableConnection(server: server, enableHttps: isHttps)
 
             guard await pingpong.pingpong(url: resolved.url) else {
                 throw SynologyError.network(message: "Refreshed connection unreachable")
@@ -104,7 +102,7 @@ private extension CheckDeviceConnection {
 
     /// 解析可用连接（封装 Ping 测试、QuickConnect 解析、AudioStation 验证等逻辑）
     /// Resolve available connection (encapsulates Ping test, QuickConnect resolution, AudioStation verification)
-    private func resolveAvailableConnection(server: String, enableHttps: Bool, verifySid: Bool) async throws -> (type: ConnectionType, url: String) {
+    private func resolveAvailableConnection(server: String, enableHttps: Bool) async throws -> (type: ConnectionType, url: String) {
         // 1. 检查是否为 QuickConnect ID
         if !QuickConnectUtils.isQuickConnectId(server: server) {
             // 自定义域名/IP，直接返回
@@ -117,15 +115,8 @@ private extension CheckDeviceConnection {
         // 2. 通过 QuickConnect 解析
         // Resolve via QuickConnect
         Logger.info("CheckDeviceConnection#resolveAvailableConnection, resolving via QuickConnect for \(server)")
-
         do {
             let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: server, enableHttps: enableHttps)
-
-            // 可选：验证 AudioStation (verify AudioStation)
-            if verifySid {
-                _ = try? await audioStationApi.info.query()
-            }
-
             return (connection.type, connection.url)
         } catch {
             Logger.error("CheckDeviceConnection#resolveAvailableConnection, QuickConnect failed: \(error)")

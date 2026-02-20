@@ -53,10 +53,34 @@ public actor SynologyUserLogin {
     ///   - otpCode: 可选的 OTP 代码
     ///   - shouldSavePassword: 是否保存密码（默认为 true）
     /// - Returns: AsyncStream 返回登录进度
-    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+    public func login(server: String, enableHttps: Bool,
+                      username: String, password: String,
+                      otpCode: String? = nil, shouldSavePassword: Bool = true,
+                      continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             Task {
-                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, continuation: continuation)
+                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
+            }
+        }
+    }
+
+    public func refreshConnectionAndLogin(continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) -> AsyncStream<SynologyUserLoginProgress> {
+        AsyncStream { continuation in
+            Task {
+                guard let credentials = keyChainStorage.getCredentials() else {
+                    Logger.warn("SynologyUserLogin#login(auto-full), no saved credentials found")
+                    continuation.yield(.failed(message: "No saved credentials found"))
+                    continuation.finish()
+                    return
+                }
+
+                let server = credentials.server
+                let enableHttps = credentials.isEnableHttps ?? false
+                let username = credentials.username
+                let password = credentials.password
+
+                // set sliceLogin: true
+                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: nil, shouldSavePassword: true, fetchApiList: true, sliceLogin: true, continuation: continuation)
             }
         }
     }
@@ -67,28 +91,34 @@ public actor SynologyUserLogin {
 private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
-    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
-        continuation.yield(.connecting)
-
+    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, sliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         // 确定服务器类型
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
+        // 根据用户选择保存或清除凭据
+        // save or remove credentials based on user choice
+        if shouldSavePassword {
+            keyChainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
+        } else {
+            keyChainStorage.saveCredentials(server: server, username: username, password: "", isEnableHttps: enableHttps)
+        }
+
         // 解析可用连接 (使用 CheckDeviceConnection)
         // Resolve available connection (using CheckDeviceConnection)
-        let connection: (type: ConnectionType, url: String)
+        let connection: (type: ConnectionType, url: String, cached: Bool)
 
         do {
             // 实例化 CheckDeviceConnection (Temporary instantiation of CheckDeviceConnection)
             let connectionChecker = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfoApi, quickConnectApi: quickConnectApi, audioStationApi: audioStationApi, pingpong: pingpong)
             // Start from checkConnectionStatus (it already resolves connection when needed).
-            var connectionFromStatus: (type: ConnectionType, url: String)?
-            for await progress in connectionChecker.checkConnectionStatus(fetchNewConnectionUrl: true) {
+            var connectionFromStatus: (type: ConnectionType, url: String, cached: Bool)?
+            for await progress in connectionChecker.checkConnectionStatus(server: server, isHttps: enableHttps) {
                 switch progress {
                 case .checking:
                     break
-                case let .success(type, url, _):
-                    connectionFromStatus = (type, url)
+                case let .success(type, url, cached):
+                    connectionFromStatus = (type, url, cached)
                 case let .failed(message):
                     Logger.warn("SynologyUserLogin#performPasswordLogin, checkConnectionStatus failed: \(message)")
                 }
@@ -117,7 +147,9 @@ private extension SynologyUserLogin {
 
         do {
             // 刷新 Api 列表
-            _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
+            if fetchApiList {
+                _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
+            }
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
@@ -125,25 +157,29 @@ private extension SynologyUserLogin {
             return
         }
 
-        // 根据用户选择保存或清除凭据
-        // save or remove credentials based on user choice
-        if shouldSavePassword {
-            keyChainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
-        } else {
-            keyChainStorage.removeCredentials()
-        }
-
         do {
-            let authResult = try await authApi.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
+            if sliceLogin && connection.cached {
+                // 静默登录且没有更换地址,调用接口验证SID是否过期。
 
-            // 登录成功，保存会话
-            // Login succeeded, save session
-            apiClient.updateSession(sid: authResult.sid, did: authResult.did)
-            Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
-            let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+                if let sessionInfo = keyChainStorage.getSessionInfo() {
+                    _ = try? await audioStationApi.info.query()
 
-            continuation.yield(.completed(result: loginResult))
-            continuation.finish()
+                    let loginResult = SynologyUserLoginResult(sid: sessionInfo.sid, did: sessionInfo.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+                    continuation.yield(.completed(result: loginResult))
+                    continuation.finish()
+                }
+            } else {
+                let authResult = try await authApi.userLogin(username: username, password: password, otpCode: otpCode)
+
+                // 登录成功，保存会话
+                // Login succeeded, save session
+                apiClient.updateSession(sid: authResult.sid, did: authResult.did)
+                Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
+                let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+
+                continuation.yield(.completed(result: loginResult))
+                continuation.finish()
+            }
         } catch let SynologyError.auth(code, msg) where code == 403 {
             // 需要 OTP 验证码（不算失败，需要用户输入）
             // OTP required (not a failure, user input needed)
