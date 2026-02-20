@@ -57,7 +57,7 @@ public actor SynologyUserLogin {
     ///   - otpCode: 可选的 OTP 代码
     ///   - shouldSavePassword: 是否保存密码（默认为 true）
     /// - Returns: AsyncStream 返回登录进度
-    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<LoginProgress> {
+    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             Task {
                 await self.performPasswordLogin(server: server,
@@ -77,9 +77,7 @@ public actor SynologyUserLogin {
 private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
-    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String,
-                              otpCode: String?, shouldSavePassword: Bool,
-                              continuation: AsyncStream<LoginProgress>.Continuation) async {
+    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         continuation.yield(.connecting)
 
         // 解析可用连接 (使用 CheckDeviceConnection)
@@ -142,11 +140,7 @@ private extension SynologyUserLogin {
 //            let audioStationInfo = try await audioStationApi.info.query()
 //            Logger.info("SynologyUserLogin#performPasswordLogin, audioStationInfo: \(audioStationInfo)")
 
-            let loginResult = LoginResult(sid: authResult.sid,
-                                          did: authResult.did,
-                                          connectionType: connection.type,
-                                          connectionUrl: connection.url,
-                                          serverType: serverType)
+            let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
 
             continuation.yield(.completed(result: loginResult))
             continuation.finish()

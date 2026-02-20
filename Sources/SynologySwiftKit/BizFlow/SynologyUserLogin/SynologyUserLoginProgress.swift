@@ -11,7 +11,7 @@ import Foundation
 
 /// 登录进度枚举，用于 AsyncStream 多次返回状态
 /// Login progress enum for AsyncStream multiple status returns
-public enum LoginProgress: Sendable {
+public enum SynologyUserLoginProgress: Sendable {
     /// 正在获取连接地址
     /// Fetching connection address
     case connecting
@@ -22,7 +22,7 @@ public enum LoginProgress: Sendable {
 
     /// 登录成功
     /// Login completed successfully
-    case completed(result: LoginResult)
+    case completed(result: SynologyUserLoginResult)
 
     /// 登录失败（携带本地化的失败描述）
     /// Login failed (with localized failure description)
@@ -31,17 +31,4 @@ public enum LoginProgress: Sendable {
     /// 需要输入 OTP 验证码
     /// OTP verification code required
     case otpRequired
-}
-
-// MARK: - ServerType
-
-/// 服务器类型
-/// Server type
-public enum ServerType: Sendable {
-    /// QuickConnect ID
-    case quickConnectId
-
-    /// 自定义域名
-    /// Custom domain
-    case customDomain
 }

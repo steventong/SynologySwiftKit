@@ -11,7 +11,7 @@ import Foundation
 
 /// 连接检查进度
 /// Connection check progress (Simplified)
-public enum ConnectionCheckProgress: Sendable {
+public enum CheckDeviceConnectionProgress: Sendable {
     /// 正在检查连接
     /// Checking connection
     case checking

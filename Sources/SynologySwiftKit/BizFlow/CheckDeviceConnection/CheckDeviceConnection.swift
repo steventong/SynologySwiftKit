@@ -33,7 +33,7 @@ public class CheckDeviceConnection {
     /// Check current connection status with AsyncStream
     /// - Parameter fetchNewServerByQuickConnectId: 是否通过 QuickConnect ID 获取新服务器地址
     /// - Returns: AsyncStream 返回连接检查进度
-    public func checkConnectionStatus(fetchNewConnectionUrl: Bool) -> AsyncStream<ConnectionCheckProgress> {
+    public func checkConnectionStatus(fetchNewConnectionUrl: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
             Task {
                 await self.performConnectionCheck(fetchNewConnectionUrl: fetchNewConnectionUrl, continuation: continuation)
@@ -47,8 +47,7 @@ public class CheckDeviceConnection {
 private extension CheckDeviceConnection {
     /// 执行连接检查的内部方法
     /// Internal method to perform connection check
-    func performConnectionCheck(fetchNewConnectionUrl: Bool,
-                                continuation: AsyncStream<ConnectionCheckProgress>.Continuation) async {
+    func performConnectionCheck(fetchNewConnectionUrl: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
         continuation.yield(.checking)
 
         do {
