@@ -5,12 +5,11 @@
 //  Created by Steven on 20/02/2026.
 //
 
-
 // MARK: - ServerType
 
 /// 服务器类型
 /// Server type
-public enum ServerType: Sendable {
+public enum ServerType: String, Sendable {
     /// QuickConnect ID
     case quickConnectId
 
