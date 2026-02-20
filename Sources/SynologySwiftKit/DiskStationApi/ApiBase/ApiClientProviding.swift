@@ -15,11 +15,9 @@ import Foundation
 /// 定义网络请求的接口，支持依赖注入模式。
 /// Defines network request interfaces, supporting dependency injection pattern.
 public protocol ApiClientProviding {
-    // var connectionProvider: DeviceConnectionProviding { get } // Removing this
-
     /// 当前连接信息
     /// Current connection info
-    var currentConnection: (type: ConnectionType, url: String)? { get }
+    var connection: (type: ConnectionType, url: String)? { get }
 
     /// 当前会话信息
     /// Current session info

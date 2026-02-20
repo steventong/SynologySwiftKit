@@ -132,8 +132,8 @@ public final class SynologyClient {
 extension SynologyClient {
     /// 当前连接信息（如果已建立连接）
     /// Current connection info if available
-    public var currentConnection: (type: ConnectionType, url: String)? {
-        apiClient.currentConnection
+    public func getConnection() -> (type: ConnectionType, url: String)? {
+        return apiClient.connection
     }
 
     /// 读取已保存的登录凭据

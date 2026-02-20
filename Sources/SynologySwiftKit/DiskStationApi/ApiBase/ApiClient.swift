@@ -34,7 +34,7 @@ final class ApiClient: ApiClientProviding {
 
     /// 当前连接信息
     /// Current connection info
-    private(set) var currentConnection: (type: ConnectionType, url: String)?
+    private(set) var connection: (type: ConnectionType, url: String)?
 
     /// 当前会话信息
     /// Current session info
@@ -111,7 +111,7 @@ final class ApiClient: ApiClientProviding {
     /// 更新连接信息
     /// Update connection info
     public func updateConnection(type: ConnectionType, url: String) {
-        currentConnection = (type, url)
+        connection = (type, url)
     }
 
     /// 更新会话信息
@@ -129,10 +129,8 @@ final class ApiClient: ApiClientProviding {
     // MARK: - Private Methods
 
     private func trustedSSLDomainForCurrentConnection() async -> String? {
-        guard let connectionUrl = currentConnection,
-              connectionUrl.type == .custom_domain,
-              connectionUrl.url.hasPrefix("https://"),
-              let url = URL(string: connectionUrl.url) else {
+        guard let connection, connection.type == .custom_domain, connection.url.hasPrefix("https://"),
+              let url = URL(string: connection.url) else {
             return nil
         }
         return url.host
@@ -283,8 +281,7 @@ final class ApiClient: ApiClientProviding {
 
     /// 构建 API URL
     private func buildApiUrl(apiPath: String) async throws -> URL {
-        if let connection = currentConnection,
-           let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
+        if let connection, let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
         throw SynologyError.network(message: "Host not configured")

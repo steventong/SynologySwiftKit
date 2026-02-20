@@ -52,7 +52,7 @@ private extension CheckDeviceConnection {
 
         do {
             // 检查 apiClient 是否有当前连接
-            guard let current = apiClient.currentConnection else {
+            guard let current = apiClient.connection else {
                 throw SynologyError.network(message: "No active connection to check")
             }
 
