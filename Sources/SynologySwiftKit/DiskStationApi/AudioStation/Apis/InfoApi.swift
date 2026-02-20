@@ -9,11 +9,11 @@ import Foundation
 
 public final class InfoApi {
     private let apiClient: ApiClientProviding
-    private let storage: KeyValueStorage
+    private let keyValueStorage: KeyValueStorage
 
-    public init(apiClient: ApiClientProviding, storage: KeyValueStorage = UserDefaultsStorage()) {
+    public init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
-        self.storage = storage
+        self.keyValueStorage = keyValueStorage
     }
 
     /**
@@ -38,7 +38,7 @@ public final class InfoApi {
      Query from Cache
      */
     public func getAudioStationInfo() -> AudioStationInfo? {
-        if let json = storage.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
+        if let json = keyValueStorage.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
            let data = json.data(using: .utf8) {
             let info = try? JSONDecoder().decode(AudioStationInfo.self, from: data)
             if let info {
@@ -65,14 +65,13 @@ public final class InfoApi {
     private func saveToCache(info: AudioStationInfo) {
         if let encoded = try? JSONEncoder().encode(info),
            let json = String(data: encoded, encoding: .utf8) {
-            storage.set(json, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
-            storage.set(Date(), forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName
-            )
+            keyValueStorage.set(json, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
+            keyValueStorage.set(Date(), forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
         }
     }
 
     private func isCacheValid() -> Bool {
-        if let updateTime = storage.object(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
+        if let updateTime = keyValueStorage.object(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
             return Date().timeIntervalSince(updateTime) < 24 * 60 * 60
         }
         return false

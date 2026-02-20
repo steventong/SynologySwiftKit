@@ -25,7 +25,7 @@ public final class AudioStationApi {
     /// API 客户端（internal 以便 extension 访问）
     /// API client (internal for extension access)
     let apiClient: ApiClientProviding
-    private let storage: KeyValueStorage
+    private let keyValueStorage: KeyValueStorage
 
     // MARK: - API Modules
 
@@ -66,7 +66,7 @@ public final class AudioStationApi {
     public lazy var stream = StreamApi(apiClient: apiClient)
 
     /// 信息 API
-    public lazy var info = InfoApi(apiClient: apiClient, storage: storage)
+    public lazy var info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
 
     /// 标签编辑器 API
     public lazy var tagEditor = TagEditorApi(apiClient: apiClient)
@@ -76,9 +76,9 @@ public final class AudioStationApi {
     /// 初始化 AudioStation API
     /// Initialize AudioStation API
     /// - Parameter apiClient: API 客户端
-    public init(apiClient: ApiClientProviding, storage: KeyValueStorage = UserDefaultsStorage()) {
+    public init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
-        self.storage = storage
+        self.keyValueStorage = keyValueStorage
     }
 }
 

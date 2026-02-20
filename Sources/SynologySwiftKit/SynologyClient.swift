@@ -61,7 +61,7 @@ public final class SynologyClient {
     public let queryAllSongs: QueryAllSongs
 
     private let keyChainStorage: KeyChainStorage
-    private let storage: KeyValueStorage
+    private let keyValueStorage: KeyValueStorage
 
     /// 注册请求拦截器
     /// Register request interceptor
@@ -76,7 +76,7 @@ public final class SynologyClient {
     public init(config: SynologyConfig = .default) {
         self.config = config
 
-        storage = UserDefaultsStorage()
+        keyValueStorage = UserDefaultsStorage()
         keyChainStorage = KeyChainStorage()
 
         apiClient = ApiClient()
@@ -87,29 +87,19 @@ public final class SynologyClient {
         apiClient.apiInfoProvider = apiInfo
 
         // 初始化各个 API 模块
-        audioStation = AudioStationApi(apiClient: apiClient, storage: storage)
+        audioStation = AudioStationApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
         fileStation = FileStationApi(apiClient: apiClient)
 
         // Inject device identity via KeychainStorage
         auth = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
 
-        quickConnect = QuickConnectApi(apiClient: apiClient,
-                                       pingpong: pingpong,
-                                       timeout: config.quickConnectTimeout,
-                                       storage: storage)
+        quickConnect = QuickConnectApi(apiClient: apiClient, pingpong: pingpong, timeout: config.quickConnectTimeout, storage: keyValueStorage)
         dsmInfo = DsmInfoApi(apiClient: apiClient)
         encryption = EncryptionApi(apiClient: apiClient)
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(keyChainStorage: keyChainStorage,
-                                      apiInfoApi: apiInfo,
-                                      apiClient: apiClient,
-                                      pingpong: pingpong)
-        checkConnection = CheckDeviceConnection(apiClient: apiClient,
-                                                apiInfoApi: apiInfo,
-                                                quickConnectApi: quickConnect,
-                                                pingpong: pingpong,
-                                                audioStationApi: audioStation)
+        userLogin = SynologyUserLogin(keyChainStorage: keyChainStorage, apiInfoApi: apiInfo, apiClient: apiClient, pingpong: pingpong)
+        checkConnection = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfo, quickConnectApi: quickConnect, pingpong: pingpong, audioStationApi: audioStation)
         queryAllSongs = QueryAllSongs(apiClient: apiClient)
 
         // 恢复上次会话
