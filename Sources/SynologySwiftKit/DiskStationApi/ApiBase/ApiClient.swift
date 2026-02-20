@@ -54,6 +54,12 @@ final class ApiClient: ApiClientProviding {
         interceptors.append(interceptor)
     }
 
+    /// 构建请求 URL（不发送请求）
+    /// Build request URL (without sending request)
+    public func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
+        try await buildApiUrlWithQueryParameters(endpoint: endpoint)
+    }
+
     // MARK: - Public Methods
 
     /// 发送请求并解码响应
@@ -72,34 +78,15 @@ final class ApiClient: ApiClientProviding {
 
     /// 发送原始 HTTP 请求
     /// Send raw HTTP request (non-DSM API scenarios)
-    public func request<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil,
-                                      timeout: TimeInterval = 10) async throws -> T {
+    public func request<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil, timeout: TimeInterval = 10) async throws -> T {
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
-        headers?.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
         request.httpBody = body
-
-        return try await executeRequest(request: request,
-                                        endpoint: rawEndpoint,
-                                        timeout: timeout,
-                                        trustedSSLDomain: nil)
-    }
-
-    /// 发送请求并返回 Result 类型（带数据）
-    /// Send request and return Result type (with data)
-    func requestResult<T: Decodable>(_ endpoint: ApiEndpoint) async -> Result<T, Error> {
-        do {
-            let data: T = try await request(endpoint)
-            return .success(data)
-        } catch {
-            return .failure(error)
+        headers?.forEach {
+            request.setValue($0.value, forHTTPHeaderField: $0.key)
         }
-    }
 
-    /// 构建请求 URL（不发送请求）
-    /// Build request URL (without sending request)
-    func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
-        try await buildApiUrlWithQueryParameters(endpoint: endpoint)
+        return try await executeRequest(request: request, endpoint: rawEndpoint, timeout: timeout, trustedSSLDomain: nil)
     }
 
     /// 更新连接信息
@@ -119,12 +106,13 @@ final class ApiClient: ApiClientProviding {
     public func clearSession() {
         session = nil
     }
+}
 
+extension ApiClient {
     // MARK: - Private Methods
 
     private func trustedSSLDomainForCurrentConnection() async -> String? {
-        guard let connection, connection.type == .custom_domain, connection.url.hasPrefix("https://"),
-              let url = URL(string: connection.url) else {
+        guard let connection, connection.type == .custom_domain, connection.url.hasPrefix("https://"), let url = URL(string: connection.url) else {
             return nil
         }
         return url.host
@@ -166,14 +154,13 @@ final class ApiClient: ApiClientProviding {
             apiPath = "/webapi/\(fetchedApiInfo.path)"
         }
 
-        return (
-            name: apiName,
-            method: endpoint.method,
-            version: apiVersion,
-            parameters: mergedParameters,
-            apiPath: apiPath,
-            requireAuthCookie: endpoint.sidOnCookie ?? endpoint.requireAuthCookie,
-            requireAuthQuery: endpoint.sidOnQuery ?? endpoint.requireQuerySid
+        return (name: apiName,
+                method: endpoint.method,
+                version: apiVersion,
+                parameters: mergedParameters,
+                apiPath: apiPath,
+                requireAuthCookie: endpoint.sidOnCookie ?? endpoint.requireAuthCookie,
+                requireAuthQuery: endpoint.sidOnQuery ?? endpoint.requireQuerySid
         )
     }
 
@@ -211,6 +198,7 @@ final class ApiClient: ApiClientProviding {
         throw SynologyError.api(code: errorCode, message: "errorCode = \(errorCode)")
     }
 
+    /// 发送 API 请求
     private func sendHttpRequest<Value: Decodable>(endpoint: ApiEndpoint,
                                                    resolved: (name: String, method: String, version: Int, parameters: ApiParameters, apiPath: String, requireAuthCookie: Bool, requireAuthQuery: Bool),
                                                    apiUrl: URL, headers: [String: String]?,
