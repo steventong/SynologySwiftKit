@@ -19,8 +19,6 @@ public final class SynologyClient {
 
     /// API 客户端
     let apiClient: ApiClient
-    private let keychainStorage: KeychainStorage
-    private let storage: KeyValueStorage
 
     /// 全局配置
     public let config: SynologyConfig
@@ -48,6 +46,9 @@ public final class SynologyClient {
     /// 加密 API
     public let encryption: EncryptionApi
 
+    /// PingPong
+    public let pingpong: PingPong
+
     // MARK: - Business Flows (Lazy initialized for performance if needed, but currently pre-warmed)
 
     /// 用户登录流程
@@ -59,9 +60,76 @@ public final class SynologyClient {
     /// 查询所有歌曲
     public let queryAllSongs: QueryAllSongs
 
-    /// PingPong
-    public let pingpong: PingPong
+    private let keychainStorage: KeychainStorage
+    private let storage: KeyValueStorage
 
+    /// 注册请求拦截器
+    /// Register request interceptor
+    public func addInterceptor(_ interceptor: RequestInterceptor) {
+        apiClient.addInterceptor(interceptor)
+    }
+
+    // MARK: - Initialization
+
+    /// 初始化 Synology 客户端
+    /// - Parameter config: 全局配置 (默认为 SynologyConfig.default)
+    public init(config: SynologyConfig = .default) {
+        self.config = config
+
+        storage = UserDefaultsStorage()
+        keychainStorage = KeychainStorage()
+
+        apiClient = ApiClient()
+        apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
+        pingpong = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
+
+        // 注入 API 信息提供者
+        apiClient.apiInfoProvider = apiInfo
+
+        // 初始化各个 API 模块
+        audioStation = AudioStationApi(apiClient: apiClient, storage: storage)
+        fileStation = FileStationApi(apiClient: apiClient)
+
+        // Inject device identity via KeychainStorage
+        auth = AuthApi(apiClient: apiClient, keychainStorage: keychainStorage)
+
+        quickConnect = QuickConnectApi(apiClient: apiClient,
+                                       pingpong: pingpong,
+                                       timeout: config.quickConnectTimeout,
+                                       storage: storage)
+        dsmInfo = DsmInfoApi(apiClient: apiClient)
+        encryption = EncryptionApi(apiClient: apiClient)
+
+        // 初始化流程类
+        userLogin = SynologyUserLogin(keychainStorage: keychainStorage,
+                                      apiInfoApi: apiInfo,
+                                      apiClient: apiClient,
+                                      pingpong: pingpong)
+        checkConnection = CheckDeviceConnection(apiClient: apiClient,
+                                                apiInfoApi: apiInfo,
+                                                quickConnectApi: quickConnect,
+                                                pingpong: pingpong,
+                                                audioStationApi: audioStation)
+        queryAllSongs = QueryAllSongs(apiClient: apiClient)
+
+        // 恢复上次会话
+        // Restore previous session
+        _ = getSession()
+
+        // 默认注册鉴权拦截器（按需补充 sid/cookie，并在会话失效时清理持久化会话）
+        apiClient.addInterceptor(AuthInterceptor(
+            sessionProvider: { [weak apiClient] in
+                apiClient?.session
+            },
+            onSessionExpired: { [weak apiClient, weak keychainStorage] in
+                apiClient?.clearSession()
+                keychainStorage?.removeSessionInfo()
+            }
+        ))
+    }
+}
+
+extension SynologyClient {
     /// 当前连接信息（如果已建立连接）
     /// Current connection info if available
     public var currentConnection: (type: ConnectionType, url: String)? {
@@ -87,10 +155,8 @@ public final class SynologyClient {
             return current
         }
 
-        // Backward compatibility: migrate legacy Keychain session to UserDefaults.
         if let session = keychainStorage.getSessionInfo(), !session.sid.isEmpty {
             updateSession(sid: session.sid, did: session.did)
-            keychainStorage.removeSessionInfo()
             return (session.sid, session.did)
         }
 
@@ -108,59 +174,5 @@ public final class SynologyClient {
     public func clearSession() {
         apiClient.clearSession()
         keychainStorage.removeSessionInfo()
-    }
-
-    // MARK: - Initialization
-
-    /// 初始化 Synology 客户端
-    /// - Parameter config: 全局配置 (默认为 SynologyConfig.default)
-    public init(config: SynologyConfig = .default) {
-        self.config = config
-
-        let storage = UserDefaultsStorage()
-        let keychainStorage = KeychainStorage()
-        self.storage = storage
-        self.keychainStorage = keychainStorage
-
-        // let connection = DeviceConnection(storage: storage, keychainStorage: keychainStorage)
-        // DeviceConnection removed.
-
-        let client = ApiClient()
-        let info = ApiInfoApi(apiClient: client, cacheValidity: config.apiInfoCacheValidity)
-        let pingpong = PingPong(apiClient: client, timeout: config.pingpongTimeout)
-
-        // deviceConnection = connection -> Removed
-        apiClient = client
-        apiInfo = info
-        self.pingpong = pingpong
-
-        // 注入 API 信息提供者
-        client.apiInfoProvider = info
-
-        // 初始化各个 API 模块
-        audioStation = AudioStationApi(apiClient: client, storage: storage)
-        fileStation = FileStationApi(apiClient: client)
-
-        // Inject device identity via KeychainStorage
-        auth = AuthApi(apiClient: client, keychainStorage: keychainStorage)
-
-        quickConnect = QuickConnectApi(apiClient: client,
-                                       pingpong: pingpong,
-                                       timeout: config.quickConnectTimeout,
-                                       storage: storage)
-        dsmInfo = DsmInfoApi(apiClient: client)
-        encryption = EncryptionApi(apiClient: client)
-
-        // 初始化流程类
-        userLogin = SynologyUserLogin(keychainStorage: keychainStorage,
-                                      apiInfoApi: info,
-                                      apiClient: client,
-                                      pingpong: pingpong)
-        checkConnection = CheckDeviceConnection(apiClient: client, apiInfoApi: info, quickConnectApi: quickConnect, pingpong: pingpong, audioStationApi: audioStation)
-        queryAllSongs = QueryAllSongs(apiClient: client)
-
-        // 恢复上次会话（在 getSession 内自动恢复/迁移）
-        // Restore previous session (auto restore/migrate in getSession).
-        _ = getSession()
     }
 }

@@ -12,14 +12,117 @@ import Foundation
 /// 职责：
 /// 1. 为请求注入 SID/DID (Query 或 Cookie)
 /// 2. 处理 105/106 等 Token 过期错误 (尚未实现自动重试)
-public struct AuthInterceptor: RequestInterceptor {
-    // 暂时保留为空结构，实际鉴权逻辑目前仍紧耦合在 ApiClient 中。
-    // 在完全解耦前，此拦截器作为占位符，展示架构意图。
-    
-    public init() {}
-    
+public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
+    private let sessionProvider: (() -> (sid: String, did: String?)?)?
+    private let onSessionExpired: (() -> Void)?
+
+    public init() {
+        sessionProvider = nil
+        onSessionExpired = nil
+    }
+
+    init(sessionProvider: @escaping () -> (sid: String, did: String?)?, onSessionExpired: (() -> Void)? = nil) {
+        self.sessionProvider = sessionProvider
+        self.onSessionExpired = onSessionExpired
+    }
+
     public func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
-        // TODO: 将 ApiClient 中的鉴权头构建逻辑迁移至此
-        return request
+        var updatedRequest = request
+
+        if needsQuerySid(for: endpoint) {
+            guard let sid = sessionProvider?()?.sid, !sid.isEmpty else {
+                throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
+            }
+            updatedRequest = injectQuerySidIfNeeded(sid, into: updatedRequest)
+        }
+
+        if needsAuthCookie(for: endpoint) {
+            guard let session = sessionProvider?(), !session.sid.isEmpty else {
+                throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
+            }
+            updatedRequest = injectCookieIfNeeded(sid: session.sid, did: session.did, into: updatedRequest)
+        }
+
+        return updatedRequest
+    }
+
+    public func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error> {
+        if case let .failure(error) = result, isSessionExpiredError(error) {
+            onSessionExpired?()
+        }
+        return result
+    }
+
+    private func needsQuerySid(for endpoint: ApiEndpoint) -> Bool {
+        endpoint.sidOnQuery ?? endpoint.requireQuerySid
+    }
+
+    private func needsAuthCookie(for endpoint: ApiEndpoint) -> Bool {
+        endpoint.sidOnCookie ?? endpoint.requireAuthCookie
+    }
+
+    private func injectQuerySidIfNeeded(_ sid: String, into request: URLRequest) -> URLRequest {
+        var updatedRequest = request
+        let method = HTTPMethod(rawValue: request.httpMethod ?? "GET") ?? .get
+
+        switch method {
+        case .get:
+            guard let url = request.url,
+                  var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            else {
+                return request
+            }
+
+            var queryItems = components.queryItems ?? []
+            if queryItems.contains(where: { $0.name == "_sid" }) {
+                return request
+            }
+            queryItems.append(URLQueryItem(name: "_sid", value: sid))
+            components.queryItems = queryItems
+            updatedRequest.url = components.url
+
+        case .post, .put, .delete:
+            let bodyString = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
+            let hasSid = bodyString
+                .split(separator: "&")
+                .contains { $0.split(separator: "=", maxSplits: 1).first == "_sid" }
+            if hasSid {
+                return request
+            }
+
+            let sidPair = "_sid=\(UrlUtils.urlEncode(sid))"
+            let updatedBodyString = bodyString.isEmpty ? sidPair : "\(bodyString)&\(sidPair)"
+            updatedRequest.httpBody = updatedBodyString.data(using: .utf8)
+        }
+
+        return updatedRequest
+    }
+
+    private func injectCookieIfNeeded(sid: String, did: String?, into request: URLRequest) -> URLRequest {
+        var updatedRequest = request
+        let existingCookie = request.value(forHTTPHeaderField: "Cookie") ?? ""
+
+        if existingCookie.contains("id=") {
+            return request
+        }
+
+        var cookie = "id=\(sid)"
+        if let did, !did.isEmpty {
+            cookie += "; did=\(did)"
+        }
+
+        let mergedCookie = existingCookie.isEmpty ? cookie : "\(existingCookie); \(cookie)"
+        updatedRequest.setValue(mergedCookie, forHTTPHeaderField: "Cookie")
+        return updatedRequest
+    }
+
+    private func isSessionExpiredError(_ error: Error) -> Bool {
+        guard let synologyError = error as? SynologyError else {
+            return false
+        }
+        guard case let .sessionExpired(code, _) = synologyError else {
+            return false
+        }
+        return code == 0 || [105, 106, 107, 119].contains(code)
     }
 }

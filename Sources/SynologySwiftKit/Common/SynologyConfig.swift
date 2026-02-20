@@ -31,11 +31,7 @@ public struct SynologyConfig: Sendable {
     public let apiInfoCacheValidity: Int32
 
     /// 初始化配置
-    public init(timeoutInterval: TimeInterval = 10,
-                quickConnectTimeout: TimeInterval = 10,
-                pingpongTimeout: TimeInterval = 3.6,
-                enableNetworkLogging: Bool = true,
-                apiInfoCacheValidity: Int32 = 86400) {
+    public init(timeoutInterval: TimeInterval = 10, quickConnectTimeout: TimeInterval = 10, pingpongTimeout: TimeInterval = 3.6, enableNetworkLogging: Bool = true, apiInfoCacheValidity: Int32 = 86400) {
         self.timeoutInterval = timeoutInterval
         self.quickConnectTimeout = quickConnectTimeout
         self.pingpongTimeout = pingpongTimeout
