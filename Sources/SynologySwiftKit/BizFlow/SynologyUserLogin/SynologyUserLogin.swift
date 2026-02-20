@@ -70,6 +70,10 @@ private extension SynologyUserLogin {
     func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         continuation.yield(.connecting)
 
+        // 确定服务器类型
+        let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
+        let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
+
         // 解析可用连接 (使用 CheckDeviceConnection)
         // Resolve available connection (using CheckDeviceConnection)
         let connection: (type: ConnectionType, url: String)
@@ -106,10 +110,6 @@ private extension SynologyUserLogin {
         apiClient.updateConnection(type: connection.type, url: connection.url)
         // 保存可用地址 (Save available address to Keychain)
         keyChainStorage.saveConnectionInfo(url: connection.url, typeString: connection.type.rawValue)
-
-        // 确定服务器类型
-        let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
-        let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
         // 更新 API 信息 + 认证
         // Update API info + authenticate
