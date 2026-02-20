@@ -10,6 +10,7 @@ import Foundation
 
 /// 模拟 API 客户端（用于测试上层业务逻辑）
 final class MockApiClient: ApiClientProviding {
+    var connection: (type: SynologySwiftKit.ConnectionType, url: String)?
     var apiInfoProvider: ApiInfoProviding?
 
     var currentConnection: (type: ConnectionType, url: String)?
@@ -34,6 +35,10 @@ final class MockApiClient: ApiClientProviding {
     init() {
     }
 
+    func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T where T: Decodable {
+        return try await request(endpoint, rawResponse: false)
+    }
+
     func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T {
         if let error = mockError {
             throw error
@@ -50,7 +55,7 @@ final class MockApiClient: ApiClientProviding {
         }
     }
 
-    func requestResult<T>(_ endpoint: ApiEndpoint) async -> Result<T, Error> where T: Decodable {
+    func request<T>(_ endpoint: ApiEndpoint) async -> Result<T, Error> where T: Decodable {
         if let error = mockError {
             return .failure(error)
         }
@@ -60,7 +65,7 @@ final class MockApiClient: ApiClientProviding {
         return .failure(SynologyError.network(message: "response is empty"))
     }
 
-    func requestResult(_ endpoint: ApiEndpoint) async -> Result<Void, Error> {
+    func request(_ endpoint: ApiEndpoint) async -> Result<Void, Error> {
         if let error = mockError {
             return .failure(error)
         }
@@ -71,11 +76,11 @@ final class MockApiClient: ApiClientProviding {
         return URL(string: "https://mockApi.com")!
     }
 
-    func requestRaw<T>(url: URL,
-                       httpMethod: HTTPMethod,
-                       headers: [String: String]?,
-                       body: Data?,
-                       timeout: TimeInterval) async throws -> T where T: Decodable {
+    func request<T>(url: URL,
+                    httpMethod: HTTPMethod,
+                    headers: [String: String]?,
+                    body: Data?,
+                    timeout: TimeInterval) async throws -> T where T: Decodable {
         if let error = mockError {
             throw error
         }

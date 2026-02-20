@@ -86,7 +86,9 @@ private extension CheckDeviceConnection {
                 throw SynologyError.network(message: "Refreshed connection unreachable")
             }
 
+            // 更新 ApiClient 连接状态 (Update ApiClient connection status)
             apiClient.updateConnection(type: resolved.type, url: resolved.url)
+            // 保存可用地址 (Save available address to Keychain)
             keyChainStorage.saveConnectionInfo(url: resolved.url, typeString: resolved.type.rawValue)
 
             Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(resolved.url)")

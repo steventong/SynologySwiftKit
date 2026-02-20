@@ -96,6 +96,7 @@ final class ApiClient: ApiClientProviding {
 }
 
 extension ApiClient {
+    
     /// 更新连接信息
     /// Update connection info
     public func updateConnection(type: ConnectionType, url: String) {

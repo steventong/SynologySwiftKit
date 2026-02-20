@@ -176,6 +176,8 @@ private extension SynologyUserLogin {
                 // 登录成功，保存会话
                 // Login succeeded, save session
                 apiClient.updateSession(sid: authResult.sid, did: authResult.did)
+                keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+
                 Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
                 let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
 
