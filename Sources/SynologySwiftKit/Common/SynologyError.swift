@@ -39,7 +39,6 @@ public enum SynologyError: Error, LocalizedError {
     /// Authentication error (with error code, use authMessage(forCode:) for localized message)
     case auth(code: Int, message: String)
 
-
     // MARK: - LocalizedError
 
     public var errorDescription: String? {

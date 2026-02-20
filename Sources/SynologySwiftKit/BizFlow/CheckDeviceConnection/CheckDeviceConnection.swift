@@ -5,26 +5,27 @@ import Foundation
 
 /// 设备连接检查类（依赖注入）
 /// Device connection checker (dependency injection)
-public class CheckDeviceConnection {
+public class CheckDeviceConnection: CheckDeviceConnectionProviding {
     // MARK: - Dependencies
 
     private let apiClient: ApiClientProviding
     private let apiInfoApi: ApiInfoProviding
     private let quickConnectApi: QuickConnectApi
-    private let pingpong: PingPongProviding
     private let audioStationApi: AudioStationApi
-    private let keyChainStorage = KeyChainStorage()
+    private let pingpong: PingPongProviding
+    private let keyChainStorage: KeyChainStorage
 
     // MARK: - Initialization
 
     /// 初始化连接检查器 (直接注入所有依赖)
     /// Initialize connection checker (inject all dependencies directly)
-    public init(apiClient: ApiClientProviding, apiInfoApi: ApiInfoProviding, quickConnectApi: QuickConnectApi, pingpong: PingPongProviding, audioStationApi: AudioStationApi) {
+    public init(apiClient: ApiClientProviding, apiInfoApi: ApiInfoProviding, quickConnectApi: QuickConnectApi, audioStationApi: AudioStationApi, pingpong: PingPongProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
         self.apiClient = apiClient
         self.apiInfoApi = apiInfoApi
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
         self.audioStationApi = audioStationApi
+        self.keyChainStorage = keyChainStorage
     }
 
     // MARK: - Connection Status Check (AsyncStream)
@@ -47,7 +48,7 @@ public class CheckDeviceConnection {
 private extension CheckDeviceConnection {
     /// 执行连接检查的内部方法
     /// Internal method to perform connection check
-    func performConnectionCheck(fetchNewConnectionUrl: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
+    private func performConnectionCheck(fetchNewConnectionUrl: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
         continuation.yield(.checking)
 
         do {
@@ -62,7 +63,7 @@ private extension CheckDeviceConnection {
             if await pingpong.pingpong(url: current.url) {
                 // Success
                 Logger.info("CheckDeviceConnection#checkConnectionStatus, connection OK")
-                continuation.yield(.success(type: current.type, url: current.url))
+                continuation.yield(.success(type: current.type, url: current.url, cached: true))
                 continuation.finish()
                 return
             }
@@ -77,12 +78,11 @@ private extension CheckDeviceConnection {
                 throw SynologyError.network(message: "Connection unreachable and no saved credentials")
             }
 
-            let enableHttps = credentials.isEnableHttps ?? true
+            let enableHttps = credentials.isEnableHttps ?? false
             Logger.info("CheckDeviceConnection#checkConnectionStatus, ping failed, refreshing connection for: \(credentials.server)")
 
-            let resolved = try await resolveAvailableConnection(server: credentials.server,
-                                                                enableHttps: enableHttps,
-                                                                verifySid: false)
+            // 获取新的地址
+            let resolved = try await resolveAvailableConnection(server: credentials.server, enableHttps: enableHttps, verifySid: false)
 
             guard await pingpong.pingpong(url: resolved.url) else {
                 throw SynologyError.network(message: "Refreshed connection unreachable")
@@ -90,8 +90,9 @@ private extension CheckDeviceConnection {
 
             apiClient.updateConnection(type: resolved.type, url: resolved.url)
             keyChainStorage.saveConnectionInfo(url: resolved.url, typeString: resolved.type.rawValue)
+
             Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(resolved.url)")
-            continuation.yield(.success(type: resolved.type, url: resolved.url))
+            continuation.yield(.success(type: resolved.type, url: resolved.url, cached: false))
             continuation.finish()
             return
         } catch {
@@ -100,32 +101,25 @@ private extension CheckDeviceConnection {
             continuation.finish()
         }
     }
-}
 
-// MARK: - Connection Resolution Logic
-
-extension CheckDeviceConnection {
     /// 解析可用连接（封装 Ping 测试、QuickConnect 解析、AudioStation 验证等逻辑）
     /// Resolve available connection (encapsulates Ping test, QuickConnect resolution, AudioStation verification)
-    public func resolveAvailableConnection(server: String, enableHttps: Bool, verifySid: Bool) async throws -> (type: ConnectionType, url: String) {
-        let targetServer = server
-        let targetEnableHttps = enableHttps
-
+    private func resolveAvailableConnection(server: String, enableHttps: Bool, verifySid: Bool) async throws -> (type: ConnectionType, url: String) {
         // 1. 检查是否为 QuickConnect ID
-        if !QuickConnectUtils.isQuickConnectId(server: targetServer) {
+        if !QuickConnectUtils.isQuickConnectId(server: server) {
             // 自定义域名/IP，直接返回
             // Custom domain/IP, return directly
             // 可选：在此处做 Ping 检查以确保地址有效
             // Optional: Do ping check here to ensure address is valid
-            return (.custom_domain, targetServer)
+            return (.custom_domain, server)
         }
 
         // 2. 通过 QuickConnect 解析
         // Resolve via QuickConnect
-        Logger.info("CheckDeviceConnection#resolveAvailableConnection, resolving via QuickConnect for \(targetServer)")
+        Logger.info("CheckDeviceConnection#resolveAvailableConnection, resolving via QuickConnect for \(server)")
 
         do {
-            let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: targetServer, enableHttps: targetEnableHttps)
+            let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: server, enableHttps: enableHttps)
 
             // 可选：验证 AudioStation (verify AudioStation)
             if verifySid {

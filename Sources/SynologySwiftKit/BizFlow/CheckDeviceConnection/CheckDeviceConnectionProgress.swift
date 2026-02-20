@@ -18,7 +18,7 @@ public enum CheckDeviceConnectionProgress: Sendable {
 
     /// 连接成功
     /// Connection successful
-    case success(type: ConnectionType, url: String)
+    case success(type: ConnectionType, url: String, cached: Bool)
 
     /// Connection failed
     case failed(message: String)

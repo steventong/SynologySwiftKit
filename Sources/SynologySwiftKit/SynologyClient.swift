@@ -98,8 +98,8 @@ public final class SynologyClient {
         encryption = EncryptionApi(apiClient: apiClient)
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(keyChainStorage: keyChainStorage, apiInfoApi: apiInfo, apiClient: apiClient, pingpong: pingpong)
-        checkConnection = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfo, quickConnectApi: quickConnect, pingpong: pingpong, audioStationApi: audioStation)
+        userLogin = SynologyUserLogin(apiInfoApi: apiInfo, apiClient: apiClient, pingpong: pingpong, keyChainStorage: keyChainStorage)
+        checkConnection = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfo, quickConnectApi: quickConnect, audioStationApi: audioStation, pingpong: pingpong, keyChainStorage: KeyChainStorage())
         queryAllSongs = QueryAllSongs(apiClient: apiClient)
 
         // 恢复上次会话

@@ -58,7 +58,7 @@ public actor QuickConnectApi {
 private extension QuickConnectApi {
     /// 获取可用的 serverInfo（带站点重定向支持）
     /// Fetch available serverInfo (with site redirection support)
-    func queryAvailableServerInfo(quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
+    private func queryAvailableServerInfo(quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
         let cachedSynologyServer = fetchSynologyServerFromCache(quickConnectId: quickConnectId)
 
         let serverInfo = try await invokeSynologyServiceApi(synologyServer: cachedSynologyServer, quickConnectId: quickConnectId, enableHttps: enableHttps, command: .get_server_info)
@@ -86,7 +86,7 @@ private extension QuickConnectApi {
 
     /// 多站点并发查询（竞速模式，首个成功立即返回并取消其他）
     /// Race multiple site queries, return first success and cancel the rest
-    func raceMultiSiteServerInfo(synologyServers: [String], quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
+    private func raceMultiSiteServerInfo(synologyServers: [String], quickConnectId: String, enableHttps: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
         Logger.debug("raceMultiSiteServerInfo: querying \(synologyServers)")
         return await withTaskGroup(of: (synologyServer: String, serverInfo: ServerInfo)?.self) { group in
             for synologyServer in synologyServers {
@@ -174,7 +174,7 @@ private extension QuickConnectApi {
 private extension QuickConnectApi {
     /// 从缓存获取 synology server
     /// Fetch synology server URL from cache
-    func fetchSynologyServerFromCache(quickConnectId: String) -> String {
+    private func fetchSynologyServerFromCache(quickConnectId: String) -> String {
         // 根据 quickconnectId 配置缓存的 url
         let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
         if let synologyServerUrl = storage.string(forKey: key) {
@@ -188,7 +188,7 @@ private extension QuickConnectApi {
 
     /// 保存 synology server 到缓存
     /// Save synology server URL to cache
-    func saveSynologyServerToCache(quickConnectId: String, synologyServer: String) {
+    private func saveSynologyServerToCache(quickConnectId: String, synologyServer: String) {
         let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
         storage.set(synologyServer, forKey: key)
         Logger.debug("persist user-defaults: \(key)=\(synologyServer)")
@@ -200,7 +200,7 @@ private extension QuickConnectApi {
 private extension QuickConnectApi {
     /// 请求 relay 连接（仅当解析结果中没有 relay 地址时才发起 requestTunnel）
     /// Request relay connection (only sends requestTunnel when no relay address in parsed results)
-    func requestForRelayConnection(connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
+    private func requestForRelayConnection(connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String, enableHttps: Bool) async -> (type: ConnectionType, url: String)? {
         // 如果已有 relay 地址则不需要 requestTunnel
         // Skip if relay addresses already exist
         if connections.keys.contains(.relay) {
@@ -226,7 +226,7 @@ private extension QuickConnectApi {
 
     /// 发起 get_server_info / request_tunnel 请求
     /// Send get_server_info or request_tunnel request
-    func invokeSynologyServiceApi(synologyServer: String, quickConnectId: String, enableHttps: Bool, command: QuickConnectServerCommand) async throws -> ServerInfo {
+    private func invokeSynologyServiceApi(synologyServer: String, quickConnectId: String, enableHttps: Bool, command: QuickConnectServerCommand) async throws -> ServerInfo {
         let synologyServerUrl = "https://\(synologyServer)/Serv.php"
 
         guard let url = URL(string: synologyServerUrl) else {
@@ -242,10 +242,9 @@ private extension QuickConnectApi {
 // MARK: - Connection URL Parsing
 
 private extension QuickConnectApi {
-    
     /// 从 ServerInfo 解析所有连接 URL（数据驱动，消除重复代码）
     /// Parse all connection URLs from ServerInfo (data-driven, eliminates duplicate code)
-    func parseConnectionUrls(serverInfo: ServerInfo, enableHttps: Bool, isRequestTunnel: Bool) -> [ConnectionType: [String]] {
+    private func parseConnectionUrls(serverInfo: ServerInfo, enableHttps: Bool, isRequestTunnel: Bool) -> [ConnectionType: [String]] {
         let scheme = enableHttps ? "https://" : "http://"
         let targetTypes: Set<ConnectionType> = isRequestTunnel ? [.relay] : [.lan, .wan, .lanv6, .wanv6, .ddns, .relay]
 
