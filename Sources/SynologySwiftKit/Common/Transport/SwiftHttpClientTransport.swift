@@ -3,9 +3,7 @@ import SwiftHttpClient
 
 /// Transport adapter that keeps SwiftHttpClient dependency at transport layer only.
 struct SwiftHttpClientTransport: HTTPTransporting {
-    func send(_ request: URLRequest,
-              timeout: TimeInterval,
-              trustedSSLDomain: String?) async throws -> (Data, URLResponse) {
+    func send(_ request: URLRequest, timeout: TimeInterval, trustedSSLDomain: String?) async throws -> (Data, URLResponse) {
         let client = SwiftHttpClient.HTTPClient(timeout: timeout, trustedSSLDomain: trustedSSLDomain)
 
         do {
@@ -18,11 +16,11 @@ struct SwiftHttpClientTransport: HTTPTransporting {
     private func mapHTTPClientError(_ error: SwiftHttpClient.HTTPClientError) -> SynologyError {
         switch error {
         case .invalidResponse:
-            return .network(message: "Invalid response")
+            return .network(message: "invalid response")
         case let .httpStatus(code):
-            return .network(message: "HTTP status: \(code)")
+            return .network(message: "http status: \(code)")
         case let .decodingFailed(message):
-            return .network(message: "Decoding failed: \(message)")
+            return .network(message: "decoding failed: \(message)")
         }
     }
 }

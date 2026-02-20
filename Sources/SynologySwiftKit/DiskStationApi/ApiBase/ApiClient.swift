@@ -22,15 +22,15 @@ final class ApiClient: ApiClientProviding {
     // MARK: - Dependencies
 
     // MARK: - internal State
-    
+
     /// 当前连接信息
     /// Current connection info
     private(set) var currentConnection: (type: ConnectionType, url: String)?
-    
+
     /// 当前会话信息
     /// Current session info
     private(set) var session: (sid: String, did: String?)?
-    
+
     private let httpTransport: HTTPTransporting
 
     /// 网络拦截器链
@@ -126,19 +126,19 @@ final class ApiClient: ApiClientProviding {
     /// 更新连接信息
     /// Update connection info
     public func updateConnection(type: ConnectionType, url: String) {
-        self.currentConnection = (type, url)
+        currentConnection = (type, url)
     }
-    
+
     /// 更新会话信息
     /// Update session info
     public func updateSession(sid: String, did: String?) {
-        self.session = (sid, did)
+        session = (sid, did)
     }
-    
+
     /// 清除会话
     /// Clear session
     public func clearSession() {
-        self.session = nil
+        session = nil
     }
 
     // MARK: - Private Methods
@@ -167,7 +167,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         guard let apiInfoProvider else {
-                        throw SynologyError.network(message: "Host not configured")
+            throw SynologyError.network(message: "Host not configured")
         }
 
         // 获取 API 信息
@@ -256,7 +256,7 @@ final class ApiClient: ApiClientProviding {
         switch endpoint.httpMethod {
         case .get:
             guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-                            throw SynologyError.network(message: "Host not configured")
+                throw SynologyError.network(message: "Host not configured")
             }
             components.queryItems = parameters.sorted {
                 if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") { return false }
@@ -265,7 +265,7 @@ final class ApiClient: ApiClientProviding {
             }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
             guard let url = components.url else {
-                            throw SynologyError.network(message: "Host not configured")
+                throw SynologyError.network(message: "Host not configured")
             }
             request = URLRequest(url: url)
             request.httpMethod = "GET"
@@ -302,7 +302,7 @@ final class ApiClient: ApiClientProviding {
            let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
-                    throw SynologyError.network(message: "Host not configured")
+        throw SynologyError.network(message: "Host not configured")
     }
 
     /// 构建带查询参数的 URL
@@ -326,7 +326,7 @@ final class ApiClient: ApiClientProviding {
         }
 
         guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-                        throw SynologyError.network(message: "Host not configured")
+            throw SynologyError.network(message: "Host not configured")
         }
 
         components.queryItems = parameters.sorted {
@@ -336,7 +336,7 @@ final class ApiClient: ApiClientProviding {
         }.map { URLQueryItem(name: $0.key, value: $0.value.stringValue) }
 
         guard let requestUrl = components.url else {
-                        throw SynologyError.network(message: "Host not configured")
+            throw SynologyError.network(message: "Host not configured")
         }
 
         return requestUrl
@@ -449,23 +449,15 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - Shared Execution
 
-    private func executeRequest<Value: Decodable>(
-        request: URLRequest,
-        endpoint: ApiEndpoint,
-        timeout: TimeInterval,
-        trustedSSLDomain: String?
-    ) async throws -> Value {
+    private func executeRequest<Value: Decodable>(request: URLRequest, endpoint: ApiEndpoint, timeout: TimeInterval, trustedSSLDomain: String?) async throws -> Value {
         var context = RequestContext()
         var currentRequest = request
 
         currentRequest = try await applyRequestInterceptors(currentRequest, endpoint: endpoint, context: &context)
 
         do {
-            let (data, response) = try await httpTransport.send(
-                currentRequest,
-                timeout: timeout,
-                trustedSSLDomain: trustedSSLDomain
-            )
+            let (data, response) = try await httpTransport.send(currentRequest, timeout: timeout, trustedSSLDomain: trustedSSLDomain)
+
             context.duration = Date().timeIntervalSince(context.startTime)
 
             let processed = try await applyResponseInterceptors(.success((data, response)), endpoint: endpoint, context: &context)
