@@ -23,8 +23,16 @@ struct DiskStationApi {
     /**
      init
      */
-    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) throws {
-        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+    init(api: DiskStationApiDefine, path: String? = nil, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10,
+         buildSidOnQuery: Bool? = nil, buildSidOnCookie: Bool? = nil) throws {
+        // 根据地址初始化。
+        if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
+           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
+           let url = URL(string: connectionUrl.url) {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+        } else {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+        }
 
         let apiInfo = try api.apiInfo(apiName: api.apiName, method: method, version: version, parameters: parameters)
 
@@ -34,8 +42,8 @@ struct DiskStationApi {
         self.parameters = apiInfo.parameters
         self.httpMethod = httpMethod
 
-        requireAuthCookieHeader = api.requireAuthCookieHeader
-        requireAuthQueryParameter = api.requireAuthQueryParameter
+        requireAuthCookieHeader = buildSidOnCookie ?? api.requireAuthCookieHeader
+        requireAuthQueryParameter = buildSidOnQuery ?? api.requireAuthQueryParameter
 
         if let customPath = path {
             // customPath 要用/开头
@@ -43,6 +51,31 @@ struct DiskStationApi {
         } else {
             apiPath = "/webapi/\(apiInfo.path)"
         }
+    }
+
+    /**
+     custom init
+     */
+    init(api: DiskStationApiDefine, path: String, httpMethod: HTTPMethod = .get, parameters: Parameters = [:], timeout: TimeInterval = 10) {
+        // 根据地址初始化。
+        if let connectionUrl = DeviceConnection.shared.getCurrentConnectionUrl(),
+           connectionUrl.type == .custom_domain, connectionUrl.url.hasPrefix("https://"),
+           let url = URL(string: connectionUrl.url) {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout, trustedSSLDomain: url.host)
+        } else {
+            session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: timeout)
+        }
+
+        name = api.apiName
+        method = ""
+        version = 1
+        self.parameters = parameters
+        self.httpMethod = httpMethod
+
+        requireAuthCookieHeader = true
+        requireAuthQueryParameter = false
+
+        apiPath = path
     }
 
     /**
@@ -110,61 +143,18 @@ struct DiskStationApi {
      */
     public func assembleRequestUrl() throws -> URL {
         // 构造地址并返回，不请求
-        return try buildApiRequestUrl()
+        return try buildApiUrlWithQueryParameters()
     }
 }
 
 extension DiskStationApi {
-    /**
-     build request Url not invoke api
-     */
-    private func buildApiRequestUrl() throws -> URL {
-        let apiUrl = try apiUrl(apiPath: apiPath)
-
-        var parameters = self.parameters
-        parameters["api"] = name
-        parameters["method"] = method
-        parameters["version"] = version
-
-        if let sid = try buildAuthQueryParameter() {
-            parameters["_sid"] = sid
-        }
-
-        // 使用 URLComponents 构建带有查询参数的 URL
-        guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
-            Logger.error("DiskStationApi.buildRequestUrl, apiUrl is invalid: \(apiUrl) ")
-            throw DiskStationApiError.requestHostNotPressentError
-        }
-
-        // 对参数的键进行自定义排序：普通键在前，_开头的键在后，并且各自按字母顺序排序
-        components.queryItems = parameters.sorted {
-            if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") {
-                return false
-            } else if !$0.key.hasPrefix("_") && $1.key.hasPrefix("_") {
-                return true
-            } else {
-                return $0.key < $1.key
-            }
-        }.map {
-            URLQueryItem(name: $0.key, value: "\($0.value)")
-        }
-
-        // 返回构建好的 URL
-        guard let requestUrl = components.url else {
-            Logger.error("DiskStationApi.buildRequestUrl, requestUrl is invalid: \(components) ")
-            throw DiskStationApiError.requestHostNotPressentError
-        }
-
-        return requestUrl
-    }
-
     /**
      request
      */
     private func apiRequest<Value: Decodable>(resultType: Value.Type = Value.self,
                                               checkResultIsSuccess: (Value) -> Bool,
                                               parseErrorCode: (Value) -> Int?) async throws -> Value {
-        let apiUrl = try buildApiRequestUrl()
+        let apiUrl = try apiUrl(apiPath: apiPath)
 
         // build cookie
         var headers: HTTPHeaders = []
@@ -173,13 +163,8 @@ extension DiskStationApi {
             headers.add(name: "Cookie", value: cookie)
         }
 
-//        headers.add(name: "Content-Type", value: "application/json; charset=utf-8")
-//        headers.add(name: "Accept-Charset", value: "utf-8")
-
         // send request & get response
-        let response = await session.request(apiUrl, method: httpMethod, parameters: parameters, encoding: URLEncoding.default, headers: headers)
-            .serializingDecodable(Value.self)
-            .response
+        let response = try await sendRequest(httpMethod: httpMethod, apiUrl: apiUrl, headers: headers, parameters: parameters, resultType: resultType)
 
         // 解决请求过程中抛出的异常。业务返回值异常不在这里处理
         if let error = response.error {
@@ -280,14 +265,33 @@ extension DiskStationApi {
     }
 
     /**
+     send http request
+     */
+    private func sendRequest<Value: Decodable>(httpMethod: HTTPMethod, apiUrl: URL, headers: HTTPHeaders? = nil, parameters: Parameters,
+                                               resultType: Value.Type = Value.self) async throws -> DataResponse<Value, AFError> {
+        if httpMethod == .post {
+            return await session.request(apiUrl, method: .post, parameters: parameters, encoding: URLEncoding.default, headers: headers)
+                .serializingDecodable(resultType)
+                .response
+        } else {
+            // build querys for GET
+            let apiUrlWithQueryParameters = try buildApiUrlWithQueryParameters()
+            return await session.request(apiUrlWithQueryParameters, method: .get, headers: headers)
+                .serializingDecodable(resultType)
+                .response
+        }
+    }
+
+    /**
      api url
      */
     private func apiUrl(apiPath: String) throws -> URL {
         if let connection = DeviceConnection.shared.getCurrentConnectionUrl(),
-           let connectionURL = URL(string: "\(connection.url)\(apiPath)") {
+           let connectionURL = URLComponents(string: "\(connection.url)\(apiPath)")?.url {
             return connectionURL
         }
 
+        Logger.error("DiskStationApi.apiUrl, connectionURL is invalid")
         throw DiskStationApiError.requestHostNotPressentError
     }
 
@@ -313,9 +317,58 @@ extension DiskStationApi {
             }
 
             return "id=\(sid)"
+        } else if let sid = parameters["sid"] {
+            if let did = parameters["did"] {
+                return "id=\(sid); did=\(did)"
+            } else {
+                return "id=\(sid)"
+            }
         }
 
         return nil
+    }
+
+    /**
+     build request Url not invoke api
+     */
+    private func buildApiUrlWithQueryParameters() throws -> URL {
+        let apiUrl = try apiUrl(apiPath: apiPath)
+
+        var parameters = parameters
+        parameters["api"] = name
+        parameters["method"] = method
+        parameters["version"] = version
+
+        if let sid = try buildAuthQueryParameter() {
+            parameters["_sid"] = sid
+        }
+
+        // 使用 URLComponents 构建带有查询参数的 URL
+        guard var components = URLComponents(url: apiUrl, resolvingAgainstBaseURL: false) else {
+            Logger.error("DiskStationApi.buildRequestUrl, apiUrl is invalid: \(apiUrl) ")
+            throw DiskStationApiError.requestHostNotPressentError
+        }
+
+        // 对参数的键进行自定义排序：普通键在前，_开头的键在后，并且各自按字母顺序排序
+        components.queryItems = parameters.sorted {
+            if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") {
+                return false
+            } else if !$0.key.hasPrefix("_") && $1.key.hasPrefix("_") {
+                return true
+            } else {
+                return $0.key < $1.key
+            }
+        }.map {
+            URLQueryItem(name: $0.key, value: "\($0.value)")
+        }
+
+        // 返回构建好的 URL
+        guard let requestUrl = components.url else {
+            Logger.error("DiskStationApi.buildRequestUrl, requestUrl is invalid: \(components) ")
+            throw DiskStationApiError.requestHostNotPressentError
+        }
+
+        return requestUrl
     }
 
     private func buildAuthQueryParameter() throws -> String? {

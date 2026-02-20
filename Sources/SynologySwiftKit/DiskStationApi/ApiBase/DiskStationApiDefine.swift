@@ -75,6 +75,8 @@ public enum DiskStationApiDefine: String {
     case SYNO_AUDIO_STATION_VOICEASSISTANT_STREAM = "SYNO.AudioStation.VoiceAssistant.Stream"
     case SYNO_AUDIO_STATION_WEBPLAYER = "SYNO.AudioStation.WebPlayer"
 
+    case SYNO_FILE_STATION_DELETE = "SYNO.FileStation.Delete"
+    
     /**
      api name
      */
@@ -88,9 +90,11 @@ public enum DiskStationApiDefine: String {
     func apiInfo(apiName: String, method: String, version: Int, parameters: Parameters) throws -> (path: String, method: String, version: Int, parameters: Parameters) {
         // api query 直接返回
         if apiName == DiskStationApiDefine.SYNO_API_INFO.rawValue {
-            return ("query.cgi", "query", 1, parameters: [
-                "query": "all",
-            ])
+            return ("query.cgi", "query", 1, parameters: [:])
+        }
+
+        if let staticApiInfo = staticApiInfo(apiName: apiName) {
+            return staticApiInfo
         }
 
         let apiInfo = try ApiInfoApi.shared.getApiInfoByApiName(apiName: apiName)
@@ -135,6 +139,18 @@ public enum DiskStationApiDefine: String {
             true
         default:
             false
+        }
+    }
+
+    /**
+     某些特殊的API
+     */
+    func staticApiInfo(apiName: String) -> (path: String, method: String, version: Int, parameters: Parameters)? {
+        switch apiName {
+        case DiskStationApiDefine.SYNO_API_INFO.rawValue:
+            return ("query.cgi", "query", 1, parameters: [:])
+        default:
+            return nil
         }
     }
 

@@ -25,13 +25,16 @@ extension AudioStationApi {
     /**
      query playlist songs
      */
-    public func playlistSongList(id: String, songsLimit: Int, songsOffset: Int) async throws -> (total: Int, data: [Song]) {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, parameters: [
+    public func playlistSongList(id: String, library: String,
+                                 additional: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
+                                 limit: Int, offset: Int,
+                                 sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "getinfo", version: 3, httpMethod: .post, parameters: [
             "id": id,
-            "library": "all",
-            "additional": "songs,songs_song_tag,songs_song_audio,songs_song_rating",
-            "songs_limit": songsLimit,
-            "songs_offset": songsOffset,
+            "library": library,
+            "additional": additional,
+            "songs_limit": limit,
+            "songs_offset": offset,
         ])
 
         let result = try await api.requestForData(resultType: PlaylistGetInfoResult.self)
@@ -96,7 +99,7 @@ extension AudioStationApi {
      {"data":{"id":"playlist_shared_normal/381"},"success":true}
      */
     public func playlistCreateSmart(name: String, shared: Bool, conj_rule: String, rules_json: String) async throws -> String? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "createsmart", version: 2, httpMethod: .post, parameters: [
             "name": name,
             "library": shared ? "shared" : "personal",
             "conj_rule": conj_rule,
@@ -108,18 +111,21 @@ extension AudioStationApi {
     }
 
     /**
+     /webapi/AudioStation/playlist.cgi
+
+     POST
 
      api: SYNO.AudioStation.Playlist
      method: rename
-     id: playlist_personal_normal/个人播放列表测试
-     new_name: 个人播放列表测试del
+     id: playlist_personal_normal/在测试
+     new_name: 在测试2
      version: 3
 
-     {"data":{"id":"playlist_personal_normal/个人播放列表测试del"},"success":true}
+     {"data":{"id":"playlist_personal_normal/在测试2"},"success":true}
 
      */
-    public func playlistRename(id: String, newName: String) async throws -> String? {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "rename", version: 3, parameters: [
+    public func playlist_rename(id: String, newName: String) async throws -> String? {
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "rename", version: 3, httpMethod: .post, parameters: [
             "id": id,
             "new_name": newName,
         ])
@@ -140,9 +146,7 @@ extension AudioStationApi {
      */
     public func playlist_delete(id: String) async throws -> Bool {
         let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "delete", version: 3, httpMethod: .post,
-                                     parameters: [
-                                         "id": id,
-                                     ])
+                                     parameters: ["id": id])
 
         let result = try await api.requestForData(resultType: PlaylistDeleteResult.self)
         return result.errors.isEmpty
@@ -158,7 +162,7 @@ extension AudioStationApi {
 
      */
     public func playlistRemoveMissing(id: String) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "removemissing", version: 3, parameters: [
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "removemissing", version: 3, httpMethod: .post, parameters: [
             "id": id,
         ])
 
@@ -178,13 +182,16 @@ extension AudioStationApi {
      { "success": true }
      */
     public func playlistAddSongs(id: String, songs: [String]) async throws -> Bool {
-        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, parameters: [
-            "id": id,
-            "limit": 0,
-            "offset": -1,
-            "songs": songs,
-            "skip_duplicate": true,
-        ])
+        var parameters: [String: Any] = ["id": id,
+                                         "limit": 0,
+                                         "offset": -1,
+                                         "skip_duplicate": true]
+
+        if !songs.isEmpty {
+            parameters["songs"] = songs.map { $0 }.joined(separator: ",")
+        }
+
+        let api = try DiskStationApi(api: .SYNO_AUDIO_STATION_PLAYLIST, method: "updatesongs", version: 3, httpMethod: .post, parameters: parameters)
 
         try await api.request()
         return true

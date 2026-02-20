@@ -22,27 +22,26 @@ public class ApiInfoApi {
         if cachedApiInfo.isEmpty,
            let cachedApiInfo = getApiInfoFromUserDefaults() {
             self.cachedApiInfo = cachedApiInfo
-            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName, load from cache: \(cachedApiInfo)")
+            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName, load from cache: \(cachedApiInfo.count)")
         }
 
         guard let apiInfo = cachedApiInfo[apiName] else {
+            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName (\(apiName) not exist: \(cachedApiInfo)")
             throw DiskStationApiError.synoApiIsNotExist(apiName)
         }
 
-//        Logger.info("apiInfo, apiName = \(apiName), apiInfo = \(apiInfo)")
         return apiInfo
     }
 
     /**
      queryApiInfo
      */
-    public func queryApiInfo(cacheEnabled: Bool? = true) async throws {
-        // 使用上次的记录, 从缓存获取，有效期一天
-        if cacheEnabled == true, isApiInfoCacheValid(),
+    public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws -> Bool {
+        if cacheEnabled == true && isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60),
            let cachedApiInfo = getApiInfoFromUserDefaults() {
-            Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache: \(cachedApiInfo)")
+            Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache, api cnt: \(cachedApiInfo.count)")
             self.cachedApiInfo = cachedApiInfo
-            return
+            return true
         }
 
         cachedApiInfo = try await queryApiInfoFromDsm()
@@ -50,6 +49,7 @@ public class ApiInfoApi {
 
         // save to userdefaults
         saveApiInfoToUserDefaults(apiInfo: cachedApiInfo)
+        return true
     }
 }
 
@@ -107,11 +107,10 @@ extension ApiInfoApi {
     /**
      check time is expired or not (1 day valid)
      */
-    private func isApiInfoCacheValid() -> Bool {
-        if let updateTime = getApiInfoSaveToUserDefaultsTime() {
-            let timeInterval = Date().timeIntervalSince(updateTime)
-            // one day cache valid duration
-            return timeInterval < 24 * 60 * 60
+    private func isApiInfoCacheValid(validTime: Int32?) -> Bool {
+        if let lastUpdateTime = getApiInfoSaveToUserDefaultsTime() {
+            let timeInterval = Date().timeIntervalSince(lastUpdateTime)
+            return Int32(timeInterval) < (validTime ?? 24 * 60 * 60)
         }
 
         return false

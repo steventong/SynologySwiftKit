@@ -35,7 +35,7 @@ public actor AuthApi {
         let deviceName = getDeviceName()
         let deviceId = getDeviceId()
 
-        let api = try DiskStationApi(api: .SYNO_API_AUTH, method: "login", version: 6, parameters: [
+        let api = try DiskStationApi(api: .SYNO_API_AUTH, method: "login", version: 6, httpMethod: .post, parameters: [
             "account": username,
             "passwd": password,
             "format": "cookie",
@@ -78,7 +78,7 @@ extension AuthApi {
     /**
      getDeviceName
      */
-    private func getDeviceName() -> String {
+    public func getDeviceName() -> String {
         let deviceNameKey = UserDefaultsKeys.DISK_STATION_AUTH_DEVICE_NAME.keyName
         if let deviceName = UserDefaults.standard.string(forKey: deviceNameKey) {
             return deviceName

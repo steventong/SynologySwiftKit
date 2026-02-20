@@ -8,7 +8,7 @@
 import Foundation
 
 public enum SynologyUserLoginStep {
-    case STEP_START
+    case STEP_START(server: String)
 
     case QC_FETCH_CONNECTION
     case QC_FETCH_CONNECTION_SUCCESS

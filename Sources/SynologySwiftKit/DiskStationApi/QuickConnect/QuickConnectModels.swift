@@ -61,7 +61,7 @@ extension QuickConnectApi {
         struct Server: Decodable {
             let ddns: String?
             let ds_state: String?
-//            let external: ExternalServer?
+            let external: ExternalServer?
 //            let fqdn: String?
             let gateway: String?
 //            let ipv6_tunnel: [String]?
@@ -94,6 +94,7 @@ extension QuickConnectApi {
         }
 
         struct Service: Decodable {
+            let id: String? // dsm dsm_https
             let port: Int?
             let ext_port: Int?
             let pingpong: String?

@@ -13,45 +13,66 @@ public class QueryAllSongs {
     public init() {
     }
 
-    public func queryAllSongs(batchSize: Int = 5000, threads: Int = 3, onTaskUpdate: @escaping (_ songs: [Song], _ total: Int) -> Void, onTaskFinish: @escaping (Bool, Error?) -> Void) {
-        Task {
-            do {
-                // query first batch
-                let songs_firstBatch = try await audioStationApi.songList(limit: 1, offset: 0)
+    /**
+     查询音乐的数量
+     */
+    public func queryTotalSongsCount() async -> Int {
+        do {
+            let songs = try await audioStationApi.songList(limit: 1, offset: 0, additional: nil)
+            return songs.total
+        } catch {
+            return -1
+        }
+    }
 
-                let total = songs_firstBatch.total
-                if total == 0 {
-                    onTaskFinish(true, nil)
-                    return
+    /**
+     查询音乐列表
+     */
+    public func queryAllSongs(batchSize: Int = 500,
+                              batchNum: Int = 3,
+                              onTaskStart: @escaping (_ total: Int, _ tasks: Int) -> Void,
+                              onTaskUpdate: @escaping (_ success: Bool, _ songs: [Song], _ currentCnt: Int, _ totalCnt: Int, _ error: String) -> Void,
+                              onTaskEnd: @escaping (_ success: Bool, _ errorMsg: String) -> Void) {
+        Task {
+            let total = await queryTotalSongsCount()
+            if total == -1 {
+                onTaskEnd(true, NSLocalizedString("QUERY_SONGS_LIST_FAILED", comment: "QUERY_SONGS_LIST_FAILED"))
+                return
+            } else if total == 0 {
+                onTaskEnd(true, NSLocalizedString("QUERY_SONGS_LIST_EMPTY", comment: "QUERY_SONGS_LIST_EMPTY"))
+                return
+            }
+
+            // task count
+            let taskCount = total / batchSize + 1
+            Logger.debug("QueryAllSongs.queryAllSongs, total song list count = \(total), split task count = \(taskCount)")
+
+            onTaskStart(total, taskCount)
+
+            // execute task
+            await withTaskGroup(of: Void.self, body: { taskGroup in
+                // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
+                // task start
+                for taskIndex in 0 ..< batchNum {
+                    taskGroup.addTask {
+                        let data = await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total)
+                        onTaskUpdate(data.0, data.1, data.1.count, total, data.2)
+                    }
                 }
 
-                // task count
-                let taskCount = total / batchSize + 1
-                Logger.info("queryAllSongs task, total count = \(total), taskCount = \(taskCount)")
-
-                // execute task
-                try await withThrowingTaskGroup(of: Int.self, body: { taskGroup in
-                    // 限制并发 https://stackoverflow.com/questions/70976323/how-to-constrain-concurrency-like-maxconcurrentoperationcount-with-swift-con
-                    for taskIndex in 0 ..< threads {
-                        taskGroup.addTask {
-                            try await self.querySongList(taskIndex: taskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
-                        }
+                // add more tasks
+                var waitTask = batchNum
+                while await taskGroup.next() != nil && waitTask < taskCount {
+                    taskGroup.addTask { [waitTask] in
+                        let data = await self.querySongList(taskIndex: waitTask, batchSize: batchSize, total: total)
+                        onTaskUpdate(data.0, data.1, data.1.count, total, data.2)
                     }
+                    waitTask += 1
+                }
+            })
 
-                    var waitTaskIndex = threads
-                    while try await taskGroup.next() != nil && waitTaskIndex < taskCount {
-                        taskGroup.addTask { [waitTaskIndex] in
-                            try await self.querySongList(taskIndex: waitTaskIndex, batchSize: batchSize, total: total, onTaskUpdate: onTaskUpdate)
-                        }
-                        waitTaskIndex += 1
-                    }
-                })
-
-                Logger.info("queryAllSongs task, all task done, total count = \(total), taskCount = \(taskCount)")
-                onTaskFinish(true, nil)
-            } catch {
-                onTaskFinish(false, error)
-            }
+            Logger.info("queryAllSongs task, all task done, total count = \(total), taskCount = \(taskCount)")
+            onTaskEnd(true, "success")
         }
     }
 }
@@ -60,16 +81,16 @@ extension QueryAllSongs {
     /**
      querySongList
      */
-    private func querySongList(taskIndex: Int, batchSize: Int, total: Int, onTaskUpdate: @escaping (_ data: [Song], _ total: Int) -> Void) async throws -> Int {
-        Logger.debug("queryAllSongs task, begin querySongList, taskIndex = \(taskIndex), limit = \(batchSize), offset = \(batchSize * taskIndex)")
-        let songListResult = try await audioStationApi.songList(limit: batchSize, offset: batchSize * taskIndex)
+    private func querySongList(taskIndex: Int, batchSize: Int, total: Int) async -> (Bool, [Song], String) {
+        Logger.debug("QueryAllSongs.querySongList task, begin querySongList, taskIndex = \(taskIndex), limit = \(batchSize), offset = \(batchSize * taskIndex)")
 
-        Logger.debug("queryAllSongs task, begin handle querySongList result, taskIndex = \(taskIndex)")
+        do {
+            let songListResult = try await audioStationApi.songList(limit: batchSize, offset: batchSize * taskIndex)
 
-        onTaskUpdate(songListResult.data, total)
-
-        Logger.debug("queryAllSongs task, finish handle querySongList result, taskIndex = \(taskIndex)")
-
-        return songListResult.data.count
+            Logger.debug("QueryAllSongs.querySongList task, finish handle querySongList result, taskIndex = \(taskIndex)")
+            return (true, songListResult.data, "success")
+        } catch {
+            return (false, [], error.localizedDescription)
+        }
     }
 }

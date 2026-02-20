@@ -20,7 +20,7 @@ import Foundation
      "version_string" : "6.5.7-3383",
      "has_music_share" : true,
      "version" : 3383,
-     "sid" : "x3nZxQ4hoK7yPEETQFqe9hvRu94vQP4lTN3X_pqf1t0P36M9gocTkx7rvqJCZlr7G3S468TXrrn1GD6oWB61lI",
+     "sid" : "",
      "enable_personal_library" : false,
      "settings" : {
        "disable_upnp" : false,
@@ -32,7 +32,7 @@ import Foundation
      "support_usb" : false,
      "dsd_decode_capability" : true,
      "browse_personal_library" : "all",
-     "serial_number" : "VW2C8A106HUIH",
+     "serial_number" : "",
      "privilege" : {
        "tag_edit" : false,
        "sharing" : false,

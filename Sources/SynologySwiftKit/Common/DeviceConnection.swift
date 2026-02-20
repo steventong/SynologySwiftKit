@@ -10,7 +10,7 @@ import Foundation
 public class DeviceConnection {
     public static let shared = DeviceConnection()
 
-    private var loginPreference: (server: String, isEnableHttps: Bool)?
+    private var loginServer: (server: String, isEnableHttps: Bool)?
     private var connection: (type: ConnectionType, url: String)?
     private var session: (sid: String, sidExpireAt: Date, did: String?, didExpireAt: Date?)?
 
@@ -28,26 +28,20 @@ public class DeviceConnection {
             let typeRawValuw = UserDefaults.standard.integer(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
             if let type = ConnectionType(rawValue: typeRawValuw) {
                 connection = (type, url)
-                Logger.warn("[DeviceConnection]query Connection from userdefaults, connection = \(connection!)")
+                Logger.info("[DeviceConnection]get connection-url from userdefaults, connection url = \(connection!)")
                 return connection
             }
         }
 
-        Logger.error("[DeviceConnection]query Connection fail, connection is nil")
+        Logger.info("[DeviceConnection]can not get saved connection-url info in userdefaults.")
         return nil
     }
 
     /**
-     保存当前的URL
+     用户名
      */
-    public func updateCurrentConnectionUrl(type: ConnectionType, url: String) {
-        connection = (type, url)
-
-        UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
-        UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
-
-        UserDefaults.standard.synchronize()
-        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection!)")
+    public func getSessionUsername() -> String? {
+        return UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
     }
 
     /**
@@ -65,18 +59,36 @@ public class DeviceConnection {
 
         if let sid, let sidExpireAt {
             session = (sid, sidExpireAt, did, didExpireAt)
-            Logger.warn("[DeviceConnection]getLoginSession from usedefaults, session = \(session!)")
             return session
         }
 
-        Logger.info("[DeviceConnection]getLoginSession, session from userdefaults is invalid")
+        Logger.warn("[DeviceConnection]getLoginSession, session from userdefaults is invalid")
+        return nil
+    }
+
+    /**
+     登录偏好
+     */
+    public func getLoginServer() -> (server: String, isEnableHttps: Bool)? {
+        if let loginServer {
+            return loginServer
+        }
+
+        if let server = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName) {
+            let isEnableHttps = UserDefaults.standard.bool(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
+
+            loginServer = (server, isEnableHttps)
+
+            return loginServer
+        }
+
         return nil
     }
 
     /**
      update sid/did
      */
-    public func updateLoginSession(sid: String, did: String?) {
+    public func updateLoginSession(username: String, sid: String, did: String?) {
         let sidExpireAt = addSecondsFromNow(seconds: ONE_WEEK_SECONDS)
         Logger.debug("update login session, sid will expire at: \(sidExpireAt)")
 
@@ -103,8 +115,24 @@ public class DeviceConnection {
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_DID_EXPIRE_AT.keyName)
         }
 
+        // save username for future use
+        UserDefaults.standard.setValue(username, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
+
         UserDefaults.standard.synchronize()
         Logger.info("[DeviceConnection]updateLoginSession userdefaults synchronize")
+    }
+
+    /**
+     保存当前的URL
+     */
+    public func updateCurrentConnectionUrl(type: ConnectionType, url: String) {
+        connection = (type, url)
+
+        UserDefaults.standard.setValue(url, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+        UserDefaults.standard.setValue(type.rawValue, forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+
+        UserDefaults.standard.synchronize()
+        Logger.info("[DeviceConnection]update Connection to userdefaults, connection = \(connection!)")
     }
 
     /**
@@ -116,6 +144,10 @@ public class DeviceConnection {
         DispatchQueue.main.async {
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
+
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_URL.keyName)
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_TYPE.keyName)
+            UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_CONNECTION_USERNAME.keyName)
 
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID.keyName)
             UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.DISK_STATION_AUTH_SESSION_SID_EXPIRE_AT.keyName)
@@ -131,32 +163,13 @@ public class DeviceConnection {
      登录偏好
      */
     public func updateLoginPreferences(server: String, isEnableHttps: Bool) {
-        loginPreference = (server, isEnableHttps)
+        loginServer = (server, isEnableHttps)
 
         UserDefaults.standard.setValue(server, forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName)
         UserDefaults.standard.setValue(isEnableHttps, forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
 
         UserDefaults.standard.synchronize()
         Logger.info("[DeviceConnection]updateLoginPreferences userdefaults synchronize")
-    }
-
-    /**
-     登录偏好
-     */
-    public func getLoginPreferences() -> (server: String, isEnableHttps: Bool)? {
-        if let loginPreference {
-            return loginPreference
-        }
-
-        if let server = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_SERVER.keyName) {
-            let isEnableHttps = UserDefaults.standard.bool(forKey: UserDefaultsKeys.DISK_STATION_SERVER_ENABLE_HTTPS.keyName)
-
-            loginPreference = (server, isEnableHttps)
-
-            return loginPreference
-        }
-
-        return nil
     }
 }
 

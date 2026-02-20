@@ -16,10 +16,15 @@ class QueryAllSongsTests: XCTestCase {
 
         let queryAllSongs = QueryAllSongs()
 
-        queryAllSongs.queryAllSongs(batchSize: 500, threads: 4, onTaskUpdate: { songs, total in
-            Logger.info("onTaskUpdate, total = \(total), songs = \(songs.count)")
-        }, onTaskFinish: { _, _ in
-            Logger.info("onTaskFinish")
-        })
+        queryAllSongs.queryAllSongs(batchSize: 500, batchNum: 4,
+                                    onTaskStart: { total, task in
+                                        Logger.info("onTaskStart, total = \(total), task = \(task)")
+                                    },
+                                    onTaskUpdate: { _, songs, current, total, _ in
+                                        Logger.info("onTaskUpdate, songs = \(songs.count), current = \(current), total = \(total)")
+                                    },
+                                    onTaskEnd: { _, _ in
+                                        Logger.info("onTaskEnd")
+                                    })
     }
 }

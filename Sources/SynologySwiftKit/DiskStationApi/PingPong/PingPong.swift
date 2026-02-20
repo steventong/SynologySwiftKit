@@ -19,7 +19,6 @@ class PingPong {
       pingpong url
      */
     func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
-        Logger.debug("send request: pingpong connections: \(connections)")
         // 多个地址并发查询
         return await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: [ConnectionType: String].self, body: { taskGroup in
             // 子任务

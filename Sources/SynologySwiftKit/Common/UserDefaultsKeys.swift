@@ -16,6 +16,8 @@ enum UserDefaultsKeys {
     case DISK_STATION_CONNECTION_URL
     case DISK_STATION_CONNECTION_TYPE
 
+    case DISK_STATION_CONNECTION_USERNAME
+
     case DISK_STATION_AUTH_DEVICE_NAME
     case DISK_STATION_AUTH_DEVICE_ID
 
@@ -42,6 +44,8 @@ enum UserDefaultsKeys {
             return "SynologySwiftKit_DiskStation_ConnectionURL"
         case .DISK_STATION_CONNECTION_TYPE:
             return "SynologySwiftKit_DiskStation_ConnectionType"
+        case .DISK_STATION_CONNECTION_USERNAME:
+            return "SynologySwiftKit_DiskStation_ConnectionUsername"
         case .DISK_STATION_AUTH_DEVICE_NAME:
             return "SynologySwiftKit_DiskStation_Auth_DeviceName"
         case .DISK_STATION_AUTH_DEVICE_ID:
