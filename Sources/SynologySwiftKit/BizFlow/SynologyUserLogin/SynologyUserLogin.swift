@@ -91,6 +91,9 @@ private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
     func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, sliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+        // 连接检查
+        continuation.yield(.connecting)
+
         // 确定服务器类型
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
