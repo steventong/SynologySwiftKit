@@ -80,19 +80,19 @@ private extension CheckDeviceConnection {
             }
 
             // 获取新的地址 - quickconnectid
-            let resolved = try await resolveAvailableConnection(server: server, enableHttps: isHttps)
+            let newConn = try await resolveAvailableConnection(server: server, enableHttps: isHttps)
 
-            guard await pingpong.pingpong(url: resolved.url) else {
+            // 新地址 pingpong 检查
+            guard await pingpong.pingpong(url: newConn.url) else {
                 throw SynologyError.network(message: "Refreshed connection unreachable")
             }
 
             // 更新 ApiClient 连接状态 (Update ApiClient connection status)
-            apiClient.updateConnection(type: resolved.type, url: resolved.url)
             // 保存可用地址 (Save available address to Keychain)
-            keyChainStorage.saveConnectionInfo(url: resolved.url, typeString: resolved.type.rawValue)
+            saveConnection(url: newConn.url, type: newConn.type)
 
-            Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(resolved.url)")
-            continuation.yield(.success(type: resolved.type, url: resolved.url, cached: false))
+            Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(newConn.url)")
+            continuation.yield(.success(type: newConn.type, url: newConn.url, cached: false))
             continuation.finish()
             return
         } catch {
@@ -124,5 +124,14 @@ private extension CheckDeviceConnection {
             Logger.error("CheckDeviceConnection#resolveAvailableConnection, QuickConnect failed: \(error)")
             throw error
         }
+    }
+}
+
+private extension CheckDeviceConnection {
+    private func saveConnection(url: String, type: ConnectionType) {
+        // 更新 ApiClient 连接状态 (Update ApiClient connection status)
+        apiClient.updateConnection(type: type, url: url)
+        // 保存可用地址 (Save available address to Keychain)
+        keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
     }
 }

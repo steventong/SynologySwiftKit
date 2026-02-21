@@ -126,12 +126,6 @@ extension SynologyClient {
         return apiClient.connection
     }
 
-    /// 读取已保存的登录凭据
-    /// Read saved login credentials
-    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
-        keyChainStorage.getCredentials()
-    }
-
     /// 更新 Session（内存 + 本地持久化）
     /// Update session (memory + local persistence)
     public func updateSession(sid: String, did: String?) {

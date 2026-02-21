@@ -16,7 +16,7 @@ public actor AuthApi {
         self.keyChainStorage = keyChainStorage
     }
 
-    public func userLogin(username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
+    public func login(username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         let deviceName = keyChainStorage.getDeviceName() ?? UUID().uuidString
         let deviceId = keyChainStorage.getDeviceId() ?? ""
 
@@ -55,6 +55,12 @@ public actor AuthApi {
     public func logout() async throws {
         let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
         let _: EmptyData = try await apiClient.request(api, rawResponse: false)
+    }
+
+    /// 读取已保存的登录凭据
+    /// Read saved login credentials
+    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
+        keyChainStorage.getCredentials()
     }
 }
 

@@ -12,7 +12,7 @@ import OSLog
 
 /// Synology 用户登录管理（依赖注入）
 /// Synology user login management (dependency injection)
-public actor SynologyUserLogin {
+public actor SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
     private let apiInfoApi: ApiInfoProviding
@@ -63,7 +63,8 @@ public actor SynologyUserLogin {
         }
     }
 
-    public func refreshConnectionAndLogin(continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) -> AsyncStream<SynologyUserLoginProgress> {
+    /// 刷新登录信息，静默登录
+    public func login(continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             Task {
                 guard let credentials = keyChainStorage.getCredentials() else {
@@ -112,7 +113,7 @@ private extension SynologyUserLogin {
 
         do {
             // 实例化 CheckDeviceConnection (Temporary instantiation of CheckDeviceConnection)
-            let connectionChecker = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfoApi, quickConnectApi: quickConnectApi, audioStationApi: audioStationApi, pingpong: pingpong)
+            let connectionChecker: CheckDeviceConnectionProviding = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfoApi, quickConnectApi: quickConnectApi, audioStationApi: audioStationApi, pingpong: pingpong)
             // Start from checkConnectionStatus (it already resolves connection when needed).
             var connectionFromStatus: (type: ConnectionType, url: String, cached: Bool)?
             for await progress in connectionChecker.checkConnectionStatus(server: server, isHttps: enableHttps) {
