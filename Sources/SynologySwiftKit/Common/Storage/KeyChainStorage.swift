@@ -33,7 +33,7 @@ public final class KeyChainStorage: @unchecked Sendable {
     ///   - username: 用户名 / Username
     ///   - password: 密码 / Password
     ///   - isEnableHttps: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
-    public func saveCredentials(server: String, username: String, password: String, isEnableHttps: Bool? = nil) {
+    public func saveCredentials(server: String, username: String, password: String, isEnableHttps: Bool) {
         let credentials = CredentialData(server: server, username: username, password: password, isEnableHttps: isEnableHttps)
         guard let data = try? JSONEncoder().encode(credentials) else {
             Logger.error("[KeychainStorage] Failed to encode credentials")
@@ -63,7 +63,7 @@ public final class KeyChainStorage: @unchecked Sendable {
     /// 从 Keychain 读取已保存的凭据
     /// Read saved credentials from Keychain
     /// - Returns: 凭据元组（server, username, password, isEnableHttps），如果不存在则返回 nil
-    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
+    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool)? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -296,7 +296,7 @@ private struct CredentialData: Codable {
     let server: String
     let username: String
     let password: String
-    let isEnableHttps: Bool?
+    let isEnableHttps: Bool
 }
 
 /// Session 信息数据模型

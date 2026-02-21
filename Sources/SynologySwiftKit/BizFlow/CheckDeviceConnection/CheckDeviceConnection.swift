@@ -41,7 +41,7 @@ public class CheckDeviceConnection: CheckDeviceConnectionProviding {
                 }
 
                 let server = credentials.server
-                let isEnableHttps = credentials.isEnableHttps ?? false
+                let isEnableHttps = credentials.isEnableHttps
                 await self.performConnectionCheck(server: server, isHttps: isEnableHttps, continuation: continuation)
             }
         }

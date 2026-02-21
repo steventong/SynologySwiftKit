@@ -7,7 +7,7 @@
 
 import Foundation
 
-public actor AuthApi {
+public class AuthApi {
     private let apiClient: ApiClientProviding
     private let keyChainStorage: KeyChainStorage
 
@@ -59,7 +59,7 @@ public actor AuthApi {
 
     /// 读取已保存的登录凭据
     /// Read saved login credentials
-    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool?)? {
+    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool)? {
         keyChainStorage.getCredentials()
     }
 }

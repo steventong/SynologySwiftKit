@@ -73,7 +73,7 @@ public actor SynologyUserLogin {
                 }
 
                 let server = credentials.server
-                let enableHttps = credentials.isEnableHttps ?? false
+                let enableHttps = credentials.isEnableHttps
                 let username = credentials.username
                 let password = credentials.password
 
