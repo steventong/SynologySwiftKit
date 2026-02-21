@@ -12,7 +12,7 @@ import OSLog
 
 /// Synology 用户登录管理（依赖注入）
 /// Synology user login management (dependency injection)
-public actor SynologyUserLogin: SynologyUserLoginProviding {
+public actor SynologyUserLogin {
     // MARK: - Dependencies
 
     private let apiInfoApi: ApiInfoProviding
@@ -53,9 +53,7 @@ public actor SynologyUserLogin: SynologyUserLoginProviding {
     ///   - otpCode: 可选的 OTP 代码
     ///   - shouldSavePassword: 是否保存密码（默认为 true）
     /// - Returns: AsyncStream 返回登录进度
-    public func login(server: String, enableHttps: Bool,
-                      username: String, password: String,
-                      otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             Task {
                 await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
@@ -64,7 +62,7 @@ public actor SynologyUserLogin: SynologyUserLoginProviding {
     }
 
     /// 刷新登录信息，静默登录
-    public func login(continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) -> AsyncStream<SynologyUserLoginProgress> {
+    public func login() -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             Task {
                 guard let credentials = keyChainStorage.getCredentials() else {
@@ -172,7 +170,7 @@ private extension SynologyUserLogin {
                     continuation.finish()
                 }
             } else {
-                let authResult = try await authApi.userLogin(username: username, password: password, otpCode: otpCode)
+                let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
 
                 // 登录成功，保存会话
                 // Login succeeded, save session
