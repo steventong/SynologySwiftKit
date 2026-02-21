@@ -56,7 +56,7 @@ public actor ApiInfoApi: ApiInfoProviding {
             throw SynologyError.api(code: 102, message: "API not found: \(apiName)")
         }
 
-        Logger.info("ApiInfoApi#getApiInfoByApiName get apiInfo, key: \(apiName), value = \(apiInfo)")
+        Logger.debug("ApiInfoApi#getApiInfoByApiName get apiInfo, key: \(apiName), value = \(apiInfo)")
         return apiInfo
     }
 
