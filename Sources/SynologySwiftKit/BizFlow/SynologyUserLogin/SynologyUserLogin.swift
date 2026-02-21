@@ -160,8 +160,7 @@ private extension SynologyUserLogin {
 
         do {
             if sliceLogin && connection.cached {
-                // 静默登录且没有更换地址,调用接口验证SID是否过期。
-
+                // 静默登录且没有更换连接地址时,调用接口验证SID是否过期。
                 if let sessionInfo = keyChainStorage.getSessionInfo() {
                     _ = try? await audioStationApi.info.query()
 
@@ -188,6 +187,10 @@ private extension SynologyUserLogin {
             // OTP required (not a failure, user input needed)
             Logger.info("SynologyUserLogin#performPasswordLogin, OTP required, message: \(msg)")
             continuation.yield(.otpRequired)
+            continuation.finish()
+        } catch let SynologyError.sessionExpired(code, msg) {
+            Logger.info("SynologyUserLogin#performPasswordLogin, invalidSession: \(msg)")
+            continuation.yield(.invalidSession)
             continuation.finish()
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, auth failed: \(error)")
