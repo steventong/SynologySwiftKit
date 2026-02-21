@@ -17,6 +17,11 @@ public final class KeyChainStorage: @unchecked Sendable {
     /// Keychain service name prefix
     private let service: String
 
+    private let key_credentials = "synology_credentials"
+    private let key_session = "synology_session_info"
+    private let key_connection = "synology_connection_info"
+    private let key_device = "synology_device_info"
+
     /// 初始化 Keychain 存储
     /// Initialize Keychain storage
     /// - Parameter service: 服务标识符 / Service identifier
@@ -39,14 +44,14 @@ public final class KeyChainStorage: @unchecked Sendable {
                                              "password": password,
                                              "isEnableHttps": isEnableHttps ? "Y" : "N"]
 
-        save(account: "synology_dsmusic_credentials", data: credentials)
+        save(account: key_credentials, data: credentials)
     }
 
     /// 从 Keychain 读取已保存的凭据
     /// Read saved credentials from Keychain
     /// - Returns: 凭据元组（server, username, password, isEnableHttps），如果不存在则返回 nil
     public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool)? {
-        if let data: [String: String] = read(account: "synology_dsmusic_credentials"),
+        if let data: [String: String] = read(account: key_credentials),
            let server = data["server"], let username = data["username"], let password = data["password"],
            let isEnableHttps = data["isEnableHttps"] == "Y" ? true : false {
             return (server, username, password, isEnableHttps)
@@ -58,7 +63,7 @@ public final class KeyChainStorage: @unchecked Sendable {
     /// 从 Keychain 删除凭据
     /// Remove credentials from Keychain
     public func removeCredentials() {
-        delete(account: "synology_dsmusic_credentials")
+        delete(account: key_credentials)
     }
 
     // MARK: - Session Info
@@ -67,14 +72,14 @@ public final class KeyChainStorage: @unchecked Sendable {
     /// Save session info
     func saveSessionInfo(sid: String, did: String?) {
         let sessionInfo: [String: String] = ["sid": sid, "did": did ?? ""]
-        save(account: "synology_dsmusic_session_info", data: sessionInfo)
+        save(account: key_session, data: sessionInfo)
     }
 
     /// 获取 Session 信息
     /// Get session info
     func getSessionInfo() -> (sid: String, did: String)? {
         // Try reading as SessionInfoData (new format)
-        if let data: [String: String] = read(account: "synology_dsmusic_session_info"),
+        if let data: [String: String] = read(account: key_session),
            let sid = data["sid"], let did = data["did"] {
             return (sid, did)
         }
@@ -89,22 +94,22 @@ public final class KeyChainStorage: @unchecked Sendable {
     /// 移除 Session 信息
     /// Remove session info
     func removeSessionInfo() {
-        delete(account: "synology_dsmusic_session_info")
+        delete(account: key_session)
     }
 
     // MARK: - Device ID (Persistent)
 
     /// 保存设备 ID (持久化，不随登出清除)
     /// Save Device ID (Persistent, not cleared on logout)
-    func saveDeviceIdAndName(_ did: String, _ name: String) {
+    func saveDeviceInfo(_ did: String, _ name: String) {
         let data: [String: String] = ["did": did, "name": name]
-        save(account: "synology_dsmusic_device_name", data: data)
+        save(account: key_device, data: data)
     }
 
     /// 获取设备 ID
     /// Get Device ID
-    func getDeviceIdAndName() -> (String, String)? {
-        if let data: [String: String] = read(account: "synology_dsmusic_device_name"),
+    func getDeviceInfo() -> (String, String)? {
+        if let data: [String: String] = read(account: key_device),
            let did = data["did"], let name = data["name"] {
             return (did, name)
         }
@@ -117,13 +122,13 @@ public final class KeyChainStorage: @unchecked Sendable {
     /// Save connection URL info
     func saveConnectionInfo(url: String, typeString: String) {
         let data: [String: String] = ["url": url, "type": typeString]
-        save(account: "synology_dsmusic_connection_info", data: data)
+        save(account: key_connection, data: data)
     }
 
     /// 获取连接地址信息
     /// Get connection URL info
     func getConnectionInfo() -> (url: String, typeString: String)? {
-        if let data: [String: String] = read(account: "synology_dsmusic_connection_info"),
+        if let data: [String: String] = read(account: key_connection),
            let url = data["url"], let typeString = data["type"] {
             return (url, typeString)
         }
@@ -133,7 +138,7 @@ public final class KeyChainStorage: @unchecked Sendable {
     /// 移除连接地址信息
     /// Remove connection URL info
     func removeConnectionInfo() {
-        delete(account: "synology_dsmusic_connection_info")
+        delete(account: key_connection)
     }
 }
 

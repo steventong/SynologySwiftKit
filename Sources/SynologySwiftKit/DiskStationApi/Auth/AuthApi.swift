@@ -17,7 +17,7 @@ public class AuthApi {
     }
 
     public func login(username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
-        let deviceIdAndName = keyChainStorage.getDeviceIdAndName() ?? ("", UUID().uuidString)
+        let deviceIdAndName = keyChainStorage.getDeviceInfo() ?? ("", UUID().uuidString)
 
         do {
             let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post,
@@ -35,7 +35,7 @@ public class AuthApi {
 
             // save device id and name
             if let did = authResult.did, !did.isEmpty {
-                keyChainStorage.saveDeviceIdAndName(did, deviceIdAndName.1)
+                keyChainStorage.saveDeviceInfo(did, deviceIdAndName.1)
             }
 
             return handleAuthResult(authResult: authResult)
