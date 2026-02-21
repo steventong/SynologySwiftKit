@@ -67,7 +67,7 @@ public actor SynologyUserLogin {
             Task {
                 guard let credentials = keyChainStorage.getCredentials() else {
                     Logger.warn("SynologyUserLogin#login(auto-full), no saved credentials found")
-                    continuation.yield(.failed(message: "No saved credentials found"))
+                    continuation.yield(.invalidSession(message: "No saved credentials found"))
                     continuation.finish()
                     return
                 }
@@ -189,8 +189,8 @@ private extension SynologyUserLogin {
             continuation.yield(.otpRequired)
             continuation.finish()
         } catch let SynologyError.sessionExpired(code, msg) {
-            Logger.info("SynologyUserLogin#performPasswordLogin, invalidSession: \(msg)")
-            continuation.yield(.invalidSession)
+            Logger.info("SynologyUserLogin#performPasswordLogin, invalidSession: \(code), \(msg)")
+            continuation.yield(.invalidSession(message: "session expired"))
             continuation.finish()
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, auth failed: \(error)")

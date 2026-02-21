@@ -31,7 +31,7 @@ public enum SynologyUserLoginProgress: Sendable {
     /// 需要输入 OTP 验证码
     /// OTP verification code required
     case otpRequired
-    
+
     /// session is invalid
-    case invalidSession
+    case invalidSession(message: String)
 }
