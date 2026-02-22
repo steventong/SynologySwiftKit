@@ -71,7 +71,7 @@ public final class UserDefaultsStorage: KeyValueStorage {
             Logger.error("[KeyValueStorage] Failed to encode data for \(defaultName)")
             return
         }
-        set(encoded, forKey: defaultName)
+        userDefaults.set(encoded, forKey: defaultName)
     }
 
     /// 读取 Decodable 对象（从 JSON Data 解码）
