@@ -176,7 +176,9 @@ extension KeyChainStorage {
     }
 
     private func read<T: Decodable>(account: String) -> T? {
-        guard let data = readRaw(account: account) else { return nil }
+        guard let data = readRaw(account: account) else {
+            return nil
+        }
         return try? JSONDecoder().decode(T.self, from: data)
     }
 
@@ -207,24 +209,3 @@ extension KeyChainStorage {
         SecItemDelete(query as CFDictionary)
     }
 }
-
-// 扩展现有的 saveCredentials 使用新的通用方法?
-// 为了保持兼容性，先保留原有代码，重构一下。
-
-// MARK: - CredentialData
-
-/// 凭据数据模型（用于 JSON 编解码）
-/// Credential data model (for JSON encoding/decoding)
-// private struct CredentialData: Codable {
-//    let server: String
-//    let username: String
-//    let password: String
-//    let isEnableHttps: Bool
-// }
-
-///// Session 信息数据模型
-///// Session info data model
-// private struct SessionInfoData: Codable {
-//    let sid: String
-//    let did: String
-// }

@@ -93,7 +93,7 @@ public final class SynologyClient {
         // Inject device identity via KeychainStorage
         auth = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
 
-        quickConnect = QuickConnectApi(apiClient: apiClient, pingpong: pingpong, timeout: config.quickConnectTimeout, storage: keyValueStorage)
+        quickConnect = QuickConnectApi(apiClient: apiClient, pingpong: pingpong, timeout: config.quickConnectTimeout, keyValueStorage: keyValueStorage)
         dsmInfo = DsmInfoApi(apiClient: apiClient)
         encryption = EncryptionApi(apiClient: apiClient)
 

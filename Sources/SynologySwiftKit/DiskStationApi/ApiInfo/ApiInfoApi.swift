@@ -18,7 +18,7 @@ public actor ApiInfoApi: ApiInfoProviding {
     private let apiClient: ApiClientProviding
 
     /// 键值存储 (用于持久化缓存)
-    private let storage: KeyValueStorage
+    private let keyValueStorage: KeyValueStorage
 
     /// 缓存的 API 信息
     private var cachedApiInfo: [String: ApiInfoNode] = [:]
@@ -31,19 +31,16 @@ public actor ApiInfoApi: ApiInfoProviding {
     /// 初始化 API 信息管理器
     /// Initialize API information manager
     public init(apiClient: ApiClientProviding,
-                storage: KeyValueStorage = UserDefaultsStorage(),
+                keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
                 cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
         self.apiClient = apiClient
-        self.storage = storage
+        self.keyValueStorage = keyValueStorage
         self.cacheValidity = cacheValidity
     }
 
     public func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
         if apiName == SynologyApi.Core.INFO.name {
-            return ApiInfoNode(path: "entry.cgi",
-                               minVersion: 1,
-                               maxVersion: 1,
-                               requestFormat: nil)
+            return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
         }
 
         if cachedApiInfo.isEmpty, let cached = getApiInfoFromStorage() {
@@ -67,18 +64,19 @@ public actor ApiInfoApi: ApiInfoProviding {
             return true
         }
 
-        cachedApiInfo = try await queryApiInfo()
+        cachedApiInfo = try await queryApiInfoFromDsm()
         Logger.debug("ApiInfoApi#checkSynologyApiInfo from api: \(cachedApiInfo.count)")
 
         if updateCache == true, cachedApiInfo.isEmpty == false {
-            saveApiInfoToStorage(apiInfo: cachedApiInfo)
+            keyValueStorage.set(cachedApiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
+            keyValueStorage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
         }
         return true
     }
 }
 
 extension ApiInfoApi {
-    private func queryApiInfo() async throws -> [String: ApiInfoNode] {
+    private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
         let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query", parameters:
             ["query": "all"]
         )
@@ -86,39 +84,16 @@ extension ApiInfoApi {
         return apiInfo
     }
 
-    private func saveApiInfoToStorage(apiInfo: [String: ApiInfoNode]) {
-        if let encoded = try? JSONEncoder().encode(apiInfo),
-           let jsonString = String(data: encoded, encoding: .utf8) {
-            let (dataKey, timeKey) = getCacheKeys()
-            storage.set(jsonString, forKey: dataKey)
-            storage.set(Date(), forKey: timeKey)
-        }
-    }
-
     private func getApiInfoFromStorage() -> [String: ApiInfoNode]? {
-        let (dataKey, _) = getCacheKeys()
-        if let jsonString = storage.string(forKey: dataKey),
-           let data = jsonString.data(using: .utf8) {
-            return try? JSONDecoder().decode([String: ApiInfoNode].self, from: data)
+        if let apiInfo: [String: ApiInfoNode] = keyValueStorage.codable(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName) {
+            return apiInfo
         }
+
         return nil
     }
 
-    private func getApiInfoSaveToStorageTime() -> Date? {
-        let (_, timeKey) = getCacheKeys()
-        return storage.object(forKey: timeKey) as? Date
-    }
-
-    /// 获取缓存 key（不再基于 host，因为同一设备 API 信息相同）
-    /// Get cache keys (no longer host-based, as API info is the same for the same device)
-    private func getCacheKeys() -> (dataKey: String, timeKey: String) {
-        let dataKey = UserDefaultsKeys.DISK_STATION_API_INFO.keyName
-        let timeKey = UserDefaultsKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName
-        return (dataKey, timeKey)
-    }
-
     private func isApiInfoCacheValid(validTime: Int32?) -> Bool {
-        if let lastUpdateTime = getApiInfoSaveToStorageTime() {
+        if let lastUpdateTime = keyValueStorage.object(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) as? Date {
             return Int32(Date().timeIntervalSince(lastUpdateTime)) < (validTime ?? 24 * 60 * 60)
         }
         return false

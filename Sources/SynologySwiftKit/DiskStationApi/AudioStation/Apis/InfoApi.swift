@@ -21,7 +21,7 @@ public final class InfoApi {
      */
     public func query(cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
         // Cache Check
-        if cacheEnabled == true, isCacheValid(), let cachedInfo = getAudioStationInfo() {
+        if cacheEnabled == true, isAudioStationInfoCacheValid(), let cachedInfo = getAudioStationInfo() {
             return cachedInfo
         }
 
@@ -30,23 +30,8 @@ public final class InfoApi {
         Logger.debug("SynologySwiftKit.InfoApi, query, from api: \(info)")
 
         // Save Cache
-        saveToCache(info: info)
+        saveAudioStationInfoCache(info: info)
         return info
-    }
-
-    /**
-     Query from Cache
-     */
-    public func getAudioStationInfo() -> AudioStationInfo? {
-        if let json = keyValueStorage.string(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName),
-           let data = json.data(using: .utf8) {
-            let info = try? JSONDecoder().decode(AudioStationInfo.self, from: data)
-            if let info {
-                Logger.debug("SynologySwiftKit.InfoApi, query, from cache: \(info)")
-            }
-            return info
-        }
-        return nil
     }
 
     // MARK: - Private Methods
@@ -62,16 +47,24 @@ public final class InfoApi {
         return result
     }
 
-    private func saveToCache(info: AudioStationInfo) {
-        if let encoded = try? JSONEncoder().encode(info),
-           let json = String(data: encoded, encoding: .utf8) {
-            keyValueStorage.set(json, forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
-            keyValueStorage.set(Date(), forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
+    /**
+     Query from Cache
+     */
+    public func getAudioStationInfo() -> AudioStationInfo? {
+        if let info: AudioStationInfo = keyValueStorage.codable(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName) {
+            Logger.debug("SynologySwiftKit.InfoApi, query, from cache: \(info)")
+            return info
         }
+        return nil
     }
 
-    private func isCacheValid() -> Bool {
-        if let updateTime = keyValueStorage.object(forKey: UserDefaultsKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
+    private func saveAudioStationInfoCache(info: AudioStationInfo) {
+        keyValueStorage.set(info, forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
+        keyValueStorage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
+    }
+
+    private func isAudioStationInfoCacheValid() -> Bool {
+        if let updateTime = keyValueStorage.object(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
             return Date().timeIntervalSince(updateTime) < 24 * 60 * 60
         }
         return false

@@ -12,17 +12,17 @@ import Foundation
 public actor QuickConnectApi {
     private let apiClient: ApiClientProviding
     private let pingpong: PingPongProviding
-    private let storage: KeyValueStorage
+    private let keyValueStorage: KeyValueStorage
     private let timeout: TimeInterval
 
     public init(apiClient: ApiClientProviding,
                 pingpong: PingPongProviding,
                 timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout,
-                storage: KeyValueStorage = UserDefaultsStorage()) {
+                keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
         self.pingpong = pingpong
         self.timeout = timeout
-        self.storage = storage
+        self.keyValueStorage = keyValueStorage
     }
 
     /// 通过 QuickConnect ID 获取设备连接地址（竞速模式，首个最优连接立即返回）
@@ -176,8 +176,8 @@ private extension QuickConnectApi {
     /// Fetch synology server URL from cache
     private func fetchSynologyServerFromCache(quickConnectId: String) -> String {
         // 根据 quickconnectId 配置缓存的 url
-        let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
-        if let synologyServerUrl = storage.string(forKey: key) {
+        let key = KeyValueStorageKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
+        if let synologyServerUrl = keyValueStorage.string(forKey: key) {
             Logger.info("[SynologySwiftKit][QuickConnect]cached synology server: \(synologyServerUrl)")
             return synologyServerUrl
         }
@@ -189,8 +189,8 @@ private extension QuickConnectApi {
     /// 保存 synology server 到缓存
     /// Save synology server URL to cache
     private func saveSynologyServerToCache(quickConnectId: String, synologyServer: String) {
-        let key = UserDefaultsKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
-        storage.set(synologyServer, forKey: key)
+        let key = KeyValueStorageKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
+        keyValueStorage.set(synologyServer, forKey: key)
         Logger.debug("persist user-defaults: \(key)=\(synologyServer)")
     }
 }
