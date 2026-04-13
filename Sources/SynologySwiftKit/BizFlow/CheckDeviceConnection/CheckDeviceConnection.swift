@@ -36,13 +36,19 @@ public class CheckDeviceConnection: CheckDeviceConnectionProviding {
     public func checkConnectionStatus() -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
             Task {
-                guard let credentials = keyChainStorage.getCredentials() else {
-                    throw SynologyError.network(message: "Connection unreachable and no saved credentials")
-                }
+                do {
+                    guard let credentials = keyChainStorage.getCredentials() else {
+                        throw SynologyError.network(message: "Connection unreachable and no saved credentials")
+                    }
 
-                let server = credentials.server
-                let isEnableHttps = credentials.isEnableHttps
-                await self.performConnectionCheck(server: server, isHttps: isEnableHttps, continuation: continuation)
+                    let server = credentials.server
+                    let isEnableHttps = credentials.isEnableHttps
+                    await self.performConnectionCheck(server: server, isHttps: isEnableHttps, continuation: continuation)
+                } catch {
+                    Logger.error("CheckDeviceConnection#checkConnectionStatus, setup failed: \(error)")
+                    continuation.yield(.failed(message: error.localizedDescription))
+                    continuation.finish()
+                }
             }
         }
     }

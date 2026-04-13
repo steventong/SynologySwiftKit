@@ -102,7 +102,7 @@ private extension SynologyUserLogin {
         if shouldSavePassword {
             keyChainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
         } else {
-            keyChainStorage.saveCredentials(server: server, username: username, password: "", isEnableHttps: enableHttps)
+            keyChainStorage.removeCredentials()
         }
 
         // 解析可用连接 (使用 CheckDeviceConnection)
@@ -159,29 +159,30 @@ private extension SynologyUserLogin {
         }
 
         do {
-            if sliceLogin && connection.cached {
-                // 静默登录且没有更换连接地址时,调用接口验证SID是否过期。
-                if let sessionInfo = keyChainStorage.getSessionInfo() {
-                    _ = try? await audioStationApi.info.query()
+            if sliceLogin && connection.cached,
+               let sessionInfo = keyChainStorage.getSessionInfo()
+            {
+                // 静默登录且没有更换连接地址时，必须验证缓存 SID 仍然可用。
+                _ = try await audioStationApi.info.query()
 
-                    let loginResult = SynologyUserLoginResult(sid: sessionInfo.sid, did: sessionInfo.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
-                    continuation.yield(.completed(result: loginResult))
-                    continuation.finish()
-                }
-            } else {
-                let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
-
-                // 登录成功，保存会话
-                // Login succeeded, save session
-                apiClient.updateSession(sid: authResult.sid, did: authResult.did)
-                keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
-
-                Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
-                let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
-
+                let loginResult = SynologyUserLoginResult(sid: sessionInfo.sid, did: sessionInfo.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
                 continuation.yield(.completed(result: loginResult))
                 continuation.finish()
+                return
             }
+
+            let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
+
+            // 登录成功，保存会话
+            // Login succeeded, save session
+            apiClient.updateSession(sid: authResult.sid, did: authResult.did)
+            keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+
+            Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
+            let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+
+            continuation.yield(.completed(result: loginResult))
+            continuation.finish()
         } catch let SynologyError.auth(code, msg) where code == 403 {
             // 需要 OTP 验证码（不算失败，需要用户输入）
             // OTP required (not a failure, user input needed)

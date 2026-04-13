@@ -73,13 +73,27 @@ public final class SynologyClient {
 
     /// 初始化 Synology 客户端
     /// - Parameter config: 全局配置 (默认为 SynologyConfig.default)
-    public init(config: SynologyConfig = .default) {
+    public convenience init(config: SynologyConfig = .default) {
+        self.init(
+            config: config,
+            keyValueStorage: UserDefaultsStorage(),
+            keyChainStorage: KeyChainStorage(),
+            apiClient: ApiClient()
+        )
+    }
+
+    init(
+        config: SynologyConfig,
+        keyValueStorage: KeyValueStorage,
+        keyChainStorage: KeyChainStorage,
+        apiClient: ApiClient
+    ) {
         self.config = config
 
-        keyValueStorage = UserDefaultsStorage()
-        keyChainStorage = KeyChainStorage()
+        self.keyValueStorage = keyValueStorage
+        self.keyChainStorage = keyChainStorage
 
-        apiClient = ApiClient()
+        self.apiClient = apiClient
         apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
         pingpong = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
 
@@ -99,7 +113,7 @@ public final class SynologyClient {
 
         // 初始化流程类
         userLogin = SynologyUserLogin(apiInfoApi: apiInfo, apiClient: apiClient, pingpong: pingpong, keyChainStorage: keyChainStorage)
-        checkConnection = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfo, quickConnectApi: quickConnect, audioStationApi: audioStation, pingpong: pingpong, keyChainStorage: KeyChainStorage())
+        checkConnection = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfo, quickConnectApi: quickConnect, audioStationApi: audioStation, pingpong: pingpong, keyChainStorage: keyChainStorage)
         queryAllSongs = QueryAllSongs(apiClient: apiClient)
 
         // 恢复上次会话

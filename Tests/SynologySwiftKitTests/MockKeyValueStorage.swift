@@ -37,13 +37,58 @@ public final class MockKeyValueStorage: KeyValueStorage {
     }
 
     public func set(_ value: Any?, forKey defaultName: String) {
-        lock.withLock {
+        _ = lock.withLock {
             if let value = value {
                 storage[defaultName] = value
             } else {
                 storage.removeValue(forKey: defaultName)
             }
         }
+    }
+
+    public func set<T: Encodable>(_ value: T?, forKey defaultName: String) {
+        guard let value else {
+            removeObject(forKey: defaultName)
+            return
+        }
+
+        switch value {
+        case let raw as Data:
+            set(raw as Any?, forKey: defaultName)
+            return
+        case let raw as Date:
+            set(raw as Any?, forKey: defaultName)
+            return
+        case let raw as String:
+            set(raw as Any?, forKey: defaultName)
+            return
+        case let raw as Int:
+            set(raw as Any?, forKey: defaultName)
+            return
+        case let raw as Bool:
+            set(raw as Any?, forKey: defaultName)
+            return
+        case let raw as Double:
+            set(raw as Any?, forKey: defaultName)
+            return
+        case let raw as Float:
+            set(raw as Any?, forKey: defaultName)
+            return
+        default:
+            break
+        }
+
+        guard let encoded = try? JSONEncoder().encode(value) else {
+            return
+        }
+        set(encoded as Any?, forKey: defaultName)
+    }
+
+    public func codable<T: Decodable>(forKey defaultName: String) -> T? {
+        guard let data = data(forKey: defaultName) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
 
     public func removeObject(forKey defaultName: String) {

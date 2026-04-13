@@ -1,0 +1,144 @@
+import XCTest
+@testable import SynologySwiftKit
+
+final class FoundationAndUtilityTests: XCTestCase {
+    func testUrlUtilsAndDictionaryEncoding() {
+        let encoded = UrlUtils.urlEncode("a b&c")
+        XCTAssertTrue(encoded.contains("a"))
+
+        let anyDict: [String: Any] = ["title": "Hello World", "count": 2]
+        XCTAssertTrue(anyDict.urlEncodedString.contains("title="))
+        XCTAssertNotNil(anyDict.urlEncodedData)
+
+        let apiDict: [String: ApiParameterValue] = ["title": .string("Hello World"), "count": .int(2)]
+        XCTAssertTrue(apiDict.urlEncodedString.contains("count=2"))
+        XCTAssertNotNil(apiDict.urlEncodedData)
+    }
+
+    func testJsonUtilsAndLyricsResultDecoding() throws {
+        let request = TagEditorRequest(audioInfos: [], lyrics: "lyric", coverType: "", coverPath: "", title: "Track", artist: "Artist", album: "Album", comment: "", genre: "Pop", track: "1", disc: "1", year: "2024", albumArtist: "Artist", composer: "Composer", codePage: "utf-8")
+        XCTAssertNotNil(JsonUtils.toJson(codable: request))
+
+        let stringData = try makeJSONData(["lyrics": "plain lyrics"])
+        let objectData = try makeJSONData(["lyrics": ["lyrics": "nested lyrics"]])
+        let emptyData = try makeJSONData(["lyrics": NSNull()])
+
+        XCTAssertEqual(try JSONDecoder().decode(LyricsResult.self, from: stringData).lyrics?.lyrics, "plain lyrics")
+        XCTAssertEqual(try JSONDecoder().decode(LyricsResult.self, from: objectData).lyrics?.lyrics, "nested lyrics")
+        XCTAssertNil(try JSONDecoder().decode(LyricsResult.self, from: emptyData).lyrics)
+    }
+
+    func testConnectionTypeHelpersAndHttpTypeScheme() {
+        XCTAssertEqual(ConnectionType.getByName(name: "lan"), .lan)
+        XCTAssertNil(ConnectionType.getByName(name: "missing"))
+        XCTAssertEqual(ConnectionType.lan.name, "lan")
+        XCTAssertEqual(ConnectionType.ordered.first, .lan)
+        XCTAssertEqual(ConnectionType.ordered.last, .custom_domain)
+        XCTAssertEqual(HttpType.HTTPS.httpScheme, "https://")
+        XCTAssertEqual(HttpType.HTTP.httpScheme, "http://")
+    }
+
+    func testKeyValueStorageSupportsPrimitiveAndCodableValues() {
+        let storage = MockKeyValueStorage()
+        storage.set("value", forKey: "string")
+        storage.set(3, forKey: "int")
+        storage.set(true, forKey: "bool")
+        storage.set(Date(timeIntervalSince1970: 10), forKey: "date")
+        storage.set(makeAudioStationInfo(), forKey: "info")
+
+        XCTAssertEqual(storage.string(forKey: "string"), "value")
+        XCTAssertEqual(storage.integer(forKey: "int"), 3)
+        XCTAssertEqual(storage.bool(forKey: "bool"), true)
+        XCTAssertNotNil(storage.object(forKey: "date") as? Date)
+        let storedInfo: AudioStationInfo? = storage.codable(forKey: "info")
+        XCTAssertEqual(storedInfo?.version, makeAudioStationInfo().version)
+    }
+
+    func testSynologyErrorsAndApiResponseMapping() throws {
+        XCTAssertEqual(SynologyError.authMessage(forCode: 403), Localization.text("AUTHENTICATION_CODE_REQUIRED"))
+
+        let expired = SynologyApiError(code: 106)
+        let apiNotFound = SynologyApiError(code: 102)
+        let unknown = SynologyApiError.unknown
+
+        guard case .sessionExpired(106, _) = expired.toSynologyError() else {
+            return XCTFail("Expected sessionExpired")
+        }
+        guard case .api(102, _) = apiNotFound.toSynologyError() else {
+            return XCTFail("Expected api error")
+        }
+        XCTAssertEqual(unknown.code, -1)
+
+        let success = SynologyResponse(success: true, error: nil, data: "ok")
+        XCTAssertEqual(try success.unwrap(), "ok")
+
+        do {
+            _ = try SynologyResponse<String>(success: false, error: SynologyApiError(code: 105), data: nil).unwrap()
+            XCTFail("Expected unwrap to throw")
+        } catch let SynologyError.sessionExpired(code, _) {
+            XCTAssertEqual(code, 105)
+        }
+    }
+
+    func testApiEndpointAndParametersBuilder() {
+        let endpoint = ApiEndpoint(api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post) {
+            ("limit", 10)
+            ("keyword", "hello")
+            if true {
+                ("offset", 0)
+            }
+            for pair in [("library", "shared"), ("additional", "song_tag")] {
+                pair
+            }
+        }
+
+        XCTAssertEqual(endpoint.apiName, SynologyApi.AudioStation.SONG.name)
+        XCTAssertEqual(endpoint.parameters["limit"]?.stringValue, "10")
+        XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "shared")
+        XCTAssertEqual(ApiEndpoint.post(api: SynologyApi.AudioStation.SEARCH, method: "list").httpMethod, .post)
+        XCTAssertTrue(ApiEndpoint.custom(api: SynologyApi.AudioStation.TAG_EDITOR_UI, path: "/tag").isCustomPath)
+        XCTAssertEqual(ApiParameterValue.from(Float(1.5)).stringValue, "1.5")
+    }
+
+    func testAuthInterceptorInjectsSidAndCookieAndClearsExpiredSession() async throws {
+        var didExpire = false
+        let interceptor = AuthInterceptor(
+            sessionProvider: { ("sid-123", "did-123") },
+            onSessionExpired: { didExpire = true }
+        )
+
+        var getRequest = URLRequest(url: URL(string: "https://nas.local/path?foo=bar")!)
+        getRequest.httpMethod = "GET"
+        let getEndpoint = ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "cover", sidOnQuery: true)
+        let adaptedGet = try await interceptor.adapt(getRequest, for: getEndpoint)
+        XCTAssertTrue(adaptedGet.url?.absoluteString.contains("_sid=sid-123") == true)
+
+        var postRequest = URLRequest(url: URL(string: "https://nas.local/path")!)
+        postRequest.httpMethod = "POST"
+        postRequest.httpBody = "foo=bar".data(using: .utf8)
+        let postEndpoint = ApiEndpoint(api: SynologyApi.AudioStation.INFO, method: "getinfo", httpMethod: .post, sidOnCookie: true)
+        let adaptedPost = try await interceptor.adapt(postRequest, for: postEndpoint)
+        XCTAssertEqual(adaptedPost.value(forHTTPHeaderField: "Cookie"), "id=sid-123; did=did-123")
+
+        _ = try await interceptor.process(.failure(SynologyError.sessionExpired(code: 105, message: "expired")), for: postEndpoint)
+        XCTAssertTrue(didExpire)
+    }
+
+    func testRequestInterceptorDefaultsAndRequestContext() async throws {
+        struct DummyInterceptor: RequestInterceptorWithContext {}
+
+        let request = URLRequest(url: URL(string: "https://example.com")!)
+        let endpoint = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query")
+        var context = RequestContext(metadata: ["trace": "1"])
+        let interceptor = DummyInterceptor()
+
+        let adapted = try await interceptor.adapt(request, for: endpoint, context: &context)
+        let processed = try await interceptor.process(.success((Data(), URLResponse())), for: endpoint, context: &context)
+
+        XCTAssertEqual(adapted.url, request.url)
+        XCTAssertEqual(context.metadata["trace"], "1")
+        guard case .success = processed else {
+            return XCTFail("Expected default process success passthrough")
+        }
+    }
+}
