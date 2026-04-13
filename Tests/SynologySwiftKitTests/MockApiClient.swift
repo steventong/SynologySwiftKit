@@ -11,13 +11,10 @@ import Foundation
 /// 模拟 API 客户端（用于测试上层业务逻辑）
 final class MockApiClient: ApiClientProviding {
     var connection: (type: SynologySwiftKit.ConnectionType, url: String)?
-    var apiInfoProvider: ApiInfoProviding?
-
-    var currentConnection: (type: ConnectionType, url: String)?
     var session: (sid: String, did: String?)?
 
     func updateConnection(type: ConnectionType, url: String) {
-        currentConnection = (type, url)
+        connection = (type, url)
     }
 
     func updateSession(sid: String, did: String?) {
@@ -31,6 +28,11 @@ final class MockApiClient: ApiClientProviding {
     // 预设响应
     var mockResponse: Any?
     var mockError: Error?
+    var requestHandler: ((ApiEndpoint) throws -> Any)?
+    var rawRequestHandler: ((URL, HTTPMethod, [String: String]?, Data?, TimeInterval) throws -> Any)?
+    var buildUrlHandler: ((ApiEndpoint) throws -> URL)?
+    private(set) var requestedEndpoints: [ApiEndpoint] = []
+    private(set) var builtUrlEndpoints: [ApiEndpoint] = []
 
     init() {
     }
@@ -40,6 +42,13 @@ final class MockApiClient: ApiClientProviding {
     }
 
     func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T {
+        requestedEndpoints.append(endpoint)
+        if let requestHandler {
+            let response = try requestHandler(endpoint)
+            if let response = response as? T {
+                return response
+            }
+        }
         if let error = mockError {
             throw error
         }
@@ -73,6 +82,10 @@ final class MockApiClient: ApiClientProviding {
     }
 
     func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
+        builtUrlEndpoints.append(endpoint)
+        if let buildUrlHandler {
+            return try buildUrlHandler(endpoint)
+        }
         return URL(string: "https://mockApi.com")!
     }
 
@@ -81,6 +94,12 @@ final class MockApiClient: ApiClientProviding {
                     headers: [String: String]?,
                     body: Data?,
                     timeout: TimeInterval) async throws -> T where T: Decodable {
+        if let rawRequestHandler {
+            let response = try rawRequestHandler(url, httpMethod, headers, body, timeout)
+            if let response = response as? T {
+                return response
+            }
+        }
         if let error = mockError {
             throw error
         }

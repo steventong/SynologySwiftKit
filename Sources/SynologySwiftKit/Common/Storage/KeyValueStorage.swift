@@ -67,6 +67,37 @@ public final class UserDefaultsStorage: KeyValueStorage {
     /// 写入 Encodable 对象（以 JSON Data 存储）
     /// Save an Encodable value as JSON data
     public func set<T: Encodable>(_ value: T?, forKey defaultName: String) {
+        if let value {
+            switch value {
+            case let raw as Data:
+                set(raw as Any?, forKey: defaultName)
+                return
+            case let raw as Date:
+                set(raw as Any?, forKey: defaultName)
+                return
+            case let raw as String:
+                set(raw as Any?, forKey: defaultName)
+                return
+            case let raw as Int:
+                set(raw as Any?, forKey: defaultName)
+                return
+            case let raw as Bool:
+                set(raw as Any?, forKey: defaultName)
+                return
+            case let raw as Double:
+                set(raw as Any?, forKey: defaultName)
+                return
+            case let raw as Float:
+                set(raw as Any?, forKey: defaultName)
+                return
+            default:
+                break
+            }
+        } else {
+            removeObject(forKey: defaultName)
+            return
+        }
+
         guard let encoded = try? JSONEncoder().encode(value) else {
             Logger.error("[KeyValueStorage] Failed to encode data for \(defaultName)")
             return

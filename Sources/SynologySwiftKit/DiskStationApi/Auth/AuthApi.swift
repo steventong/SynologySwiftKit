@@ -53,6 +53,8 @@ public class AuthApi {
     public func logout() async throws {
         let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
         let _: EmptyData = try await apiClient.request(api, rawResponse: false)
+        apiClient.clearSession()
+        keyChainStorage.removeSessionInfo()
     }
 
     /// 读取已保存的登录凭据
