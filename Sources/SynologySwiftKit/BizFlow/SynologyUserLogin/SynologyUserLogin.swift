@@ -1,6 +1,6 @@
 //
-//  File.swift
-//
+//  SynologyUserLogin.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
 //
@@ -8,142 +8,195 @@
 import Foundation
 import OSLog
 
+// MARK: - SynologyUserLogin
+
+/// Synology 用户登录管理（依赖注入）
+/// Synology user login management (dependency injection)
 public actor SynologyUserLogin {
-    let quickConnectApi = QuickConnectApi()
-    let authApi = AuthApi()
-    let audioStationApi = AudioStationApi()
+    // MARK: - Dependencies
 
-    // init
-    public init() {
+    private let apiInfoApi: ApiInfoProviding
+    private let quickConnectApi: QuickConnectApi
+    private let authApi: AuthApi
+    private let pingpong: PingPongProviding
+    private let audioStationApi: AudioStationApi
+    private let apiClient: ApiClientProviding
+    private let keyChainStorage: KeyChainStorage
+
+    // MARK: - Initialization
+
+    /// 初始化登录管理器
+    /// Initialize login manager
+    /// - Parameters:
+    ///   - keyChainStorage: Keychain 存储 / Keychain Storage
+    ///   - apiInfoApi: API 信息提供者 / API info provider
+    ///   - apiClient: API 客户端 / API client
+    ///   - pingpong: PingPong 服务 / PingPong service
+    public init(apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+        self.apiInfoApi = apiInfoApi
+        self.apiClient = apiClient
+        self.pingpong = pingpong
+        self.keyChainStorage = keyChainStorage
+
+        quickConnectApi = QuickConnectApi(apiClient: apiClient, pingpong: pingpong)
+        authApi = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
+        audioStationApi = AudioStationApi(apiClient: apiClient)
     }
 
-    /**
-     server: quickConnectId 或者是 域名+端口号
-     */
-    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil,
-                      onProgress: @escaping (SynologyUserLoginStep) -> Void,
-                      onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
-        // progress
-        onProgress(.STEP_START(server: server))
-
-        // 保存登录偏好设置
-        DeviceConnection.shared.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
-
-        // 获取设备地址
-        guard let connection = await fetchConnectionUrl(server: server, enableHttps: enableHttps, onProgress: onProgress) else {
-            // 操作结束
-            onProgress(.STEP_FINISH)
-            throw SynologyUserLoginError.connectionUnAvaliable
+    /// 通过密码登录（AsyncStream 版本）
+    /// Login with password (AsyncStream version)
+    /// - Parameters:
+    ///   - server: QuickConnect ID 或自定义域名
+    ///   - enableHttps: 是否启用 HTTPS
+    ///   - username: 用户名
+    ///   - password: 密码
+    ///   - otpCode: 可选的 OTP 代码
+    ///   - shouldSavePassword: 是否保存密码（默认为 true）
+    /// - Returns: AsyncStream 返回登录进度
+    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+        AsyncStream { continuation in
+            Task {
+                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
+            }
         }
-
-        // 保存可用地址
-        DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
-
-        // 获取地址成功
-        onConnectionFetch(connection.type, connection.url)
-
-        // 更新API info
-        let _ = try await ApiInfoApi.shared.checkSynologyApiInfo(cacheEnabled: false)
-
-        // login seever isQuickConnectID
-        let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
-
-        // 开始登录
-        onProgress(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
-
-        // 登录，如果有异常会抛出，没有异常则成功
-        let authResult = try await authApi.userLogin(server: connection.url, username: username, password: password, otpCode: otpCode)
-
-        // 登录成功
-        DeviceConnection.shared.updateLoginSession(username: username, sid: authResult.sid, did: authResult.did)
-
-        Logger.info("SynologyUserLogin, userLogin by password, result: \(authResult)")
-        onProgress(.USER_LOGIN_SUCCESS(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
-
-        // 查询 audio station 信息
-        let audioStationInfo = try await audioStationApi.queryAudioStationInfo()
-        Logger.info("SynologyUserLogin, audioStationInfo: \(audioStationInfo)")
-
-        // 操作结束
-        onProgress(.STEP_FINISH)
-        return authResult
     }
 
-    /**
-     通过sid和did登录
-     */
-    public func login(server: String, enableHttps: Bool, username: String, sid: String, did: String?,
-                      onProgress: @escaping (SynologyUserLoginStep) -> Void,
-                      onConnectionFetch: @escaping (ConnectionType, String) -> Void) async throws -> AuthResult {
-        // progress
-        onProgress(.STEP_START(server: server))
+    /// 刷新登录信息，静默登录
+    public func login() -> AsyncStream<SynologyUserLoginProgress> {
+        AsyncStream { continuation in
+            Task {
+                guard let credentials = keyChainStorage.getCredentials() else {
+                    Logger.warn("SynologyUserLogin#login(auto-full), no saved credentials found")
+                    continuation.yield(.invalidSession(message: "No saved credentials found"))
+                    continuation.finish()
+                    return
+                }
 
-        // 保存登录偏好设置
-        DeviceConnection.shared.updateLoginPreferences(server: server, isEnableHttps: enableHttps)
+                let server = credentials.server
+                let enableHttps = credentials.isEnableHttps
+                let username = credentials.username
+                let password = credentials.password
 
-        // 获取设备地址
-        guard let connection = await fetchConnectionUrl(server: server, enableHttps: enableHttps, onProgress: onProgress) else {
-            // 操作结束
-            onProgress(.STEP_FINISH)
-            throw SynologyUserLoginError.connectionUnAvaliable
+                // set sliceLogin: true
+                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: nil, shouldSavePassword: true, fetchApiList: true, sliceLogin: true, continuation: continuation)
+            }
         }
-
-        // 保存可用地址
-        DeviceConnection.shared.updateCurrentConnectionUrl(type: connection.type, url: connection.url)
-
-        // 获取地址成功
-        onConnectionFetch(connection.type, connection.url)
-
-        // 更新API info
-        let _ = try await ApiInfoApi.shared.checkSynologyApiInfo(cacheEnabled: false)
-
-        // login seever isQuickConnectID
-        let isQuickConnectID = await quickConnectApi.isQuickConnectId(server: server)
-
-        // 开始登录
-        onProgress(.USER_LOGIN(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
-
-        // 通过接口检查登录，如果有异常会抛出，没有异常则成功
-        let audioStationInfo = try await audioStationApi.queryAudioStationInfo(sid: sid, did: did)
-
-        // 登录成功
-        DeviceConnection.shared.updateLoginSession(username: username, sid: sid, did: did)
-
-        Logger.info("SynologyUserLogin, userLogin by session, result: \(audioStationInfo)")
-        onProgress(.USER_LOGIN_SUCCESS(isQuickConnectID ? .QUICK_CONNECT_ID : .CUSTOM_DOMAIN))
-
-        // 操作结束
-        onProgress(.STEP_FINISH)
-
-        return AuthResult(did: did, is_portal_port: false, sid: sid)
     }
 }
 
-extension SynologyUserLogin {
-    /**
-     fetchConnectionUrl 获取地址
-     */
-    private func fetchConnectionUrl(server: String, enableHttps: Bool, onProgress: @escaping (SynologyUserLoginStep) -> Void) async -> (type: ConnectionType, url: String)? {
-        if await !quickConnectApi.isQuickConnectId(server: server) {
-            // 自定义域名直接返回地址
-            return (.custom_domain, server)
+// MARK: - Private Support
+
+private extension SynologyUserLogin {
+    /// 执行密码登录
+    /// Perform password login
+    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, sliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+        // 连接检查
+        continuation.yield(.connecting)
+
+        // 确定服务器类型
+        let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
+        let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
+
+        // 根据用户选择保存或清除凭据
+        // save or remove credentials based on user choice
+        if shouldSavePassword {
+            keyChainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
+        } else {
+            keyChainStorage.removeCredentials()
         }
 
-        // quickConnectId 模式下，获取设备地址
-        // 获取设备地址状态
-        onProgress(.QC_FETCH_CONNECTION)
+        // 解析可用连接 (使用 CheckDeviceConnection)
+        // Resolve available connection (using CheckDeviceConnection)
+        let connection: (type: ConnectionType, url: String, cached: Bool)
 
-        // 通过quick connect 服务获取地址
         do {
-            if let connection = try await quickConnectApi.getDeviceConnectionByQuickConnectId(quickConnectId: server, enableHttps: enableHttps) {
-                // 新的地址
-                onProgress(.QC_FETCH_CONNECTION_SUCCESS)
-                return (connection.type, connection.url)
+            // 实例化 CheckDeviceConnection (Temporary instantiation of CheckDeviceConnection)
+            let connectionChecker: CheckDeviceConnectionProviding = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfoApi, quickConnectApi: quickConnectApi, audioStationApi: audioStationApi, pingpong: pingpong)
+            // Start from checkConnectionStatus (it already resolves connection when needed).
+            var connectionFromStatus: (type: ConnectionType, url: String, cached: Bool)?
+            for await progress in connectionChecker.checkConnectionStatus(server: server, isHttps: enableHttps) {
+                switch progress {
+                case .checking:
+                    break
+                case let .success(type, url, cached):
+                    connectionFromStatus = (type, url, cached)
+                case let .failed(message):
+                    Logger.warn("SynologyUserLogin#performPasswordLogin, checkConnectionStatus failed: \(message)")
+                }
+            }
+
+            guard let connectionFromStatus else {
+                throw SynologyError.network(message: "Connection resolution failed")
+            }
+
+            connection = connectionFromStatus
+        } catch {
+            Logger.error("SynologyUserLogin#performPasswordLogin, connection resolution failed: \(error)")
+            continuation.yield(.failed(message: error.localizedDescription))
+            continuation.finish()
+            return
+        }
+
+        // 更新 ApiClient 连接状态 (Update ApiClient connection status)
+        apiClient.updateConnection(type: connection.type, url: connection.url)
+        // 保存可用地址 (Save available address to Keychain)
+        keyChainStorage.saveConnectionInfo(url: connection.url, typeString: connection.type.rawValue)
+
+        // 更新 API 信息 + 认证
+        // Update API info + authenticate
+        continuation.yield(.authenticating)
+
+        do {
+            // 刷新 Api 列表
+            if fetchApiList {
+                _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
             }
         } catch {
-            Logger.error("SynologyUserLogin, fetchConnectionUrl error \(error)")
+            Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
+            continuation.yield(.failed(message: error.localizedDescription))
+            continuation.finish()
+            return
         }
 
-        return nil
+        do {
+            if sliceLogin && connection.cached,
+               let sessionInfo = keyChainStorage.getSessionInfo()
+            {
+                // 静默登录且没有更换连接地址时，必须验证缓存 SID 仍然可用。
+                _ = try await audioStationApi.info.query()
+
+                let loginResult = SynologyUserLoginResult(sid: sessionInfo.sid, did: sessionInfo.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+                continuation.yield(.completed(result: loginResult))
+                continuation.finish()
+                return
+            }
+
+            let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
+
+            // 登录成功，保存会话
+            // Login succeeded, save session
+            apiClient.updateSession(sid: authResult.sid, did: authResult.did)
+            keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+
+            Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
+            let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+
+            continuation.yield(.completed(result: loginResult))
+            continuation.finish()
+        } catch let SynologyError.auth(code, msg) where code == 403 {
+            // 需要 OTP 验证码（不算失败，需要用户输入）
+            // OTP required (not a failure, user input needed)
+            Logger.info("SynologyUserLogin#performPasswordLogin, OTP required, message: \(msg)")
+            continuation.yield(.otpRequired)
+            continuation.finish()
+        } catch let SynologyError.sessionExpired(code, msg) {
+            Logger.info("SynologyUserLogin#performPasswordLogin, invalidSession: \(code), \(msg)")
+            continuation.yield(.invalidSession(message: "session expired"))
+            continuation.finish()
+        } catch {
+            Logger.error("SynologyUserLogin#performPasswordLogin, auth failed: \(error)")
+            continuation.yield(.failed(message: error.localizedDescription))
+            continuation.finish()
+        }
     }
 }

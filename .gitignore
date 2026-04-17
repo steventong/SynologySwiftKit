@@ -91,3 +91,11 @@ iOSInjectionProject/
 
 # secret file
 Tests/SynologySwiftKitTests/SecretKey.swift
+
+# macOS
+.DS_Store
+
+# Common
+.vscode/
+.swiftpm/
+.build/

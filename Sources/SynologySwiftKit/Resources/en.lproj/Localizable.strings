@@ -1,0 +1,10 @@
+"NO_SUCH_ACCOUNT_OR_INCORRECT_PASSWORD" = "No such account or incorrect password.";
+"DISABLED_ACCOUNT" = "This account has been disabled.";
+"DENIED_PERMISSION" = "Permission denied.";
+"AUTHENTICATION_CODE_REQUIRED" = "Authentication code is required.";
+"AUTHENTICATION_CODE_FAILED" = "Authentication code verification failed.";
+"ENFORCE_AUTHENTICATION_WITH_CODE" = "Two-factor authentication is enforced.";
+"BLOCKED_IP_SOURCE" = "The source IP is blocked.";
+"EXPIRED_PASSWORD_CANNOT_CHANGE" = "Password expired and cannot be changed.";
+"EXPIRED_PASSWORD" = "Password expired.";
+"PASSWORD_MUST_BE_CHANGED" = "Password must be changed before login.";

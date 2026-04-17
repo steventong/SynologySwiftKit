@@ -1,41 +1,30 @@
-//
-//  File.swift
-//
-//
-//  Created by Steven on 2024/4/27.
-//
-
 import Foundation
 import OSLog
 
-class Logger {
-    private static let OS_LOG = OSLog(subsystem: "me.itwl.SynologySwiftKit", category: "SynologySwiftKit")
+/// Lightweight logger used by SynologySwiftKit.
+public final class Logger {
+    private static let osLog = OSLog(subsystem: "me.itwl.SynologySwiftKit", category: "SynologySwiftKit")
 
-    // info log
-    static func info(_ message: String, filePath: String = #file, fileNumber: Int = #line) {
-        let swiftFileName = (filePath as NSString).lastPathComponent
-        os_log("[%{public}@:%{public}d] %{public}@",
-               log: OS_LOG, type: .info, swiftFileName, fileNumber, message)
+    private init() {}
+
+    public static func info(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
+        log(message, type: .info, filePath: filePath, fileNumber: fileNumber)
     }
 
-    // debug log
-    static func debug(_ message: String, filePath: String = #file, fileNumber: Int = #line) {
-        let swiftFileName = (filePath as NSString).lastPathComponent
-        os_log("[%{public}@:%{public}d] %{public}@",
-               log: OS_LOG, type: .debug, swiftFileName, fileNumber, message)
+    public static func debug(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
+        log(message, type: .debug, filePath: filePath, fileNumber: fileNumber)
     }
 
-    // warn log
-    static func warn(_ message: String, filePath: String = #file, fileNumber: Int = #line) {
-        let swiftFileName = (filePath as NSString).lastPathComponent
-        os_log("[%{public}@:%{public}d] %{public}@",
-               log: OS_LOG, type: .error, swiftFileName, fileNumber, message)
+    public static func warn(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
+        log(message, type: .error, filePath: filePath, fileNumber: fileNumber)
     }
 
-    // error log
-    static func error(_ message: String, filePath: String = #file, fileNumber: Int = #line) {
+    public static func error(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
+        log(message, type: .fault, filePath: filePath, fileNumber: fileNumber)
+    }
+
+    private static func log(_ message: String, type: OSLogType, filePath: String, fileNumber: Int) {
         let swiftFileName = (filePath as NSString).lastPathComponent
-        os_log("[%{public}@:%{public}d] %{public}@",
-               log: OS_LOG, type: .fault, swiftFileName, fileNumber, message)
+        os_log("[%{public}@:%{public}d] %{public}@", log: osLog, type: type, swiftFileName, fileNumber, message)
     }
 }

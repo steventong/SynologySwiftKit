@@ -1,118 +1,101 @@
 //
-//  File.swift
-//
+//  ApiInfoApi.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
 //
 
-import Alamofire
 import Foundation
 
-public class ApiInfoApi {
-    static let shared = ApiInfoApi()
+// MARK: - ApiInfoApi
+
+/// API 信息管理类 (Actor 保证并发安全)
+/// API information manager (Actor ensures concurrency safety)
+public actor ApiInfoApi: ApiInfoProviding {
+    // MARK: - Dependencies & State
+
+    /// API 客户端
+    private let apiClient: ApiClientProviding
+
+    /// 键值存储 (用于持久化缓存)
+    private let keyValueStorage: KeyValueStorage
+
+    /// 缓存的 API 信息
     private var cachedApiInfo: [String: ApiInfoNode] = [:]
 
-    private init() {
+    /// API 缓存有效期 (秒)
+    private let cacheValidity: Int32
+
+    // MARK: - Initialization
+
+    /// 初始化 API 信息管理器
+    /// Initialize API information manager
+    public init(apiClient: ApiClientProviding,
+                keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
+                cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
+        self.apiClient = apiClient
+        self.keyValueStorage = keyValueStorage
+        self.cacheValidity = cacheValidity
     }
 
-    /**
-     getApiInfo
-     */
-    public func getApiInfoByApiName(apiName: String) throws -> ApiInfoNode {
-        if cachedApiInfo.isEmpty,
-           let cachedApiInfo = getApiInfoFromUserDefaults() {
-            self.cachedApiInfo = cachedApiInfo
-            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName, load from cache: \(cachedApiInfo.count)")
+    public func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
+        if apiName == SynologyApi.Core.INFO.name {
+            return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
+        }
+
+        if cachedApiInfo.isEmpty, let cached = getApiInfoFromStorage() {
+            cachedApiInfo = cached
+            Logger.debug("ApiInfoApi#getApiInfoByApiName load from cache: \(cached.count)")
         }
 
         guard let apiInfo = cachedApiInfo[apiName] else {
-            Logger.debug("SynologySwiftKit.ApiInfoApi, getApiInfoByApiName (\(apiName) not exist: \(cachedApiInfo)")
-            throw DiskStationApiError.synoApiIsNotExist(apiName)
+            Logger.info("ApiInfoApi#getApiInfoByApiName (\(apiName)) not exist")
+            throw SynologyError.api(code: 102, message: "API not found: \(apiName)")
         }
 
+        Logger.debug("ApiInfoApi#getApiInfoByApiName get apiInfo, key: \(apiName), value = \(apiInfo)")
         return apiInfo
     }
 
-    /**
-     queryApiInfo
-     */
-    public func checkSynologyApiInfo(cacheEnabled: Bool? = false) async throws -> Bool {
-        if cacheEnabled == true && isApiInfoCacheValid(validTime: 60 * 24 * 60 * 60),
-           let cachedApiInfo = getApiInfoFromUserDefaults() {
-            Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from cache, api cnt: \(cachedApiInfo.count)")
-            self.cachedApiInfo = cachedApiInfo
+    public func checkSynologyApiInfo(cacheEnabled: Bool? = false, updateCache: Bool? = true) async throws -> Bool {
+        if cacheEnabled == true, isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
+            Logger.debug("ApiInfoApi#checkSynologyApiInfo from cache: \(cached.count)")
+            cachedApiInfo = cached
             return true
         }
 
         cachedApiInfo = try await queryApiInfoFromDsm()
-        Logger.debug("SynologySwiftKit.ApiInfoApi, queryApiInfo, query from api: \(cachedApiInfo)")
+        Logger.debug("ApiInfoApi#checkSynologyApiInfo from api: \(cachedApiInfo.count)")
 
-        // save to userdefaults
-        saveApiInfoToUserDefaults(apiInfo: cachedApiInfo)
+        if updateCache == true, cachedApiInfo.isEmpty == false {
+            keyValueStorage.set(cachedApiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
+            keyValueStorage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
+        }
         return true
     }
 }
 
 extension ApiInfoApi {
-    /**
-     queryApiInfoFromDsm
-     */
     private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
-        // 从接口查询
-        let api = try DiskStationApi(api: .SYNO_API_INFO, method: "query", version: 1, parameters: [
-            "query": "all",
-        ])
-
-        let apiInfo = try await api.requestForData(resultType: [String: ApiInfoNode].self)
-
-        Logger.info("apiInfo: \(apiInfo)")
-
+        let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query", parameters:
+            ["query": "all"]
+        )
+        let apiInfo: [String: ApiInfoNode] = try await apiClient.request(api)
         return apiInfo
     }
 
-    /**
-     save to user defaults
-     */
-    private func saveApiInfoToUserDefaults(apiInfo: [String: ApiInfoNode]) {
-        if let encoded = try? JSONEncoder().encode(apiInfo),
-           let apiInfoJson = String(data: encoded, encoding: .utf8) {
-            UserDefaults.standard.setValue(apiInfoJson, forKey: UserDefaultsKeys.DISK_STATION_API_INFO.keyName)
-            UserDefaults.standard.set(Date(), forKey: UserDefaultsKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
-        }
-    }
-
-    /**
-     get from user defaults
-     */
-    private func getApiInfoFromUserDefaults() -> [String: ApiInfoNode]? {
-        if let apiInfoJson = UserDefaults.standard.string(forKey: UserDefaultsKeys.DISK_STATION_API_INFO.keyName),
-           let encoded = apiInfoJson.data(using: .utf8) {
-            return try? JSONDecoder().decode([String: ApiInfoNode].self, from: encoded)
+    private func getApiInfoFromStorage() -> [String: ApiInfoNode]? {
+        if let apiInfo: [String: ApiInfoNode] = keyValueStorage.codable(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName) {
+            return apiInfo
         }
 
         return nil
     }
 
-    /**
-     get update time
-     */
-    private func getApiInfoSaveToUserDefaultsTime() -> Date? {
-        if let date = UserDefaults.standard.object(forKey: UserDefaultsKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) as? Date {
-            return date
-        }
-
-        return nil
-    }
-
-    /**
-     check time is expired or not (1 day valid)
-     */
     private func isApiInfoCacheValid(validTime: Int32?) -> Bool {
-        if let lastUpdateTime = getApiInfoSaveToUserDefaultsTime() {
-            let timeInterval = Date().timeIntervalSince(lastUpdateTime)
-            return Int32(timeInterval) < (validTime ?? 24 * 60 * 60)
+        if let lastUpdateTime = keyValueStorage.object(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) as? Date {
+            return Int32(Date().timeIntervalSince(lastUpdateTime)) < (validTime ?? 24 * 60 * 60)
         }
-
         return false
     }
 }

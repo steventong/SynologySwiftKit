@@ -1,98 +1,133 @@
 //
-//  File.swift
-//
+//  PingPong.swift
+//  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
 //
 
-import Alamofire
 import Foundation
 
-class PingPong {
-    let session: Session
+/// PingPong 服务实现
+/// PingPong service implementation
+public final class PingPong: PingPongProviding {
+    private let apiClient: ApiClientProviding
+    private let timeout: TimeInterval
 
-    init() {
-        session = AlamofireClientFactory.createSession(timeoutIntervalForRequest: 3.6)
+    public init(apiClient: ApiClientProviding, timeout: TimeInterval = SynologyConfig.default.pingpongTimeout) {
+        self.apiClient = apiClient
+        self.timeout = timeout
     }
 
-    /**
-      pingpong url
-     */
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
-        // 多个地址并发查询
-        return await withTaskGroup(of: (connnectionType: ConnectionType, url: String)?.self, returning: [ConnectionType: String].self, body: { taskGroup in
-            // 子任务
-            connections.forEach { connection in
-                connection.value.forEach { item in
-                    taskGroup.addTask {
-                        if await self.pingpong(url: item) {
-                            return (connection.key, item)
-                        }
-                        return nil
+    /// 并发测试多个连接地址的可达性，首个最高优先级类型可达即提前返回
+    /// Test reachability of multiple connection URLs concurrently.
+    /// Returns early when the highest possible priority type becomes reachable.
+    public func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+        let bestPossibleType = ConnectionType.ordered.first { connections.keys.contains($0) }
+
+        return await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
+            for (type, urls) in connections {
+                for url in urls {
+                    group.addTask {
+                        await self.pingpong(url: url) ? (type, url) : nil
                     }
                 }
             }
 
-            // 结果
-            var data: [ConnectionType: String] = [:]
-            for await result in taskGroup {
-                if let result, data[result.connnectionType] == nil {
-                    // 同种类型只需要保留一个
-                    data[result.connnectionType] = result.url
+            var results: [ConnectionType: String] = [:]
+            for await result in group {
+                guard let result else { continue }
+                // 同种类型只保留第一个可达的
+                // Keep only the first reachable URL for each type
+                if results[result.type] == nil {
+                    results[result.type] = result.url
+                }
+                // 最高优先级类型已可达，提前返回
+                // Best possible type is reachable, return early
+                if let best = bestPossibleType, results[best] != nil {
+                    group.cancelAll()
+                    Logger.debug("pingpong: best type \(best) is reachable, returning early. results: \(results)")
+                    return results
                 }
             }
 
-            Logger.debug("send request: pingpong result: \(data)")
-            return data
-        })
+            Logger.debug("pingpong: all tasks completed. results: \(results)")
+            return results
+        }
     }
 
-    /**
-     pingpong test
-     https://host:port/webman/pingpong.cgi?action=cors&quickconnect=true
-     */
-    func pingpong(url: String) async -> Bool {
-        Logger.debug("send request: pingpong \(url)")
+    /// 按连接类型优先级竞速，返回最优可达连接（首个最高优先级可达即返回）
+    /// Race all URLs by connection type priority, return the best reachable connection.
+    /// Cancels remaining tasks once the highest possible priority type is found.
+    public func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+        let bestPossibleType = ConnectionType.ordered.first { connections.keys.contains($0) }
+
+        return await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
+            for (type, urls) in connections {
+                for url in urls {
+                    group.addTask {
+                        await self.pingpong(url: url) ? (type, url) : nil
+                    }
+                }
+            }
+
+            var best: (type: ConnectionType, url: String)?
+            for await result in group {
+                guard let result else { continue }
+
+                // 比较优先级，保留更优的
+                // Compare priority, keep the better one
+                if let current = best {
+                    let resultIndex = ConnectionType.ordered.firstIndex(of: result.type) ?? Int.max
+                    let currentIndex = ConnectionType.ordered.firstIndex(of: current.type) ?? Int.max
+                    if resultIndex < currentIndex {
+                        best = result
+                    }
+                } else {
+                    best = result
+                }
+
+                // 已找到最高优先级，立即返回
+                // Found the best possible type, return immediately
+                if best?.type == bestPossibleType {
+                    group.cancelAll()
+                    Logger.debug("pingpongFirst: best type \(best!.type) found, returning early: \(best!.url)")
+                    return best
+                }
+            }
+
+            if let best {
+                Logger.debug("pingpongFirst: all tasks completed, best: \(best)")
+            } else {
+                Logger.debug("pingpongFirst: all tasks completed, no reachable connection found")
+            }
+            return best
+        }
+    }
+
+    /// 测试单个 URL 的可达性
+    /// Test reachability of a single URL
+    /// - Parameter url: 要测试的 URL / URL to test
+    /// - Returns: 是否可达 / Whether the URL is reachable
+    public func pingpong(url: String) async -> Bool {
         let requestUrl = buildPingPongUrl(url: url)
 
-        do {
-            let result = try await session
-                .request(requestUrl)
-                .serializingDecodable(PingPongResult.self)
-                .value
-
-            return result.success
-        } catch {
-            switch error {
-            case let AFError.sessionTaskFailed(error: sessionError):
-                let sessionError = sessionError as NSError
-                switch sessionError.domain {
-                case NSURLErrorDomain:
-                    switch sessionError.code {
-                    case NSURLErrorSecureConnectionFailed:
-                        // 发生了SSL错误，无法建立与该服务器的安全连接。
-                        print("pingpong ssl error: \(error)")
-                    default:
-                        print("pingpong error: \(error)")
-                    }
-                default:
-                    print("pingpong error: \(error)")
-                }
-                print("pingpong error: \(error)")
-            default:
-                print("pingpong error: \(error)")
-            }
+        guard let url = URL(string: requestUrl) else {
+            Logger.debug("send request: pingpong invalid url \(requestUrl)")
+            return false
         }
 
-        Logger.debug("send request: pingpong fail \(url)")
-        return false
+        do {
+            let result: PingPongResult = try await apiClient.request(url: url, httpMethod: .get, headers: nil, body: nil, timeout: timeout)
+            return result.success
+        } catch {
+            return false
+        }
     }
 }
 
 extension PingPong {
-    /**
-     buildPingPongUrl
-     */
+    /// 构建 PingPong URL
+    /// Build PingPong URL
     private func buildPingPongUrl(url: String) -> String {
         return "\(url)/webman/pingpong.cgi?action=cors&quickconnect=true"
     }
