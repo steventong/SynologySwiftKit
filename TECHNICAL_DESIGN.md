@@ -2,7 +2,7 @@
 
 ## 目标
 
-`SynologySwiftKit` 是一个用于在 Apple 平台上接入 Synology DSM 与 Audio Station 的 Swift Package。
+`SynologySwiftKit` 是一个用于在 Apple 平台上接入 Synology DSM (Audio Station) 的 Swift Package。
 
 本文档用于说明这个 Package 的技术架构、预期的模块边界，以及为了让它更适合开源使用和长期演进而采用的设计原则。
 
