@@ -9,7 +9,7 @@ import Foundation
 @testable import SynologySwiftKit
 
 /// 内存实现的 Mock 存储（用于测试）
-public final class MockKeyValueStorage: KeyValueStorage {
+public final class MockKeyValueStorage: KeyValueStorage, @unchecked Sendable {
     // 使用锁保护字典，模拟线程安全的存储
     private let lock = NSLock()
     private var storage: [String: Any] = [:]
@@ -34,6 +34,13 @@ public final class MockKeyValueStorage: KeyValueStorage {
     
     public func data(forKey defaultName: String) -> Data? {
         lock.withLock { storage[defaultName] as? Data }
+    }
+
+    public func codable<T: Decodable>(forKey defaultName: String) -> T? {
+        guard let data = self.data(forKey: defaultName) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
     }
 
     public func set(_ value: Any?, forKey defaultName: String) {
@@ -78,17 +85,11 @@ public final class MockKeyValueStorage: KeyValueStorage {
             break
         }
 
-        guard let encoded = try? JSONEncoder().encode(value) else {
+        guard let data = try? JSONEncoder().encode(value) else {
             return
         }
-        set(encoded as Any?, forKey: defaultName)
-    }
 
-    public func codable<T: Decodable>(forKey defaultName: String) -> T? {
-        guard let data = data(forKey: defaultName) else {
-            return nil
-        }
-        return try? JSONDecoder().decode(T.self, from: data)
+        set(data, forKey: defaultName)
     }
 
     public func removeObject(forKey defaultName: String) {

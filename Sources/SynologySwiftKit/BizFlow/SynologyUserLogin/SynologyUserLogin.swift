@@ -32,15 +32,19 @@ public actor SynologyUserLogin {
     ///   - apiInfoApi: API 信息提供者 / API info provider
     ///   - apiClient: API 客户端 / API client
     ///   - pingpong: PingPong 服务 / PingPong service
-    public init(apiInfoApi: ApiInfoProviding, apiClient: ApiClientProviding, pingpong: PingPongProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+    public init(apiInfoApi: ApiInfoProviding,
+                apiClient: ApiClientProviding,
+                pingpong: PingPongProviding,
+                keyChainStorage: KeyChainStorage = KeyChainStorage(),
+                keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.pingpong = pingpong
         self.keyChainStorage = keyChainStorage
 
-        quickConnectApi = QuickConnectApi(apiClient: apiClient, pingpong: pingpong)
+        quickConnectApi = QuickConnectApi(apiClient: apiClient, pingpong: pingpong, keyValueStorage: keyValueStorage)
         authApi = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
-        audioStationApi = AudioStationApi(apiClient: apiClient)
+        audioStationApi = AudioStationApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
     }
 
     /// 通过密码登录（AsyncStream 版本）

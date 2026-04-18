@@ -478,4 +478,4 @@ extension ApiClient {
 
 /// 空数据类型（用于无返回值的请求）
 /// Empty data type (for requests without return value)
-public struct EmptyData: Decodable {}
+struct EmptyData: Decodable {}

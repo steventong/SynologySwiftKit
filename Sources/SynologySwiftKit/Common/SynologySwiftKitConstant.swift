@@ -7,6 +7,6 @@
 
 import Foundation
 
-public struct SynologySwiftKitConstant {
-    public static let GLOBAL_SYNOLOGY_CONNECT_SERVER = "global.quickconnect.to"
+enum SynologySwiftKitConstant {
+    static let GLOBAL_SYNOLOGY_CONNECT_SERVER = "global.quickconnect.to"
 }

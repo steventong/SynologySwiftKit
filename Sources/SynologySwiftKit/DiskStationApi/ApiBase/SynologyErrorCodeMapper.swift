@@ -9,7 +9,7 @@ import Foundation
 
 /// Synology API 错误码映射
 /// Synology API Error Code Mapper
-public struct SynologyErrorCodeMapper {
+struct SynologyErrorCodeMapper {
     /// 通用错误码映射表
     /// Common error code mapping table
     private static let commonErrors: [Int: String] = [
@@ -39,7 +39,7 @@ public struct SynologyErrorCodeMapper {
 
     /// 获取错误码对应的描述
     /// Get description for error code
-    public static func description(for code: Int) -> String? {
+    static func description(for code: Int) -> String? {
         return commonErrors[code]
     }
 }

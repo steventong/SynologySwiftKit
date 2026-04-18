@@ -72,13 +72,26 @@ public final class SynologyClient {
     // MARK: - Initialization
 
     /// 初始化 Synology 客户端
-    /// - Parameter config: 全局配置 (默认为 SynologyConfig.default)
-    public convenience init(config: SynologyConfig = .default) {
+    /// - Parameters:
+    ///   - config: 全局配置 (默认为 SynologyConfig.default)
+    ///   - keyValueStorage: 非敏感缓存存储，默认使用 `UserDefaultsStorage`
+    ///   - keyChainStorage: 敏感信息存储，默认使用 `KeyChainStorage`
+    ///   - transport: HTTP 传输实现，默认使用 `SwiftHttpClientTransport`
+    ///   - autoRegisterAuthInterceptor: 是否自动注册默认鉴权拦截器
+    ///   - interceptors: 初始化时需要预注册的额外拦截器
+    public convenience init(config: SynologyConfig = .default,
+                            keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
+                            keyChainStorage: KeyChainStorage = KeyChainStorage(),
+                            transport: HTTPTransporting = SwiftHttpClientTransport(),
+                            autoRegisterAuthInterceptor: Bool = true,
+                            interceptors: [RequestInterceptor] = []) {
         self.init(
             config: config,
-            keyValueStorage: UserDefaultsStorage(),
-            keyChainStorage: KeyChainStorage(),
-            apiClient: ApiClient()
+            keyValueStorage: keyValueStorage,
+            keyChainStorage: keyChainStorage,
+            apiClient: ApiClient(httpTransport: transport),
+            autoRegisterAuthInterceptor: autoRegisterAuthInterceptor,
+            interceptors: interceptors
         )
     }
 
@@ -86,14 +99,16 @@ public final class SynologyClient {
         config: SynologyConfig,
         keyValueStorage: KeyValueStorage,
         keyChainStorage: KeyChainStorage,
-        apiClient: ApiClient
+        apiClient: ApiClient,
+        autoRegisterAuthInterceptor: Bool = true,
+        interceptors: [RequestInterceptor] = []
     ) {
         self.config = config
-
         self.keyValueStorage = keyValueStorage
         self.keyChainStorage = keyChainStorage
 
         self.apiClient = apiClient
+        Logger.isEnabled = config.enableNetworkLogging
         apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
         pingpong = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
 
@@ -112,24 +127,39 @@ public final class SynologyClient {
         encryption = EncryptionApi(apiClient: apiClient)
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(apiInfoApi: apiInfo, apiClient: apiClient, pingpong: pingpong, keyChainStorage: keyChainStorage)
-        checkConnection = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfo, quickConnectApi: quickConnect, audioStationApi: audioStation, pingpong: pingpong, keyChainStorage: keyChainStorage)
+        userLogin = SynologyUserLogin(apiInfoApi: apiInfo,
+                                      apiClient: apiClient,
+                                      pingpong: pingpong,
+                                      keyChainStorage: keyChainStorage,
+                                      keyValueStorage: keyValueStorage)
+        checkConnection = CheckDeviceConnection(apiClient: apiClient,
+                                                apiInfoApi: apiInfo,
+                                                quickConnectApi: quickConnect,
+                                                audioStationApi: audioStation,
+                                                pingpong: pingpong,
+                                                keyChainStorage: keyChainStorage)
         queryAllSongs = QueryAllSongs(apiClient: apiClient)
 
         // 恢复上次会话
         // Restore previous session
         _ = getSession()
 
-        // 默认注册鉴权拦截器（按需补充 sid/cookie，并在会话失效时清理持久化会话）
-        apiClient.addInterceptor(AuthInterceptor(
-            sessionProvider: { [weak apiClient] in
-                apiClient?.session
-            },
-            onSessionExpired: { [weak apiClient, weak keyChainStorage] in
-                apiClient?.clearSession()
-                keyChainStorage?.removeSessionInfo()
-            }
-        ))
+        if autoRegisterAuthInterceptor {
+            // 默认注册鉴权拦截器（按需补充 sid/cookie，并在会话失效时清理持久化会话）
+            apiClient.addInterceptor(AuthInterceptor(
+                sessionProvider: { [weak apiClient] in
+                    apiClient?.session
+                },
+                onSessionExpired: { [weak apiClient, weak keyChainStorage] in
+                    apiClient?.clearSession()
+                    keyChainStorage?.removeSessionInfo()
+                }
+            ))
+        }
+
+        for interceptor in interceptors {
+            apiClient.addInterceptor(interceptor)
+        }
     }
 }
 

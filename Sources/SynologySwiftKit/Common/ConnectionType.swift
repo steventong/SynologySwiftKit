@@ -74,11 +74,11 @@ public enum ConnectionType: String, CaseIterable, Sendable {
     }
 }
 
-public enum HttpType: Sendable {
+enum HttpType: Sendable {
     case HTTPS
     case HTTP
 
-    public var httpScheme: String {
+    var httpScheme: String {
         switch self {
         case .HTTPS:
             "https://"
