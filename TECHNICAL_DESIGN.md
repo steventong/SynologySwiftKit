@@ -20,7 +20,7 @@
 
 Package 内部可以有很多构件，但外部使用者只应该接触少量稳定入口。
 
-推荐的公开表面包括：
+推荐的 Public APIs 包括：
 
 - `SynologyClient`
 - 通过 client 暴露出来的功能模块，例如 `auth`、`audioStation`、`fileStation`、`quickConnect`
