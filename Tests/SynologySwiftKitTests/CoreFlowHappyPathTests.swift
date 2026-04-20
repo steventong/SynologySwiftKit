@@ -7,13 +7,11 @@ final class CoreFlowHappyPathTests: XCTestCase {
         apiClient.connection = (.custom_domain, "https://nas.local")
 
         let keychain = KeyChainStorage(service: UUID().uuidString)
-        keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", isEnableHttps: true)
+        keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
 
         let checker = CheckDeviceConnection(
             apiClient: apiClient,
-            apiInfoApi: TestApiInfoProvider(),
-            quickConnectApi: QuickConnectApi(apiClient: apiClient, pingpong: TestPingPong()),
-            audioStationApi: AudioStationApi(apiClient: apiClient),
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
             keyChainStorage: keychain
         )
@@ -27,12 +25,12 @@ final class CoreFlowHappyPathTests: XCTestCase {
         guard case .checking = events[0] else {
             return XCTFail("Expected checking event first")
         }
-        guard case let .success(type, url, cached) = events[1] else {
+        guard case let .success(connection, usedCachedConnection) = events[1] else {
             return XCTFail("Expected cached success event")
         }
-        XCTAssertEqual(type, .custom_domain)
-        XCTAssertEqual(url, "https://nas.local")
-        XCTAssertTrue(cached)
+        XCTAssertEqual(connection.type, .custom_domain)
+        XCTAssertEqual(connection.url, "https://nas.local")
+        XCTAssertTrue(usedCachedConnection)
     }
 
     func testPasswordLoginCompletesAndPersistsCredentialsAndSession() async {
@@ -45,17 +43,27 @@ final class CoreFlowHappyPathTests: XCTestCase {
         }
 
         let keychain = KeyChainStorage(service: UUID().uuidString)
+        let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
+        let audioStationApi = AudioStationClient(apiClient: apiClient)
+        let connectionChecker = CheckDeviceConnection(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong(singleURLReachable: true)),
+            pingpong: TestPingPong(singleURLReachable: true),
+            keyChainStorage: keychain
+        )
         let login = SynologyUserLogin(
             apiInfoApi: TestApiInfoProvider(),
             apiClient: apiClient,
-            pingpong: TestPingPong(singleURLReachable: true),
+            authApi: authApi,
+            audioStationApi: audioStationApi,
+            connectionChecker: connectionChecker,
             keyChainStorage: keychain
         )
 
         var events: [SynologyUserLoginProgress] = []
         for await progress in await login.login(
             server: "nas.local",
-            enableHttps: true,
+            usesHTTPS: true,
             username: "tester",
             password: "secret",
             shouldSavePassword: true
@@ -73,7 +81,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
         guard case let .completed(result) = events[2] else {
             return XCTFail("Expected completed login event")
         }
-        XCTAssertEqual(result.sid, "sid-123")
+        XCTAssertEqual(result.session.sid, "sid-123")
         XCTAssertEqual(apiClient.session?.sid, "sid-123")
         XCTAssertEqual(keychain.getCredentials()?.username, "tester")
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "sid-123")
@@ -134,12 +142,12 @@ final class CoreFlowHappyPathTests: XCTestCase {
             apiClient: ApiClient(httpTransport: MockHTTPTransport())
         )
 
-        XCTAssertTrue(client.hasValidSession())
-        XCTAssertEqual(client.getSession()?.sid, "persisted-sid")
+        XCTAssertTrue(client.session.hasValidSession)
+        XCTAssertEqual(client.session.current?.sid, "persisted-sid")
 
-        client.clearSession()
+        client.session.clear()
 
-        XCTAssertFalse(client.hasValidSession())
+        XCTAssertFalse(client.session.hasValidSession)
         XCTAssertNil(keychain.getSessionInfo())
     }
 }

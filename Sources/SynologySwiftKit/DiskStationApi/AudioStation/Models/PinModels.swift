@@ -95,9 +95,23 @@ public struct PinItem: Codable, Sendable {
     public let criteria: PinCriteria
 }
 
+public struct PinRemovalResult: Sendable {
+    public let removedIDs: [String]
+    public let failures: [UnpinError]
+
+    public init(removedIDs: [String], failures: [UnpinError]) {
+        self.removedIDs = removedIDs
+        self.failures = failures
+    }
+
+    public var removedAll: Bool {
+        failures.isEmpty
+    }
+}
+
 // MARK: - API Results
 
-public struct PinListResult: Decodable, Sendable {
+struct PinListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let items: [PinItem]
@@ -117,7 +131,7 @@ struct PinOperationResult: Codable, Sendable {
 }
 
 /// Unpin 操作结果
-public struct UnpinOperationResult: Codable, Sendable {
+struct UnpinOperationResult: Codable, Sendable {
     /// 失败的项目错误列表
     public let errors: [UnpinError]
     /// 成功取消固定的 ID 列表

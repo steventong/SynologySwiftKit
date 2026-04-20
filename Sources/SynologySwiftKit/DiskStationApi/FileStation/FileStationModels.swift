@@ -7,7 +7,15 @@
 
 import Foundation
 
-extension FileStationApi {
+public struct FileDeletionTask: Sendable {
+    public let taskID: String
+
+    public init(taskID: String) {
+        self.taskID = taskID
+    }
+}
+
+extension FileStationClient {
     struct DeleteTask: Decodable {
         var taskid: String?
     }

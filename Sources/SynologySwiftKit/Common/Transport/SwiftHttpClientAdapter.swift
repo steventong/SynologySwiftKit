@@ -2,14 +2,14 @@ import Foundation
 import SwiftHttpClient
 
 /// Transport adapter that keeps SwiftHttpClient dependency at transport layer only.
-public struct SwiftHttpClientTransport: HTTPTransporting {
+public struct SwiftHttpClientAdapter: HTTPClientProtocol {
     typealias ClientFactory = @Sendable (TimeInterval, String?) -> any SwiftHTTPClientSending
 
     private let clientFactory: ClientFactory
 
     public init() {
         self.init(clientFactory: { timeout, trustedSSLDomain in
-            SwiftHttpClient.HTTPClient(timeout: timeout, trustedSSLDomain: trustedSSLDomain)
+            SwiftHTTPClientBox(client: SwiftHttpClient.HTTPClient(timeout: timeout, trustedSSLDomain: trustedSSLDomain))
         })
     }
 
@@ -43,4 +43,10 @@ protocol SwiftHTTPClientSending: Sendable {
     func send(_ request: URLRequest) async throws -> (Data, URLResponse)
 }
 
-extension SwiftHttpClient.HTTPClient: SwiftHTTPClientSending {}
+private struct SwiftHTTPClientBox: SwiftHTTPClientSending, @unchecked Sendable {
+    let client: SwiftHttpClient.HTTPClient
+
+    func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try await client.send(request)
+    }
+}

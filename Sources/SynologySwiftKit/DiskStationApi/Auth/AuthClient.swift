@@ -1,5 +1,5 @@
 //
-//  AuthApi.swift
+//  AuthClient.swift
 //  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
@@ -7,11 +7,11 @@
 
 import Foundation
 
-public class AuthApi {
+public final class AuthClient {
     private let apiClient: ApiClientProviding
     private let keyChainStorage: KeyChainStorage
 
-    public init(apiClient: ApiClientProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+    init(apiClient: ApiClientProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
         self.apiClient = apiClient
         self.keyChainStorage = keyChainStorage
     }
@@ -59,12 +59,12 @@ public class AuthApi {
 
     /// 读取已保存的登录凭据
     /// Read saved login credentials
-    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool)? {
+    public func getCredentials() -> SynologyCredentials? {
         keyChainStorage.getCredentials()
     }
 }
 
-extension AuthApi {
+extension AuthClient {
     private func handleAuthResult(authResult: AuthResult) -> AuthResult {
         Logger.info("authResult: \(authResult)")
         return authResult

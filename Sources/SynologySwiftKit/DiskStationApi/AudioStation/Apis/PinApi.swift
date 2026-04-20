@@ -14,17 +14,17 @@ import Foundation
 public final class PinApi {
     private let apiClient: ApiClientProviding
 
-    public init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
     /// 获取固定列表
     /// Get pinned items list
-    public func list(limit: Int = -1, offset: Int = 0) async throws -> (total: Int, items: [PinItem]) {
+    public func list(limit: Int = -1, offset: Int = 0) async throws -> SynologyPage<PinItem> {
         let result: PinListResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "list", parameters: ["offset": offset, "limit": limit])
         )
-        return (result.total, result.items)
+        return SynologyPage(total: result.total, items: result.items)
     }
 
     /// 固定项目（通用方法）
@@ -66,13 +66,14 @@ public final class PinApi {
     /// 取消固定
     /// Unpin items by IDs
     @discardableResult
-    public func unpin(ids: [String]) async throws -> UnpinOperationResult {
+    public func unpin(ids: [String]) async throws -> PinRemovalResult {
         let itemsJSON = try JSONSerialization.data(withJSONObject: ids)
         let itemsString = String(data: itemsJSON, encoding: .utf8) ?? "[]"
 
-        return try await apiClient.request(
+        let result: UnpinOperationResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "unpin", httpMethod: .post, parameters: ["items": itemsString])
         )
+        return PinRemovalResult(removedIDs: result.items, failures: result.errors)
     }
 }
 

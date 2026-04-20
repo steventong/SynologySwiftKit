@@ -52,5 +52,5 @@ public struct DsmInfo: Decodable, Sendable {
    }
 }
 
-extension DsmInfoApi {
+extension DSMInfoClient {
 }

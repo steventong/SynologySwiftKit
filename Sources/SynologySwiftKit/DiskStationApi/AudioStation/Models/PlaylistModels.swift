@@ -51,7 +51,54 @@ public struct PlaylistAdditional: Decodable, Sendable {
     }
 }
 
-public struct PlaylistListResult: Decodable, Sendable {
+public struct PlaylistReference: Sendable {
+    public let id: String
+
+    public init(id: String) {
+        self.id = id
+    }
+}
+
+public struct PlaylistDeletionResult: Sendable {
+    public let requestedID: String
+    public let failedItemIDs: [String]
+
+    public init(requestedID: String, failedItemIDs: [String]) {
+        self.requestedID = requestedID
+        self.failedItemIDs = failedItemIDs
+    }
+
+    public var deleted: Bool {
+        failedItemIDs.isEmpty
+    }
+}
+
+public struct PlaylistMutationResult: Sendable {
+    public let playlistID: String
+
+    public init(playlistID: String) {
+        self.playlistID = playlistID
+    }
+}
+
+public enum SmartPlaylistMatchRule: String, Sendable {
+    case all
+    case any
+}
+
+public struct SmartPlaylistDefinition: Sendable {
+    public let scope: SynologyLibraryScope
+    public let matchRule: SmartPlaylistMatchRule
+    public let serializedRules: String
+
+    public init(scope: SynologyLibraryScope, matchRule: SmartPlaylistMatchRule, serializedRules: String) {
+        self.scope = scope
+        self.matchRule = matchRule
+        self.serializedRules = serializedRules
+    }
+}
+
+struct PlaylistListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let playlists: [Playlist]
@@ -64,18 +111,18 @@ public struct PlaylistListResult: Decodable, Sendable {
 }
 
 
-public struct PlaylistGetInfoResult: Decodable, Sendable {
+struct PlaylistGetInfoResult: Decodable, Sendable {
     public var playlists: [Playlist]
 }
 
-public struct PlaylistCreateResult: Decodable, Sendable {
+struct PlaylistCreateResult: Decodable, Sendable {
     public var id: String
 }
 
-public struct PlaylistRenameResult: Decodable, Sendable {
+struct PlaylistRenameResult: Decodable, Sendable {
     public var id: String
 }
 
-public struct PlaylistDeleteResult: Decodable, Sendable {
+struct PlaylistDeleteResult: Decodable, Sendable {
     public var errors: [String]
 }

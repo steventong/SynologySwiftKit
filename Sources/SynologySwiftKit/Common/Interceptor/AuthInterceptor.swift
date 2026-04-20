@@ -12,11 +12,11 @@ import Foundation
 /// 职责：
 /// 1. 为请求注入 SID/DID (Query 或 Cookie)
 /// 2. 处理 105/106 等 Token 过期错误 (尚未实现自动重试)
-public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
+struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
     private let sessionProvider: (() -> (sid: String, did: String?)?)?
     private let onSessionExpired: (() -> Void)?
 
-    public init() {
+    init() {
         sessionProvider = nil
         onSessionExpired = nil
     }
@@ -26,7 +26,7 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
         self.onSessionExpired = onSessionExpired
     }
 
-    public func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
+    func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
         var updatedRequest = request
 
         // 需要在query请求参数中添加sid参数。
@@ -48,7 +48,7 @@ public struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
         return updatedRequest
     }
 
-    public func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error> {
+    func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error> {
         if case let .failure(error) = result, isSessionExpiredError(error) {
             onSessionExpired?()
         }

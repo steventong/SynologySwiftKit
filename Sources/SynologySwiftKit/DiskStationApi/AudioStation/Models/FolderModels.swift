@@ -30,7 +30,7 @@ public struct Folder: Decodable, Sendable {
     }
 }
 
-public struct FolderListResult: Decodable, Sendable {
+struct FolderListResult: Decodable, Sendable {
     public let id: String
     public let items: [Folder]
     public let offset: Int
@@ -45,4 +45,3 @@ public struct FolderListResult: Decodable, Sendable {
         case folderTotal = "folder_total"
     }
 }
-

@@ -7,7 +7,19 @@
 
 import Foundation
 
-public struct SearchResult: Decodable, Sendable {
+public struct AudioStationSearchResults: Sendable {
+    public let albums: SynologyPage<Album>
+    public let artists: SynologyPage<Artist>
+    public let songs: SynologyPage<Song>
+
+    public init(albums: SynologyPage<Album>, artists: SynologyPage<Artist>, songs: SynologyPage<Song>) {
+        self.albums = albums
+        self.artists = artists
+        self.songs = songs
+    }
+}
+
+struct SearchResult: Decodable, Sendable {
     /**
      "albumTotal": 15,
      "albums": [
@@ -57,12 +69,12 @@ public struct SearchResult: Decodable, Sendable {
          }
      */
 
-    public var albumTotal: Int
-    public var albums: [Album]
+    var albumTotal: Int
+    var albums: [Album]
 
-    public var artistTotal: Int
-    public var artists: [Artist]
+    var artistTotal: Int
+    var artists: [Artist]
 
-    public var songTotal: Int
-    public var songs: [Song]
+    var songTotal: Int
+    var songs: [Song]
 }

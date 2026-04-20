@@ -30,7 +30,7 @@ public actor ApiInfoApi: ApiInfoProviding {
 
     /// 初始化 API 信息管理器
     /// Initialize API information manager
-    public init(apiClient: ApiClientProviding,
+    init(apiClient: ApiClientProviding,
                 keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
                 cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
         self.apiClient = apiClient
@@ -57,21 +57,24 @@ public actor ApiInfoApi: ApiInfoProviding {
         return apiInfo
     }
 
-    public func checkSynologyApiInfo(cacheEnabled: Bool? = false, updateCache: Bool? = true) async throws -> Bool {
-        if cacheEnabled == true, isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
-            Logger.debug("ApiInfoApi#checkSynologyApiInfo from cache: \(cached.count)")
+    public func loadFromCacheOrRefresh() async throws {
+        if isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
+            Logger.debug("ApiInfoApi#loadFromCacheOrRefresh from cache: \(cached.count)")
             cachedApiInfo = cached
-            return true
+            return
         }
 
-        cachedApiInfo = try await queryApiInfoFromDsm()
-        Logger.debug("ApiInfoApi#checkSynologyApiInfo from api: \(cachedApiInfo.count)")
+        try await refresh()
+    }
 
-        if updateCache == true, cachedApiInfo.isEmpty == false {
+    public func refresh() async throws {
+        cachedApiInfo = try await queryApiInfoFromDsm()
+        Logger.debug("ApiInfoApi#refresh from api: \(cachedApiInfo.count)")
+
+        if cachedApiInfo.isEmpty == false {
             keyValueStorage.set(cachedApiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
             keyValueStorage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
         }
-        return true
     }
 }
 

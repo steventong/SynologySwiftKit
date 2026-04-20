@@ -10,7 +10,7 @@ import Foundation
 public final class SearchApi {
     private let apiClient: ApiClientProviding
 
-    public init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
@@ -19,9 +19,9 @@ public final class SearchApi {
      */
     public func list(
         keyword: String, limit: Int = 1000, offset: Int = 0,
-        additional: String? = nil,
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> SearchResult {
+        includeFields: String? = nil,
+        sort: SynologySortDescriptor? = nil
+    ) async throws -> AudioStationSearchResults {
         let result: SearchResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SEARCH, method: "list", version: 1, httpMethod: .post
@@ -29,13 +29,17 @@ public final class SearchApi {
                 ("keyword", keyword)
                 ("limit", limit)
                 ("offset", offset)
-                ("additional", additional)
+                ("additional", includeFields)
                 if let sort {
-                    ("sort_by", sort.sort_by)
-                    ("sort_direction", sort.sort_direction)
+                    ("sort_by", sort.field)
+                    ("sort_direction", sort.direction.rawValue)
                 }
             }
         )
-        return result
+        return AudioStationSearchResults(
+            albums: SynologyPage(total: result.albumTotal, items: result.albums),
+            artists: SynologyPage(total: result.artistTotal, items: result.artists),
+            songs: SynologyPage(total: result.songTotal, items: result.songs)
+        )
     }
 }

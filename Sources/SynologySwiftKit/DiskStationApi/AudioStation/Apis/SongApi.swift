@@ -10,7 +10,7 @@ import Foundation
 public final class SongApi {
     private let apiClient: ApiClientProviding
 
-    public init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
@@ -18,47 +18,47 @@ public final class SongApi {
      query song list
      */
     public func list(
-        limit: Int = 100, offset: Int = 0, library: String = "shared",
-        artist: String? = nil, album: String? = nil, album_artist: String? = nil,
-        composer: String? = nil, genre: String? = nil, song_rating_meq: Int? = nil,
-        additional: String? = "song_tag,song_audio,song_rating",
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> (total: Int, data: [Song]) {
+        limit: Int = 100, offset: Int = 0, libraryScope: SynologyLibraryScope = .shared,
+        artist: String? = nil, album: String? = nil, albumArtist: String? = nil,
+        composer: String? = nil, genre: String? = nil, minimumRating: Int? = nil,
+        includeFields: String? = "song_tag,song_audio,song_rating",
+        sort: SynologySortDescriptor? = nil
+    ) async throws -> SynologyPage<Song> {
         let result: SongListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post
             ) {
-                ("library", library)
+                ("library", libraryScope.rawValue)
                 ("limit", limit)
                 ("offset", offset)
                 ("artist", artist)
                 ("album", album)
-                ("album_artist", album_artist)
+                ("album_artist", albumArtist)
                 ("composer", composer)
                 ("genre", genre)
-                ("song_rating_meq", song_rating_meq)
-                ("additional", additional)
+                ("song_rating_meq", minimumRating)
+                ("additional", includeFields)
 
                 if let sort {
-                    ("sort_by", sort.sort_by)
-                    ("sort_direction", sort.sort_direction)
+                    ("sort_by", sort.field)
+                    ("sort_direction", sort.direction.rawValue)
                 }
             }
         )
-        return (result.total, result.songs)
+        return SynologyPage(total: result.total, items: result.songs)
     }
 
     /**
      build song fetch url
      */
-    public func listUrl(limit: Int, offset: Int, library: String = "shared") async throws -> URL {
+    public func listURL(limit: Int, offset: Int, libraryScope: SynologyLibraryScope = .shared) async throws -> URL {
         try await apiClient.buildUrl(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post,
                 sidOnQuery: true
             ) {
                 ("additional", "song_tag,song_audio,song_rating")
-                ("library", library)
+                ("library", libraryScope.rawValue)
                 ("limit", limit)
                 ("offset", offset)
             }
@@ -89,7 +89,7 @@ public final class SongApi {
     /**
      update song rating, from 1 - 5
      */
-    public func setRating(id: String, rating: Int) async throws -> Bool {
+    public func setRating(id: String, rating: Int) async throws -> SongRatingUpdate {
         let api = ApiEndpoint(
             api: SynologyApi.AudioStation.SONG, method: "setrating", version: 2,
             httpMethod: .post) {
@@ -98,6 +98,6 @@ public final class SongApi {
             }
 
         let _: EmptyData = try await apiClient.request(api)
-        return true
+        return SongRatingUpdate(songID: id, rating: rating)
     }
 }

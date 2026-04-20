@@ -10,7 +10,7 @@ import Foundation
 public final class LyricsApi {
     private let apiClient: ApiClientProviding
 
-    public init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
@@ -34,7 +34,7 @@ public final class LyricsApi {
     /**
      Search Lyrics
      */
-    public func search(title: String, artist: String, limit: Int = 10, offset: Int = 0) async throws -> (total: Int, data: [LyricsItem]) {
+    public func search(title: String, artist: String, limit: Int = 10, offset: Int = 0) async throws -> SynologyPage<LyricsItem> {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 1) {
             ("title", title)
             ("artist", artist)
@@ -43,6 +43,6 @@ public final class LyricsApi {
         }
 
         let result: LyricsSearchResult = try await apiClient.request(api)
-        return (result.total, result.items)
+        return SynologyPage(total: result.total, items: result.items)
     }
 }

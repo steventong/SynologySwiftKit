@@ -7,8 +7,8 @@ Swift package for building Synology DSM and Audio Station clients in Swift.
 ## Highlights
 
 - Swift Concurrency-first API (`async/await`, `AsyncStream`)
-- Built-in DSM modules: `auth`, `apiInfo`, `quickConnect`, `dsmInfo`, `fileStation`
-- Audio Station modules: `album`, `artist`, `composer`, `folder`, `genre`, `info`, `lyrics`, `pin`, `playlist`, `search`, `song`, `stream`, `tagEditor`
+- Built-in DSM modules: `auth`, `system`, `files`
+- Audio Station modules: `albums`, `artists`, `composers`, `folders`, `genres`, `info`, `lyricsCatalog`, `pins`, `playlists`, `search`, `songs`, `playback`, `covers`, `tagEditor`
 - Higher-level flows for login, connection check, and querying songs
 - Customizable transport and storage so integrators can adapt the package to their app architecture
 
@@ -45,9 +45,9 @@ import SynologySwiftKit
 
 let client = SynologyClient()
 
-for await progress in await client.userLogin.login(
+for await progress in await client.flows.auth.login(
     server: "your-quickconnect-id",
-    enableHttps: true,
+    usesHTTPS: true,
     username: "demo",
     password: "secret"
 ) {
@@ -57,7 +57,7 @@ for await progress in await client.userLogin.login(
     case .authenticating:
         print("Authenticating...")
     case let .completed(result):
-        print("Connected:", result.connectionUrl)
+        print("Connected:", result.connection.url)
     case .otpRequired:
         print("OTP required")
     case let .failed(message), let .invalidSession(message):
@@ -73,9 +73,24 @@ import SynologySwiftKit
 
 let client = SynologyClient()
 
-let albums = try await client.audioStation.album.list(limit: 20)
-let songs = try await client.audioStation.song.list(limit: 100)
-let playlists = try await client.audioStation.playlist.list(limit: 50)
+let albums = try await client.audioStation.albums.list(limit: 20)
+let songs = try await client.audioStation.songs.list(limit: 100, libraryScope: .shared)
+let playlists = try await client.audioStation.playlists.list(limit: 50, offset: 0)
+let smartPlaylist = try await client.audioStation.playlists.createSmart(
+    name: "Top Picks",
+    definition: SmartPlaylistDefinition(
+        scope: .personal,
+        matchRule: .all,
+        serializedRules: "[]"
+    )
+)
+let songCoverURL = try await client.audioStation.covers.songCoverURL(songID: "music_1", libraryScope: .shared)
+
+print(albums.items.count)
+print(songs.total)
+print(playlists.items.map(\.name))
+print(smartPlaylist.id)
+print(songCoverURL)
 ```
 
 ## Dependency Injection
@@ -85,7 +100,7 @@ let playlists = try await client.audioStation.playlist.list(limit: 50)
 ```swift
 import SynologySwiftKit
 
-struct MyTransport: HTTPTransporting {
+struct MyHTTPClient: HTTPClientProtocol {
     func send(_ request: URLRequest, timeout: TimeInterval, trustedSSLDomain: String?) async throws -> (Data, URLResponse) {
         fatalError("Provide your own transport")
     }
@@ -95,15 +110,23 @@ let client = SynologyClient(
     config: SynologyConfig(enableNetworkLogging: false),
     keyValueStorage: UserDefaultsStorage(userDefaults: .standard),
     keyChainStorage: KeyChainStorage(service: "com.example.synology"),
-    transport: MyTransport()
+    transport: MyHTTPClient()
 )
 ```
 
 ## Session Model
 
 - `SynologyClient` restores persisted session state on initialization when available.
-- `clearSession()` clears both in-memory and persisted session state.
+- `client.session.clear()` clears both in-memory and persisted session state.
 - The default auth interceptor automatically attaches session credentials and clears persisted session state when DSM reports an expired session.
+
+## Public Value Types
+
+- `SynologyPage<Item>`: paged collection result
+- `SynologySortDescriptor`: sort field plus sort direction
+- `SynologyLibraryScope`: `.all`, `.shared`, `.personal`
+- `SynologySession`, `SynologyConnection`, `SynologyCredentials`
+- `SmartPlaylistDefinition`: typed input for smart playlist creation
 
 ## Stability Notes
 

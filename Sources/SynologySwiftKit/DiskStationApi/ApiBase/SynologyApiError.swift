@@ -13,14 +13,14 @@ import Foundation
 /// Synology API raw error structure (for JSON decoding only)
 ///
 /// 服务器返回格式：`{ "code": 1002, "errors": [1006] }`
-public struct SynologyApiError: Error, Decodable, Sendable {
+struct SynologyApiError: Error, Decodable, Sendable {
     /// 主错误码
-    public let code: Int
+    let code: Int
     /// 子错误码列表
-    public let errors: [Int]
+    let errors: [Int]
 
     /// 未知错误
-    public static let unknown = SynologyApiError(code: -1, errors: [])
+    static let unknown = SynologyApiError(code: -1, errors: [])
 
     // MARK: - Decodable
 
@@ -29,13 +29,13 @@ public struct SynologyApiError: Error, Decodable, Sendable {
         case errors
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         code = try container.decode(Int.self, forKey: .code)
         errors = try container.decodeIfPresent([Int].self, forKey: .errors) ?? []
     }
 
-    public init(code: Int, errors: [Int] = []) {
+    init(code: Int, errors: [Int] = []) {
         self.code = code
         self.errors = errors
     }
@@ -44,7 +44,7 @@ public struct SynologyApiError: Error, Decodable, Sendable {
 
     /// 转换为 SynologyError
     /// Convert to SynologyError
-    public func toSynologyError() -> SynologyError {
+    func toSynologyError() -> SynologyError {
         // Session 相关错误
         switch code {
         case 105, 106, 107, 119:

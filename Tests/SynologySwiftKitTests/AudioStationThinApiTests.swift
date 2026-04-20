@@ -2,21 +2,21 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class AudioStationThinApiTests: XCTestCase {
-    func testAudioStationApiExposesAllSubmodules() {
-        let api = AudioStationApi(apiClient: MockApiClient(), keyValueStorage: MockKeyValueStorage())
+    func testAudioStationClientExposesAllSubmodules() {
+        let api = AudioStationClient(apiClient: MockApiClient(), keyValueStorage: MockKeyValueStorage())
 
-        XCTAssertNotNil(api.pin)
-        XCTAssertNotNil(api.folder)
-        XCTAssertNotNil(api.album)
-        XCTAssertNotNil(api.artist)
-        XCTAssertNotNil(api.composer)
-        XCTAssertNotNil(api.genre)
-        XCTAssertNotNil(api.song)
-        XCTAssertNotNil(api.playlist)
-        XCTAssertNotNil(api.lyrics)
+        XCTAssertNotNil(api.pins)
+        XCTAssertNotNil(api.folders)
+        XCTAssertNotNil(api.albums)
+        XCTAssertNotNil(api.artists)
+        XCTAssertNotNil(api.composers)
+        XCTAssertNotNil(api.genres)
+        XCTAssertNotNil(api.songs)
+        XCTAssertNotNil(api.playlists)
+        XCTAssertNotNil(api.lyricsCatalog)
         XCTAssertNotNil(api.search)
-        XCTAssertNotNil(api.cover)
-        XCTAssertNotNil(api.stream)
+        XCTAssertNotNil(api.covers)
+        XCTAssertNotNil(api.playback)
         XCTAssertNotNil(api.info)
         XCTAssertNotNil(api.tagEditor)
     }
@@ -59,7 +59,12 @@ final class AudioStationThinApiTests: XCTestCase {
             }
         }
 
-        let albumResult = try await AlbumApi(apiClient: apiClient).list(limit: 10, offset: 0, keyword: "A", sort: ("name", "asc"))
+        let albumResult = try await AlbumApi(apiClient: apiClient).list(
+            limit: 10,
+            offset: 0,
+            keyword: "A",
+            sort: SynologySortDescriptor(field: "name", direction: .ascending)
+        )
         let artistResult = try await ArtistApi(apiClient: apiClient).list(limit: 10, offset: 0)
         let composerResult = try await ComposerApi(apiClient: apiClient).list(limit: 10, offset: 0)
         let genreResult = try await GenreApi(apiClient: apiClient).list(limit: 10, offset: 0)
@@ -67,11 +72,11 @@ final class AudioStationThinApiTests: XCTestCase {
         let folderResult = try await FolderApi(apiClient: apiClient).list(id: nil)
 
         XCTAssertEqual(albumResult.total, 1)
-        XCTAssertEqual(albumResult.data.first?.additional?.avgRating?.rating, 5)
-        XCTAssertEqual(artistResult.data.first?.name, "Artist")
-        XCTAssertEqual(composerResult.data.first?.name, "Composer")
-        XCTAssertEqual(genreResult.data.first?.name, "Genre")
-        XCTAssertEqual(searchResult.songTotal, 1)
+        XCTAssertEqual(albumResult.items.first?.additional?.avgRating?.rating, 5)
+        XCTAssertEqual(artistResult.items.first?.name, "Artist")
+        XCTAssertEqual(composerResult.items.first?.name, "Composer")
+        XCTAssertEqual(genreResult.items.first?.name, "Genre")
+        XCTAssertEqual(searchResult.songs.total, 1)
         XCTAssertEqual(folderResult.total, 1)
     }
 
@@ -94,7 +99,7 @@ final class AudioStationThinApiTests: XCTestCase {
 
         XCTAssertEqual(lyrics, "hello world")
         XCTAssertEqual(search.total, 1)
-        XCTAssertEqual(search.data.first?.preview, "Preview")
+        XCTAssertEqual(search.items.first?.preview, "Preview")
     }
 
     func testLyricsApiThrowsWhenLyricsMissing() async {
@@ -126,11 +131,24 @@ final class AudioStationThinApiTests: XCTestCase {
 
         let api = TagEditorApi(apiClient: apiClient)
         let loadResult = try await api.load(path: "/music/file.mp3")
-        let request = TagEditorRequest(audioInfos: loadResult.files, lyrics: "lyrics", coverType: "", coverPath: "", title: "Track", artist: "Artist", album: "Album", comment: "", genre: "Pop", track: "1", disc: "1", year: "2024", albumArtist: "Artist", composer: "Composer", codePage: "utf-8")
-        let applyResult = try await api.apply(request: request)
+        let update = TagEditorUpdate(
+            files: loadResult.files,
+            title: "Track",
+            artist: "Artist",
+            album: "Album",
+            albumArtist: "Artist",
+            composer: "Composer",
+            genre: "Pop",
+            lyrics: "lyrics",
+            track: 1,
+            disc: 1,
+            year: 2024
+        )
+        let applyResult = try await api.apply(update: update)
 
-        XCTAssertTrue(loadResult.success)
-        XCTAssertTrue(applyResult.success)
+        XCTAssertEqual(loadResult.lyrics, "lyrics")
+        XCTAssertEqual(loadResult.readFailedFileCount, 0)
+        XCTAssertEqual(applyResult.files.count, 0)
     }
 
     func testTagEditorApiThrowsOnFailedResult() async {
@@ -177,7 +195,8 @@ final class AudioStationThinApiTests: XCTestCase {
 
         XCTAssertEqual(list.total, 1)
         XCTAssertEqual(item.id, "pin_1")
-        XCTAssertEqual(unpin.items, ["pin_1"])
+        XCTAssertEqual(unpin.removedIDs, ["pin_1"])
+        XCTAssertTrue(unpin.removedAll)
         XCTAssertEqual(album.type, .folder)
         XCTAssertEqual(artist.id, "pin_1")
         XCTAssertEqual(composer.id, "pin_1")

@@ -9,7 +9,7 @@ import Foundation
 
 /// 网络请求拦截器协议
 /// Protocol for intercepting network requests
-public protocol RequestInterceptor: Sendable {
+protocol RequestInterceptor: Sendable {
     /// 预处理请求 (例如添加 Token, Header)
     /// Pre-process the request (e.g., adding Token, Header)
     func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest
@@ -20,12 +20,12 @@ public protocol RequestInterceptor: Sendable {
 }
 
 /// 请求上下文
-public struct RequestContext: Sendable {
-    public let startTime: Date
-    public var duration: TimeInterval?
-    public var metadata: [String: String]
+struct RequestContext: Sendable {
+    let startTime: Date
+    var duration: TimeInterval?
+    var metadata: [String: String]
 
-    public init(startTime: Date = Date(), duration: TimeInterval? = nil, metadata: [String: String] = [:]) {
+    init(startTime: Date = Date(), duration: TimeInterval? = nil, metadata: [String: String] = [:]) {
         self.startTime = startTime
         self.duration = duration
         self.metadata = metadata
@@ -33,13 +33,13 @@ public struct RequestContext: Sendable {
 }
 
 /// 支持上下文的拦截器（可选实现）
-public protocol RequestInterceptorWithContext: RequestInterceptor {
+protocol RequestInterceptorWithContext: RequestInterceptor {
     func adapt(_ request: URLRequest, for endpoint: ApiEndpoint, context: inout RequestContext) async throws -> URLRequest
     func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint, context: inout RequestContext) async throws -> Result<(Data, URLResponse), Error>
 }
 
 // 默认实现，方便只需实现部分方法的拦截器
-public extension RequestInterceptor {
+extension RequestInterceptor {
     func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
         return request
     }
@@ -49,7 +49,7 @@ public extension RequestInterceptor {
     }
 }
 
-public extension RequestInterceptorWithContext {
+extension RequestInterceptorWithContext {
     func adapt(_ request: URLRequest, for endpoint: ApiEndpoint, context: inout RequestContext) async throws -> URLRequest {
         return try await adapt(request, for: endpoint)
     }

@@ -1,13 +1,13 @@
 import XCTest
 @testable import SynologySwiftKit
 
-final class QuickConnectApiHappyPathTests: XCTestCase {
+final class QuickConnectClientHappyPathTests: XCTestCase {
     func testGetDeviceConnectionFollowsRedirectAndReturnsBestReachableURL() async throws {
         let transport = MockHTTPTransport()
         let apiClient = ApiClient(httpTransport: transport)
         let storage = MockKeyValueStorage()
-        let pingpong = TestPingPong(firstResult: (.lan, "https://192.168.1.2:5001"))
-        let quickConnectApi = QuickConnectApi(
+        let pingpong = TestPingPong(firstResult: SynologyConnection(type: .lan, url: "https://192.168.1.2:5001"))
+        let quickConnectApi = QuickConnectClient(
             apiClient: apiClient,
             pingpong: pingpong,
             timeout: 2,
@@ -49,7 +49,7 @@ final class QuickConnectApiHappyPathTests: XCTestCase {
             )
         }
 
-        let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: "demoqc", enableHttps: true)
+        let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: "demoqc", usesHTTPS: true)
 
         XCTAssertEqual(connection.type, .lan)
         XCTAssertEqual(connection.url, "https://192.168.1.2:5001")

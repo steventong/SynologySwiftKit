@@ -16,8 +16,20 @@ final class FoundationAndUtilityTests: XCTestCase {
     }
 
     func testJsonUtilsAndLyricsResultDecoding() throws {
-        let request = TagEditorRequest(audioInfos: [], lyrics: "lyric", coverType: "", coverPath: "", title: "Track", artist: "Artist", album: "Album", comment: "", genre: "Pop", track: "1", disc: "1", year: "2024", albumArtist: "Artist", composer: "Composer", codePage: "utf-8")
-        XCTAssertNotNil(JsonUtils.toJson(codable: request))
+        let update = TagEditorUpdate(
+            files: [],
+            title: "Track",
+            artist: "Artist",
+            album: "Album",
+            albumArtist: "Artist",
+            composer: "Composer",
+            genre: "Pop",
+            lyrics: "lyric",
+            track: 1,
+            disc: 1,
+            year: 2024
+        )
+        XCTAssertNotNil(JsonUtils.toJson(codable: [TagEditorRequest(update: update)]))
 
         let stringData = try makeJSONData(["lyrics": "plain lyrics"])
         let objectData = try makeJSONData(["lyrics": ["lyrics": "nested lyrics"]])

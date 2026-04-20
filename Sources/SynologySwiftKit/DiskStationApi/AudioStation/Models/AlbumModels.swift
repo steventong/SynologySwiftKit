@@ -39,7 +39,7 @@ public struct AlbumAvgRating: Decodable, Sendable {
     public var rating: Int
 }
 
-public struct AlbumListResult: Decodable, Sendable {
+struct AlbumListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let albums: [Album]
@@ -50,5 +50,4 @@ public struct AlbumListResult: Decodable, Sendable {
         case albums
     }
 }
-
 

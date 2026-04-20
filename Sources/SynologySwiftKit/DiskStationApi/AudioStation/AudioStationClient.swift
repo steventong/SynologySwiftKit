@@ -1,5 +1,5 @@
 //
-//  AudioStationApi.swift
+//  AudioStationClient.swift
 //  SynologySwiftKit
 //
 //  Created by Steven on 2024/4/27.
@@ -14,11 +14,12 @@ import Foundation
 ///
 /// 使用示例 / Usage:
 /// ```swift
-/// let audioStation = AudioStationApi(apiClient: client.apiClient)
-/// let (total, items) = try await audioStation.pin.list()
-/// let songs = try await audioStation.songList(limit: 100)
+/// let audioStation = AudioStationClient(apiClient: client.apiClient)
+/// let page = try await audioStation.pins.list()
+/// let items = page.items
+/// let songs = try await audioStation.songs.list(limit: 100, offset: 0)
 /// ```
-public final class AudioStationApi {
+public final class AudioStationClient {
 
     // MARK: - Dependencies
 
@@ -30,40 +31,40 @@ public final class AudioStationApi {
     // MARK: - API Modules
 
     /// 固定 API
-    public lazy var pin: PinApi = PinApi(apiClient: apiClient)
+    public lazy var pins: PinApi = PinApi(apiClient: apiClient)
 
     /// 文件夹 API
-    public lazy var folder = FolderApi(apiClient: apiClient)
+    public lazy var folders = FolderApi(apiClient: apiClient)
 
     /// 专辑 API
-    public lazy var album = AlbumApi(apiClient: apiClient)
+    public lazy var albums = AlbumApi(apiClient: apiClient)
 
     /// 艺术家 API
-    public lazy var artist = ArtistApi(apiClient: apiClient)
+    public lazy var artists = ArtistApi(apiClient: apiClient)
 
     /// 作曲家 API
-    public lazy var composer = ComposerApi(apiClient: apiClient)
+    public lazy var composers = ComposerApi(apiClient: apiClient)
 
     /// 流派 API
-    public lazy var genre = GenreApi(apiClient: apiClient)
+    public lazy var genres = GenreApi(apiClient: apiClient)
 
     /// 歌曲 API
-    public lazy var song = SongApi(apiClient: apiClient)
+    public lazy var songs = SongApi(apiClient: apiClient)
 
     /// 播放列表 API
-    public lazy var playlist = PlaylistApi(apiClient: apiClient)
+    public lazy var playlists = PlaylistApi(apiClient: apiClient)
 
     /// 歌词 API
-    public lazy var lyrics = LyricsApi(apiClient: apiClient)
+    public lazy var lyricsCatalog = LyricsApi(apiClient: apiClient)
 
     /// 搜索 API
     public lazy var search = SearchApi(apiClient: apiClient)
 
     /// 封面 API
-    public lazy var cover = CoverApi(apiClient: apiClient)
+    public lazy var covers = CoverApi(apiClient: apiClient)
 
     /// 流媒体 API
-    public lazy var stream = StreamApi(apiClient: apiClient)
+    public lazy var playback = StreamApi(apiClient: apiClient)
 
     /// 信息 API
     public lazy var info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
@@ -76,12 +77,10 @@ public final class AudioStationApi {
     /// 初始化 AudioStation API
     /// Initialize AudioStation API
     /// - Parameter apiClient: API 客户端
-    public init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+    init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage
     }
 }
 
 // MARK: - Internal Helpers
-
-

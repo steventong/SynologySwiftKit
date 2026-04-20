@@ -17,15 +17,15 @@ import Foundation
 /// // 成功：{ "success": true, "data": { ... } }
 /// // 失败：{ "success": false, "error": { "code": 1002, "errors": [1006] } }
 /// ```
-public struct SynologyResponse<T: Decodable & Sendable>: Decodable, Sendable {
+struct SynologyResponse<T: Decodable & Sendable>: Decodable, Sendable {
     
-    public let success: Bool
-    public let error: SynologyApiError?
-    public let data: T?
+    let success: Bool
+    let error: SynologyApiError?
+    let data: T?
 
     /// 获取 data，失败时抛出错误
     /// Get data or throw error if failed
-    public func unwrap() throws -> T {
+    func unwrap() throws -> T {
         if success, let data = data {
             return data
         }

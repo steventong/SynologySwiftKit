@@ -8,7 +8,7 @@ final class AdvancedCoverageTests: XCTestCase {
         let storage = MockKeyValueStorage()
         storage.set("cached.quickconnect.to", forKey: KeyValueStorageKeys.SYNOLOGY_SERVER_URL("demoqc").keyName)
 
-        let quickConnectApi = QuickConnectApi(
+        let quickConnectApi = QuickConnectClient(
             apiClient: apiClient,
             pingpong: TestPingPong(firstResult: nil),
             timeout: 2,
@@ -53,7 +53,7 @@ final class AdvancedCoverageTests: XCTestCase {
             )
         }
 
-        let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: "demoqc", enableHttps: true)
+        let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: "demoqc", usesHTTPS: true)
 
         XCTAssertEqual(connection.type, .relay)
         XCTAssertEqual(connection.url, "https://relay.quickconnect.to:443")
@@ -63,7 +63,7 @@ final class AdvancedCoverageTests: XCTestCase {
     func testQuickConnectThrowsWhenServerInfoCannotBeResolved() async {
         let transport = MockHTTPTransport()
         let apiClient = ApiClient(httpTransport: transport)
-        let quickConnectApi = QuickConnectApi(
+        let quickConnectApi = QuickConnectClient(
             apiClient: apiClient,
             pingpong: TestPingPong(firstResult: nil),
             timeout: 2,
@@ -83,7 +83,7 @@ final class AdvancedCoverageTests: XCTestCase {
         }
 
         do {
-            _ = try await quickConnectApi.getDeviceConnection(quickConnectId: "demoqc", enableHttps: true)
+            _ = try await quickConnectApi.getDeviceConnection(quickConnectId: "demoqc", usesHTTPS: true)
             XCTFail("Expected QuickConnect failure")
         } catch let SynologyError.network(message) {
             XCTAssertEqual(message, "QuickConnect server info not available")

@@ -12,14 +12,14 @@ public final class TagEditorApi {
 
     private static let TAG_EDITOR_URL = "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi"
 
-    public init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiClientProviding) {
         self.apiClient = apiClient
     }
 
     /// 加载标签信息
     /// Load tag information
     /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
-    public func load(path: String) async throws -> TagEditorResult {
+    public func load(path: String) async throws -> TagEditorDocument {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
             ("action", "load")
             ("requestFrom", "")
@@ -29,22 +29,30 @@ public final class TagEditorApi {
         guard result.success else {
             throw SynologyError.api(code: -1, message: "query failed")
         }
-        return result
+        return TagEditorDocument(
+            lyrics: result.lyrics,
+            files: result.files,
+            readFailedFileCount: result.readFailCount
+        )
     }
 
     /// 应用标签修改
     /// Apply tag changes
     /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
-    public func apply(request: TagEditorRequest) async throws -> TagEditorResult {
+    public func apply(update: TagEditorUpdate) async throws -> TagEditorDocument {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
             ("action", "apply")
             ("requestFrom", "")
-            ("data", JsonUtils.toJson(codable: [request]) ?? "")
+            ("data", JsonUtils.toJson(codable: [TagEditorRequest(update: update)]) ?? "")
         }
         let result: TagEditorResult = try await apiClient.request(api, rawResponse: true)
         guard result.success else {
             throw SynologyError.api(code: -1, message: "update failed")
         }
-        return result
+        return TagEditorDocument(
+            lyrics: result.lyrics,
+            files: result.files,
+            readFailedFileCount: result.readFailCount
+        )
     }
 }

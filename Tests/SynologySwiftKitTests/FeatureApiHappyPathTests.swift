@@ -10,13 +10,13 @@ final class FeatureApiHappyPathTests: XCTestCase {
         storage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
 
         let infoApi = InfoApi(apiClient: apiClient, keyValueStorage: storage)
-        let result = try await infoApi.query(cacheEnabled: true)
+        let result = try await infoApi.query(usesCache: true)
 
         XCTAssertEqual(result.version, 4000)
         XCTAssertTrue(apiClient.requestedEndpoints.isEmpty)
     }
 
-    func testInfoApiFetchesFromNetworkCachesResultAndSupportsExplicitSid() async throws {
+    func testInfoApiFetchesFromNetworkCachesResultAndSupportsExplicitSession() async throws {
         let apiClient = MockApiClient()
         let storage = MockKeyValueStorage()
         apiClient.requestHandler = { endpoint in
@@ -27,10 +27,10 @@ final class FeatureApiHappyPathTests: XCTestCase {
         }
 
         let infoApi = InfoApi(apiClient: apiClient, keyValueStorage: storage)
-        let result = try await infoApi.query(cacheEnabled: true, sid: "sid-1", did: "did-1")
+        let result = try await infoApi.query(using: SynologySession(sid: "sid-1", did: "did-1"))
 
         XCTAssertEqual(result.version, 5000)
-        XCTAssertEqual(infoApi.getAudioStationInfo()?.version, 5000)
+        XCTAssertEqual(infoApi.cachedInfo()?.version, 5000)
         XCTAssertNotNil(storage.object(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date)
     }
 
@@ -42,7 +42,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
         apiClient.mockResponse = makeAudioStationInfo(version: 6000)
 
         let infoApi = InfoApi(apiClient: apiClient, keyValueStorage: storage)
-        let result = try await infoApi.query(cacheEnabled: true)
+        let result = try await infoApi.query(usesCache: true)
 
         XCTAssertEqual(result.version, 6000)
         XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
@@ -66,11 +66,12 @@ final class FeatureApiHappyPathTests: XCTestCase {
         let songApi = SongApi(apiClient: apiClient)
         let list = try await songApi.list(limit: 10, offset: 0)
         let song = try await songApi.getInfo(id: "music_42")
-        let didRate = try await songApi.setRating(id: "music_42", rating: 5)
+        let ratingUpdate = try await songApi.setRating(id: "music_42", rating: 5)
 
         XCTAssertEqual(list.total, 1)
         XCTAssertEqual(song.title, "Detail Track")
-        XCTAssertTrue(didRate)
+        XCTAssertEqual(ratingUpdate.songID, "music_42")
+        XCTAssertEqual(ratingUpdate.rating, 5)
         XCTAssertEqual(apiClient.requestedEndpoints.count, 3)
     }
 
@@ -91,7 +92,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
         }
 
         let songApi = SongApi(apiClient: apiClient)
-        let listURL = try await songApi.listUrl(limit: 5, offset: 10, library: "personal")
+        let listURL = try await songApi.listURL(limit: 5, offset: 10, libraryScope: .personal)
         XCTAssertEqual(listURL.absoluteString, "https://mock.local/song-list")
 
         do {
@@ -124,16 +125,16 @@ final class FeatureApiHappyPathTests: XCTestCase {
 
         let playlistApi = PlaylistApi(apiClient: apiClient)
         let list = try await playlistApi.list(limit: 20, offset: 0)
-        let songs = try await playlistApi.getSongs(id: "playlist_1", library: "shared", limit: 20, offset: 0)
-        let playlistID = try await playlistApi.create(name: "Roadtrip", library: "shared", songs: nil)
-        let didAddSongs = try await playlistApi.addSongs(id: "playlist_new", songs: ["music_1"])
-        let didDelete = try await playlistApi.delete(id: "playlist_new")
+        let songs = try await playlistApi.getSongs(id: "playlist_1", libraryScope: .shared, limit: 20, offset: 0)
+        let playlistRef = try await playlistApi.create(name: "Roadtrip", libraryScope: .shared)
+        let addSongsResult = try await playlistApi.addSongs(id: "playlist_new", songIDs: ["music_1"])
+        let deletion = try await playlistApi.delete(id: "playlist_new")
 
         XCTAssertEqual(list.total, 1)
-        XCTAssertEqual(songs.data.count, 1)
-        XCTAssertEqual(playlistID, "playlist_new")
-        XCTAssertTrue(didAddSongs)
-        XCTAssertTrue(didDelete)
+        XCTAssertEqual(songs.items.count, 1)
+        XCTAssertEqual(playlistRef.id, "playlist_new")
+        XCTAssertEqual(addSongsResult.playlistID, "playlist_new")
+        XCTAssertTrue(deletion.deleted)
     }
 
     func testPlaylistApiCoversRemainingOperationsAndFallbacks() async throws {
@@ -160,20 +161,23 @@ final class FeatureApiHappyPathTests: XCTestCase {
         }
 
         let playlistApi = PlaylistApi(apiClient: apiClient)
-        let songs = try await playlistApi.getSongs(id: "playlist_1", library: "shared", limit: 10, offset: 0)
-        let smartId = try await playlistApi.createSmart(name: "Smart", shared: false, conj_rule: "all", rules_json: "[]")
-        let renamed = try await playlistApi.rename(id: "playlist_1", newName: "Renamed")
-        let removedMissing = try await playlistApi.removeMissing(id: "playlist_1")
-        let addedEmptySongs = try await playlistApi.addSongs(id: "playlist_1", songs: [])
-        let deleted = try await playlistApi.delete(id: "playlist_1")
+        let songs = try await playlistApi.getSongs(id: "playlist_1", libraryScope: .shared, limit: 10, offset: 0)
+        let smartPlaylist = try await playlistApi.createSmart(
+            name: "Smart",
+            definition: SmartPlaylistDefinition(scope: .personal, matchRule: .all, serializedRules: "[]")
+        )
+        let renamedPlaylist = try await playlistApi.rename(id: "playlist_1", name: "Renamed")
+        let removeMissingResult = try await playlistApi.removeMissing(id: "playlist_1")
+        let addSongsResult = try await playlistApi.addSongs(id: "playlist_1", songIDs: [])
+        let deletion = try await playlistApi.delete(id: "playlist_1")
 
         XCTAssertEqual(songs.total, 0)
-        XCTAssertTrue(songs.data.isEmpty)
-        XCTAssertEqual(smartId, "smart_1")
-        XCTAssertEqual(renamed, "playlist_renamed")
-        XCTAssertTrue(removedMissing)
-        XCTAssertTrue(addedEmptySongs)
-        XCTAssertFalse(deleted)
+        XCTAssertTrue(songs.items.isEmpty)
+        XCTAssertEqual(smartPlaylist.id, "smart_1")
+        XCTAssertEqual(renamedPlaylist.id, "playlist_renamed")
+        XCTAssertEqual(removeMissingResult.playlistID, "playlist_1")
+        XCTAssertEqual(addSongsResult.playlistID, "playlist_1")
+        XCTAssertFalse(deletion.deleted)
     }
 
     func testCoverAndStreamApisBuildExpectedEndpoints() async throws {
@@ -186,12 +190,14 @@ final class FeatureApiHappyPathTests: XCTestCase {
         let coverApi = CoverApi(apiClient: apiClient)
         let streamApi = StreamApi(apiClient: apiClient)
 
-        _ = try await coverApi.songCoverUrl(songId: "music_1", library: "shared")
-        _ = try await streamApi.getStreamUrl(
-            id: "music_v_1",
-            path: "/music/file.flac",
-            bitrate: 320000,
-            frequency: 44_100,
+        _ = try await coverApi.songCoverURL(songID: "music_1", libraryScope: .shared)
+        _ = try await streamApi.playbackURL(
+            for: SongPlaybackSource(
+                id: "music_v_1",
+                path: "/music/file.flac",
+                bitrate: 320000,
+                frequency: 44_100
+            ),
             quality: .HIGH
         )
 
@@ -216,10 +222,10 @@ final class FeatureApiHappyPathTests: XCTestCase {
         }
         let coverApi = CoverApi(apiClient: apiClient)
 
-        let songURL = try await coverApi.songCoverUrl(songId: "song1")
-        let albumURL = try await coverApi.albumCoverUrl(albumName: "Album", albumArtistName: "Artist")
-        let artistURL = try await coverApi.artistCoverUrl(artistName: "Artist")
-        let composerURL = try await coverApi.composerCoverUrl(composerName: "Composer")
+        let songURL = try await coverApi.songCoverURL(songID: "song1")
+        let albumURL = try await coverApi.albumCoverURL(albumName: "Album", albumArtistName: "Artist")
+        let artistURL = try await coverApi.artistCoverURL(artistName: "Artist")
+        let composerURL = try await coverApi.composerCoverURL(composerName: "Composer")
 
         XCTAssertEqual(songURL.lastPathComponent, "getsongcover")
         XCTAssertEqual(albumURL.lastPathComponent, "getcover")
@@ -235,11 +241,11 @@ final class FeatureApiHappyPathTests: XCTestCase {
         }
         let api = StreamApi(apiClient: apiClient)
 
-        _ = try await api.getStreamUrl(id: "track1", path: "/music/file.m4a", bitrate: 1000, frequency: 44_100, fileExtension: ".aac", quality: .HIGH)
-        _ = try await api.getStreamUrl(id: "track2", path: "/music/file.dsf", bitrate: 1000, frequency: 44_100, quality: .HIGH)
-        _ = try await api.getStreamUrl(id: "track3", path: "/music/file.flac", bitrate: 1000, frequency: 44_100, quality: .ORIGINAL)
-        _ = try await api.getStreamUrl(id: "track4", path: "/music/file.flac", bitrate: 1000, frequency: 44_100, quality: .LOW)
-        _ = try await api.getStreamUrl(id: "music_p_v_1", path: "/music/file.flac", bitrate: 1000, frequency: 44_100, quality: .LOW)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track1", path: "/music/file.m4a", bitrate: 1000, frequency: 44_100, fileExtension: ".aac"), quality: .HIGH)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track2", path: "/music/file.dsf", bitrate: 1000, frequency: 44_100), quality: .HIGH)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track3", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .ORIGINAL)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track4", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .LOW)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "music_p_v_1", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .LOW)
 
         XCTAssertEqual(apiClient.builtUrlEndpoints[0].method, "stream")
         XCTAssertEqual(apiClient.builtUrlEndpoints[0].pathSuffix, "/0.aac")
@@ -250,7 +256,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
         XCTAssertEqual(apiClient.builtUrlEndpoints[4].parameters["id"]?.stringValue, "music_p_v_1")
     }
 
-    func testDsmInfoFileStationAndEncryptionApisHappyPath() async throws {
+    func testDsmInfoFileStationAndEncryptionClientsHappyPath() async throws {
         let apiClient = MockApiClient()
         apiClient.requestHandler = { endpoint in
             switch endpoint.apiName {
@@ -268,7 +274,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
                     versionString: "DSM 7.2"
                 )
             case SynologyApi.FileStation.DELETE.name:
-                return FileStationApi.DeleteTask(taskid: "task-1")
+                return FileStationClient.DeleteTask(taskid: "task-1")
             case SynologyApi.Core.ENCRYPTION.name:
                 return ApiInfoEncryption(cipherkey: "key", ciphertoken: "token", publicKey: "public", serverTime: 123)
             default:
@@ -276,22 +282,22 @@ final class FeatureApiHappyPathTests: XCTestCase {
             }
         }
 
-        let dsmInfo = try await DsmInfoApi(apiClient: apiClient).queryDsmInfo()
-        let deleteStarted = try await FileStationApi(apiClient: apiClient).delete(path: "/music/file.mp3")
-        let encryption = try await EncryptionApi(apiClient: apiClient).getApiInfoEncryption()
+        let dsmInfo = try await DSMInfoClient(apiClient: apiClient).query()
+        let deleteTask = try await FileStationClient(apiClient: apiClient).delete(path: "/music/file.mp3")
+        let encryption = try await EncryptionClient(apiClient: apiClient).queryInfo()
 
         XCTAssertEqual(dsmInfo.model, "DS920+")
-        XCTAssertTrue(deleteStarted)
+        XCTAssertEqual(deleteTask.taskID, "task-1")
         XCTAssertEqual(encryption.cipherkey, "key")
     }
 
-    func testDsmInfoApiMapsUnknownErrorsToNetworkError() async {
+    func testDSMInfoClientMapsUnknownErrorsToNetworkError() async {
         let apiClient = MockApiClient()
         struct Dummy: Error {}
         apiClient.mockError = Dummy()
 
         do {
-            _ = try await DsmInfoApi(apiClient: apiClient).queryDsmInfo()
+            _ = try await DSMInfoClient(apiClient: apiClient).query()
             XCTFail("Expected mapped network error")
         } catch let SynologyError.network(message) {
             XCTAssertEqual(message, "request failed")

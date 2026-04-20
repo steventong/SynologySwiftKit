@@ -11,22 +11,20 @@ public final class InfoApi {
     private let apiClient: ApiClientProviding
     private let keyValueStorage: KeyValueStorage
 
-    public init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+    init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage
     }
 
-    /**
-     Query AudioStation Info
-     */
-    public func query(cacheEnabled: Bool? = false, sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
+    /// 查询 AudioStation 信息
+    public func query(usesCache: Bool = false) async throws -> AudioStationInfo {
         // Cache Check
-        if cacheEnabled == true, isAudioStationInfoCacheValid(), let cachedInfo = getAudioStationInfo() {
+        if usesCache, isAudioStationInfoCacheValid(), let cachedInfo = cachedInfo() {
             return cachedInfo
         }
 
         // Network Request
-        let info = try await queryFromDsm(sid: sid, did: did)
+        let info = try await queryFromDsm()
         Logger.debug("SynologySwiftKit.InfoApi, query, from api: \(info)")
 
         // Save Cache
@@ -35,6 +33,13 @@ public final class InfoApi {
     }
 
     // MARK: - Private Methods
+
+    func query(using session: SynologySession) async throws -> AudioStationInfo {
+        let info = try await queryFromDsm(sid: session.sid, did: session.did)
+        Logger.debug("SynologySwiftKit.InfoApi, query, from explicit session: \(info)")
+        saveAudioStationInfoCache(info: info)
+        return info
+    }
 
     private func queryFromDsm(sid: String? = nil, did: String? = nil) async throws -> AudioStationInfo {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.INFO, method: "getinfo", version: 6, httpMethod: .post, sidOnQuery: sid == nil, sidOnCookie: sid == nil) {
@@ -47,10 +52,7 @@ public final class InfoApi {
         return result
     }
 
-    /**
-     Query from Cache
-     */
-    public func getAudioStationInfo() -> AudioStationInfo? {
+    func cachedInfo() -> AudioStationInfo? {
         if let info: AudioStationInfo = keyValueStorage.codable(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName) {
             Logger.debug("SynologySwiftKit.InfoApi, query, from cache: \(info)")
             return info

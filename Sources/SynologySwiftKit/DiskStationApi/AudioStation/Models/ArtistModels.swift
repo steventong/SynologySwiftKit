@@ -11,7 +11,7 @@ public struct Artist: Decodable, Sendable {
     public var name: String
 }
 
-public struct ArtistListResult: Decodable, Sendable {
+struct ArtistListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let artists: [Artist]
@@ -22,4 +22,3 @@ public struct ArtistListResult: Decodable, Sendable {
         case artists
     }
 }
-

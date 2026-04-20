@@ -11,7 +11,7 @@ public struct Composer: Decodable, Sendable {
     public var name: String
 }
 
-public struct ComposerListResult: Decodable, Sendable {
+struct ComposerListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let composers: [Composer]
@@ -22,4 +22,3 @@ public struct ComposerListResult: Decodable, Sendable {
         case composers
     }
 }
-

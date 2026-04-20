@@ -16,11 +16,10 @@ public actor SynologyUserLogin {
     // MARK: - Dependencies
 
     private let apiInfoApi: ApiInfoProviding
-    private let quickConnectApi: QuickConnectApi
-    private let authApi: AuthApi
-    private let pingpong: PingPongProviding
-    private let audioStationApi: AudioStationApi
+    private let authApi: AuthClient
+    private let audioStationApi: AudioStationClient
     private let apiClient: ApiClientProviding
+    private let connectionChecker: CheckDeviceConnectionProviding
     private let keyChainStorage: KeyChainStorage
 
     // MARK: - Initialization
@@ -31,36 +30,34 @@ public actor SynologyUserLogin {
     ///   - keyChainStorage: Keychain 存储 / Keychain Storage
     ///   - apiInfoApi: API 信息提供者 / API info provider
     ///   - apiClient: API 客户端 / API client
-    ///   - pingpong: PingPong 服务 / PingPong service
-    public init(apiInfoApi: ApiInfoProviding,
-                apiClient: ApiClientProviding,
-                pingpong: PingPongProviding,
-                keyChainStorage: KeyChainStorage = KeyChainStorage(),
-                keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+    init(apiInfoApi: ApiInfoProviding,
+         apiClient: ApiClientProviding,
+         authApi: AuthClient,
+         audioStationApi: AudioStationClient,
+         connectionChecker: CheckDeviceConnectionProviding,
+         keyChainStorage: KeyChainStorage = KeyChainStorage()) {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
-        self.pingpong = pingpong
+        self.authApi = authApi
+        self.audioStationApi = audioStationApi
+        self.connectionChecker = connectionChecker
         self.keyChainStorage = keyChainStorage
-
-        quickConnectApi = QuickConnectApi(apiClient: apiClient, pingpong: pingpong, keyValueStorage: keyValueStorage)
-        authApi = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
-        audioStationApi = AudioStationApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
     }
 
     /// 通过密码登录（AsyncStream 版本）
     /// Login with password (AsyncStream version)
     /// - Parameters:
     ///   - server: QuickConnect ID 或自定义域名
-    ///   - enableHttps: 是否启用 HTTPS
+    ///   - usesHTTPS: 是否启用 HTTPS
     ///   - username: 用户名
     ///   - password: 密码
     ///   - otpCode: 可选的 OTP 代码
     ///   - shouldSavePassword: 是否保存密码（默认为 true）
     /// - Returns: AsyncStream 返回登录进度
-    public func login(server: String, enableHttps: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+    public func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             Task {
-                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
+                await self.performPasswordLogin(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
             }
         }
     }
@@ -77,12 +74,12 @@ public actor SynologyUserLogin {
                 }
 
                 let server = credentials.server
-                let enableHttps = credentials.isEnableHttps
+                let usesHTTPS = credentials.usesHTTPS
                 let username = credentials.username
                 let password = credentials.password
 
                 // set sliceLogin: true
-                await self.performPasswordLogin(server: server, enableHttps: enableHttps, username: username, password: password, otpCode: nil, shouldSavePassword: true, fetchApiList: true, sliceLogin: true, continuation: continuation)
+                await self.performPasswordLogin(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: nil, shouldSavePassword: true, fetchApiList: true, sliceLogin: true, continuation: continuation)
             }
         }
     }
@@ -93,7 +90,7 @@ public actor SynologyUserLogin {
 private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
-    func performPasswordLogin(server: String, enableHttps: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, sliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+    func performPasswordLogin(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, sliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         // 连接检查
         continuation.yield(.connecting)
 
@@ -104,36 +101,37 @@ private extension SynologyUserLogin {
         // 根据用户选择保存或清除凭据
         // save or remove credentials based on user choice
         if shouldSavePassword {
-            keyChainStorage.saveCredentials(server: server, username: username, password: password, isEnableHttps: enableHttps)
+            keyChainStorage.saveCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
         } else {
             keyChainStorage.removeCredentials()
         }
 
         // 解析可用连接 (使用 CheckDeviceConnection)
         // Resolve available connection (using CheckDeviceConnection)
-        let connection: (type: ConnectionType, url: String, cached: Bool)
+        let connection: SynologyConnection
+        let usedCachedConnection: Bool
 
         do {
-            // 实例化 CheckDeviceConnection (Temporary instantiation of CheckDeviceConnection)
-            let connectionChecker: CheckDeviceConnectionProviding = CheckDeviceConnection(apiClient: apiClient, apiInfoApi: apiInfoApi, quickConnectApi: quickConnectApi, audioStationApi: audioStationApi, pingpong: pingpong)
-            // Start from checkConnectionStatus (it already resolves connection when needed).
-            var connectionFromStatus: (type: ConnectionType, url: String, cached: Bool)?
-            for await progress in connectionChecker.checkConnectionStatus(server: server, isHttps: enableHttps) {
+            var resolvedConnection: SynologyConnection?
+            var resolvedFromCache = false
+            for await progress in connectionChecker.checkConnectionStatus(server: server, usesHTTPS: usesHTTPS) {
                 switch progress {
                 case .checking:
                     break
-                case let .success(type, url, cached):
-                    connectionFromStatus = (type, url, cached)
+                case let .success(connection, usedCachedConnection):
+                    resolvedConnection = connection
+                    resolvedFromCache = usedCachedConnection
                 case let .failed(message):
                     Logger.warn("SynologyUserLogin#performPasswordLogin, checkConnectionStatus failed: \(message)")
                 }
             }
 
-            guard let connectionFromStatus else {
+            guard let resolvedConnection else {
                 throw SynologyError.network(message: "Connection resolution failed")
             }
 
-            connection = connectionFromStatus
+            connection = resolvedConnection
+            usedCachedConnection = resolvedFromCache
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, connection resolution failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
@@ -153,7 +151,7 @@ private extension SynologyUserLogin {
         do {
             // 刷新 Api 列表
             if fetchApiList {
-                _ = try await apiInfoApi.checkSynologyApiInfo(cacheEnabled: false, updateCache: true)
+                try await apiInfoApi.refresh()
             }
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
@@ -163,13 +161,17 @@ private extension SynologyUserLogin {
         }
 
         do {
-            if sliceLogin && connection.cached,
+            if sliceLogin && usedCachedConnection,
                let sessionInfo = keyChainStorage.getSessionInfo()
             {
                 // 静默登录且没有更换连接地址时，必须验证缓存 SID 仍然可用。
                 _ = try await audioStationApi.info.query()
 
-                let loginResult = SynologyUserLoginResult(sid: sessionInfo.sid, did: sessionInfo.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+                let loginResult = SynologyUserLoginResult(
+                    session: SynologySession(sid: sessionInfo.sid, did: sessionInfo.did),
+                    connection: connection,
+                    serverType: serverType
+                )
                 continuation.yield(.completed(result: loginResult))
                 continuation.finish()
                 return
@@ -183,7 +185,11 @@ private extension SynologyUserLogin {
             keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
 
             Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
-            let loginResult = SynologyUserLoginResult(sid: authResult.sid, did: authResult.did, connectionType: connection.type, connectionUrl: connection.url, serverType: serverType)
+            let loginResult = SynologyUserLoginResult(
+                session: SynologySession(sid: authResult.sid, did: authResult.did),
+                connection: connection,
+                serverType: serverType
+            )
 
             continuation.yield(.completed(result: loginResult))
             continuation.finish()

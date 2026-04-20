@@ -9,7 +9,7 @@ import Foundation
 
 /// PingPong 服务协议
 /// PingPong service protocol
-public protocol PingPongProviding {
+protocol PingPongProviding {
     /// 并发测试多个连接地址的可达性
     /// Test reachability of multiple connection URLs concurrently
     func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String]

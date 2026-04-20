@@ -3,7 +3,7 @@ import SwiftHttpClient
 @testable import SynologySwiftKit
 
 final class TransportAndReachabilityTests: XCTestCase {
-    func testSwiftHttpClientTransportMapsHTTPClientErrors() async throws {
+    func testSwiftHttpClientAdapterMapsHTTPClientErrors() async throws {
         try await assertMappedTransportError(.invalidResponse, expectedMessage: "invalid response")
         try await assertMappedTransportError(.httpStatus(code: 418), expectedMessage: "http status: 418")
         try await assertMappedTransportError(.decodingFailed(message: "bad"), expectedMessage: "decoding failed: bad")
@@ -47,7 +47,7 @@ private struct ThrowingSwiftHTTPClient: SwiftHTTPClientSending {
 }
 
 private func assertMappedTransportError(_ error: HTTPClientError, expectedMessage: String, file: StaticString = #filePath, line: UInt = #line) async throws {
-    let transport = SwiftHttpClientTransport { _, _ in
+    let transport = SwiftHttpClientAdapter { _, _ in
         ThrowingSwiftHTTPClient(error: error)
     }
 

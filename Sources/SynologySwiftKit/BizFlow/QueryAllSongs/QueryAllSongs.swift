@@ -10,13 +10,13 @@ import Foundation
 /// 批量查询所有歌曲（依赖注入）
 /// Batch query all songs (dependency injection)
 public final class QueryAllSongs {
-    private let audioStationApi: AudioStationApi
+    private let audioStationApi: AudioStationClient
 
     /// 初始化查询器
     /// Initialize query helper
     /// - Parameter apiClient: API 客户端
-    public init(apiClient: ApiClientProviding) {
-        audioStationApi = AudioStationApi(apiClient: apiClient)
+    init(apiClient: ApiClientProviding) {
+        audioStationApi = AudioStationClient(apiClient: apiClient)
     }
 
     // MARK: - Query Total Count
@@ -26,7 +26,7 @@ public final class QueryAllSongs {
     /// - Returns: 歌曲总数，失败返回 -1
     public func queryTotalSongsCount() async -> Int {
         do {
-            let songs = try await audioStationApi.song.list(limit: 1, offset: 0, additional: nil)
+            let songs = try await audioStationApi.songs.list(limit: 1, offset: 0, includeFields: nil)
             return songs.total
         } catch {
             return -1
@@ -142,13 +142,13 @@ private extension QueryAllSongs {
         Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), offset: \(offset), limit: \(batchSize)")
 
         do {
-            let result = try await audioStationApi.song.list(
+            let result = try await audioStationApi.songs.list(
                 limit: batchSize,
                 offset: offset
             )
 
-            Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), songs: \(result.data.count)")
-            return (batchIndex, true, result.data, "success")
+            Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), songs: \(result.items.count)")
+            return (batchIndex, true, result.items, "success")
         } catch {
             Logger.error("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), error: \(error)")
             return (batchIndex, false, [], error.localizedDescription)

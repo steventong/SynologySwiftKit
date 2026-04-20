@@ -7,9 +7,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         let keychain = KeyChainStorage(service: UUID().uuidString)
         let checker = CheckDeviceConnection(
             apiClient: apiClient,
-            apiInfoApi: MockApiInfoProvider(),
-            quickConnectApi: QuickConnectApi(apiClient: apiClient, pingpong: MockPingPong()),
-            audioStationApi: AudioStationApi(apiClient: apiClient),
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: MockPingPong()),
             pingpong: MockPingPong(),
             keyChainStorage: keychain
         )
@@ -38,13 +36,24 @@ final class AuthSessionRegressionTests: XCTestCase {
         }
 
         let keychain = KeyChainStorage(service: UUID().uuidString)
-        keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", isEnableHttps: true)
+        keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveSessionInfo(sid: "expired-sid", did: nil)
+
+        let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
+        let audioStationApi = AudioStationClient(apiClient: apiClient)
+        let connectionChecker = CheckDeviceConnection(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: MockPingPong(singleURLReachable: true)),
+            pingpong: MockPingPong(singleURLReachable: true),
+            keyChainStorage: keychain
+        )
 
         let login = SynologyUserLogin(
             apiInfoApi: MockApiInfoProvider(),
             apiClient: apiClient,
-            pingpong: MockPingPong(singleURLReachable: true),
+            authApi: authApi,
+            audioStationApi: audioStationApi,
+            connectionChecker: connectionChecker,
             keyChainStorage: keychain
         )
 
@@ -74,7 +83,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         let keychain = KeyChainStorage(service: UUID().uuidString)
         keychain.saveSessionInfo(sid: "sid-123", did: "did-123")
 
-        let authApi = AuthApi(apiClient: apiClient, keyChainStorage: keychain)
+        let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
         try await authApi.logout()
 
         XCTAssertNil(apiClient.session)
@@ -87,9 +96,9 @@ private struct MockApiInfoProvider: ApiInfoProviding {
         ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
     }
 
-    func checkSynologyApiInfo(cacheEnabled: Bool?, updateCache: Bool?) async throws -> Bool {
-        true
-    }
+    func refresh() async throws {}
+
+    func loadFromCacheOrRefresh() async throws {}
 }
 
 private struct MockPingPong: PingPongProviding {

@@ -11,7 +11,7 @@ public struct Genre: Decodable, Sendable {
     public var name: String
 }
 
-public struct GenreListResult: Decodable, Sendable {
+struct GenreListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let genres: [Genre]
@@ -22,4 +22,3 @@ public struct GenreListResult: Decodable, Sendable {
         case genres
     }
 }
-

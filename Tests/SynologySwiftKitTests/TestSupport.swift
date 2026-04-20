@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 @testable import SynologySwiftKit
 
-final class MockHTTPTransport: HTTPTransporting {
+final class MockHTTPTransport: HTTPClientProtocol, @unchecked Sendable {
     var handler: ((URLRequest, TimeInterval, String?) throws -> (Data, URLResponse))?
     private(set) var requests: [URLRequest] = []
 
@@ -122,7 +122,6 @@ func XCTAssertURL(_ url: URL, contains queryItems: [String: String], file: Stati
 
 struct TestApiInfoProvider: ApiInfoProviding {
     var nodes: [String: ApiInfoNode] = [:]
-    var checkResult = true
 
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
         if let node = nodes[apiName] {
@@ -131,14 +130,14 @@ struct TestApiInfoProvider: ApiInfoProviding {
         return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
     }
 
-    func checkSynologyApiInfo(cacheEnabled: Bool?, updateCache: Bool?) async throws -> Bool {
-        checkResult
-    }
+    func refresh() async throws {}
+
+    func loadFromCacheOrRefresh() async throws {}
 }
 
 struct TestPingPong: PingPongProviding {
     var results: [ConnectionType: String] = [:]
-    var firstResult: (type: ConnectionType, url: String)?
+    var firstResult: SynologyConnection?
     var singleURLReachable = false
 
     func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
@@ -146,7 +145,8 @@ struct TestPingPong: PingPongProviding {
     }
 
     func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
-        firstResult
+        guard let firstResult else { return nil }
+        return (firstResult.type, firstResult.url)
     }
 
     func pingpong(url: String) async -> Bool {

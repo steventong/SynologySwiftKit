@@ -23,7 +23,7 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - internal State
 
-    private let httpTransport: HTTPTransporting
+    private let httpTransport: HTTPClientProtocol
 
     /// 网络拦截器链
     private var interceptors: [RequestInterceptor] = []
@@ -45,7 +45,7 @@ final class ApiClient: ApiClientProviding {
     /// 初始化 API 客户端
     /// Initialize API client
     /// - Parameter httpTransport: HTTP transport adapter
-    init(httpTransport: HTTPTransporting = SwiftHttpClientTransport()) {
+    init(httpTransport: HTTPClientProtocol = SwiftHttpClientAdapter()) {
         self.httpTransport = httpTransport
     }
 

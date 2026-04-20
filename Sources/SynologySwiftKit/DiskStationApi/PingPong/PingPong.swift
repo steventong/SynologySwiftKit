@@ -9,11 +9,11 @@ import Foundation
 
 /// PingPong 服务实现
 /// PingPong service implementation
-public final class PingPong: PingPongProviding {
+final class PingPong: PingPongProviding {
     private let apiClient: ApiClientProviding
     private let timeout: TimeInterval
 
-    public init(apiClient: ApiClientProviding, timeout: TimeInterval = SynologyConfig.default.pingpongTimeout) {
+    init(apiClient: ApiClientProviding, timeout: TimeInterval = SynologyConfig.default.pingpongTimeout) {
         self.apiClient = apiClient
         self.timeout = timeout
     }

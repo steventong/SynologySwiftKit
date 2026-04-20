@@ -37,24 +37,27 @@ public final class KeyChainStorage: @unchecked Sendable {
     ///   - server: 服务器地址（QuickConnect ID 或自定义域名）/ Server address
     ///   - username: 用户名 / Username
     ///   - password: 密码 / Password
-    ///   - isEnableHttps: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
-    public func saveCredentials(server: String, username: String, password: String, isEnableHttps: Bool) {
+    ///   - usesHTTPS: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
+    public func saveCredentials(server: String, username: String, password: String, usesHTTPS: Bool) {
         let credentials: [String: String] = ["server": server,
                                              "username": username,
                                              "password": password,
-                                             "isEnableHttps": isEnableHttps ? "Y" : "N"]
+                                             "usesHTTPS": usesHTTPS ? "Y" : "N"]
 
         save(account: key_credentials, data: credentials)
     }
 
     /// 从 Keychain 读取已保存的凭据
     /// Read saved credentials from Keychain
-    /// - Returns: 凭据元组（server, username, password, isEnableHttps），如果不存在则返回 nil
-    public func getCredentials() -> (server: String, username: String, password: String, isEnableHttps: Bool)? {
+    /// - Returns: 凭据对象，如果不存在则返回 nil
+    public func getCredentials() -> SynologyCredentials? {
         if let data: [String: String] = read(account: key_credentials),
-           let server = data["server"], let username = data["username"], let password = data["password"],
-           let isEnableHttps = data["isEnableHttps"] == "Y" ? true : false {
-            return (server, username, password, isEnableHttps)
+           let server = data["server"],
+           let username = data["username"],
+           let password = data["password"]
+        {
+            let usesHTTPS = data["usesHTTPS"] == "Y" || data["isEnableHttps"] == "Y"
+            return SynologyCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
         }
 
         return nil

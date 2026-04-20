@@ -23,49 +23,20 @@ public final class SynologyClient {
     /// 全局配置
     public let config: SynologyConfig
 
-    /// API 信息管理
-    public let apiInfo: ApiInfoApi
-
     // MARK: - API Modules
 
-    /// AudioStation API
-    public let audioStation: AudioStationApi
-
-    /// FileStation API
-    public let fileStation: FileStationApi
-
-    /// 认证 API
-    public let auth: AuthApi
-
-    /// QuickConnect API
-    public let quickConnect: QuickConnectApi
-
-    /// DSM 信息 API
-    public let dsmInfo: DsmInfoApi
-
-    /// 加密 API
-    public let encryption: EncryptionApi
-
-    /// PingPong
-    public let pingpong: PingPong
-
-    // MARK: - Business Flows (Lazy initialized for performance if needed, but currently pre-warmed)
-
-    /// 用户登录流程
-    public let userLogin: SynologyUserLogin
-
-    /// 设备连接检查
-    public let checkConnection: CheckDeviceConnection
-
-    /// 查询所有歌曲
-    public let queryAllSongs: QueryAllSongs
+    public let auth: AuthClient
+    public let system: SystemClient
+    public let audioStation: AudioStationClient
+    public let files: FileStationClient
+    public let session: SessionClient
+    public let flows: FlowClient
 
     private let keyChainStorage: KeyChainStorage
-    private let keyValueStorage: KeyValueStorage
 
     /// 注册请求拦截器
     /// Register request interceptor
-    public func addInterceptor(_ interceptor: RequestInterceptor) {
+    func addInterceptor(_ interceptor: RequestInterceptor) {
         apiClient.addInterceptor(interceptor)
     }
 
@@ -76,22 +47,20 @@ public final class SynologyClient {
     ///   - config: 全局配置 (默认为 SynologyConfig.default)
     ///   - keyValueStorage: 非敏感缓存存储，默认使用 `UserDefaultsStorage`
     ///   - keyChainStorage: 敏感信息存储，默认使用 `KeyChainStorage`
-    ///   - transport: HTTP 传输实现，默认使用 `SwiftHttpClientTransport`
+    ///   - transport: HTTP 客户端实现，默认使用 `SwiftHttpClientAdapter`
     ///   - autoRegisterAuthInterceptor: 是否自动注册默认鉴权拦截器
     ///   - interceptors: 初始化时需要预注册的额外拦截器
     public convenience init(config: SynologyConfig = .default,
                             keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
                             keyChainStorage: KeyChainStorage = KeyChainStorage(),
-                            transport: HTTPTransporting = SwiftHttpClientTransport(),
-                            autoRegisterAuthInterceptor: Bool = true,
-                            interceptors: [RequestInterceptor] = []) {
+                            transport: HTTPClientProtocol = SwiftHttpClientAdapter(),
+                            autoRegisterAuthInterceptor: Bool = true) {
         self.init(
             config: config,
             keyValueStorage: keyValueStorage,
             keyChainStorage: keyChainStorage,
             apiClient: ApiClient(httpTransport: transport),
-            autoRegisterAuthInterceptor: autoRegisterAuthInterceptor,
-            interceptors: interceptors
+            autoRegisterAuthInterceptor: autoRegisterAuthInterceptor
         )
     }
 
@@ -104,45 +73,83 @@ public final class SynologyClient {
         interceptors: [RequestInterceptor] = []
     ) {
         self.config = config
-        self.keyValueStorage = keyValueStorage
         self.keyChainStorage = keyChainStorage
 
         self.apiClient = apiClient
         Logger.isEnabled = config.enableNetworkLogging
-        apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
-        pingpong = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
+        let apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
+        let ping = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
 
         // 注入 API 信息提供者
         apiClient.apiInfoProvider = apiInfo
 
         // 初始化各个 API 模块
-        audioStation = AudioStationApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
-        fileStation = FileStationApi(apiClient: apiClient)
+        let audioStationClient = AudioStationClient(apiClient: apiClient, keyValueStorage: keyValueStorage)
+        audioStation = audioStationClient
+        files = FileStationClient(apiClient: apiClient)
 
         // Inject device identity via KeychainStorage
-        auth = AuthApi(apiClient: apiClient, keyChainStorage: keyChainStorage)
+        auth = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
 
-        quickConnect = QuickConnectApi(apiClient: apiClient, pingpong: pingpong, timeout: config.quickConnectTimeout, keyValueStorage: keyValueStorage)
-        dsmInfo = DsmInfoApi(apiClient: apiClient)
-        encryption = EncryptionApi(apiClient: apiClient)
+        let quickConnect = QuickConnectClient(apiClient: apiClient, pingpong: ping, timeout: config.quickConnectTimeout, keyValueStorage: keyValueStorage)
+        let dsmInfo = DSMInfoClient(apiClient: apiClient)
+        let encryption = EncryptionClient(apiClient: apiClient)
+        system = SystemClient(
+            device: dsmInfo,
+            security: encryption,
+            network: ConnectionClient(quickConnect: quickConnect, ping: ping)
+        )
 
         // 初始化流程类
-        userLogin = SynologyUserLogin(apiInfoApi: apiInfo,
-                                      apiClient: apiClient,
-                                      pingpong: pingpong,
-                                      keyChainStorage: keyChainStorage,
-                                      keyValueStorage: keyValueStorage)
-        checkConnection = CheckDeviceConnection(apiClient: apiClient,
-                                                apiInfoApi: apiInfo,
-                                                quickConnectApi: quickConnect,
-                                                audioStationApi: audioStation,
-                                                pingpong: pingpong,
-                                                keyChainStorage: keyChainStorage)
-        queryAllSongs = QueryAllSongs(apiClient: apiClient)
+        let checkConnection = CheckDeviceConnection(
+            apiClient: apiClient,
+            quickConnectApi: quickConnect,
+            pingpong: ping,
+            keyChainStorage: keyChainStorage
+        )
+        let userLogin = SynologyUserLogin(
+            apiInfoApi: apiInfo,
+            apiClient: apiClient,
+            authApi: auth,
+            audioStationApi: audioStationClient,
+            connectionChecker: checkConnection,
+            keyChainStorage: keyChainStorage
+        )
+        let queryAllSongs = QueryAllSongs(apiClient: apiClient)
+        flows = FlowClient(
+            auth: AuthFlowClient(loginFlow: userLogin),
+            connection: ConnectionFlowClient(connectionFlow: checkConnection),
+            library: LibraryFlowClient(queryFlow: queryAllSongs)
+        )
+        session = SessionClient(
+            connectionProvider: { [weak apiClient] in
+                guard let connection = apiClient?.connection else { return nil }
+                return SynologyConnection(type: connection.type, url: connection.url)
+            },
+            sessionProvider: { [weak apiClient, weak keyChainStorage] in
+                if let current = apiClient?.session, !current.sid.isEmpty {
+                    return SynologySession(sid: current.sid, did: current.did)
+                }
+
+                if let persisted = keyChainStorage?.getSessionInfo(), !persisted.sid.isEmpty {
+                    apiClient?.updateSession(sid: persisted.sid, did: persisted.did)
+                    return SynologySession(sid: persisted.sid, did: persisted.did)
+                }
+
+                return nil
+            },
+            sessionUpdater: { [weak apiClient] sid, did in
+                apiClient?.updateSession(sid: sid, did: did)
+            },
+            sessionClearer: { [weak apiClient, weak keyChainStorage] in
+                apiClient?.clearSession()
+                keyChainStorage?.removeSessionInfo()
+            }
+        )
 
         // 恢复上次会话
         // Restore previous session
-        _ = getSession()
+        _ = session.current
 
         if autoRegisterAuthInterceptor {
             // 默认注册鉴权拦截器（按需补充 sid/cookie，并在会话失效时清理持久化会话）
@@ -160,47 +167,5 @@ public final class SynologyClient {
         for interceptor in interceptors {
             apiClient.addInterceptor(interceptor)
         }
-    }
-}
-
-extension SynologyClient {
-    /// 当前连接信息（如果已建立连接）
-    /// Current connection info if available
-    public func getConnection() -> (type: ConnectionType, url: String)? {
-        return apiClient.connection
-    }
-
-    /// 更新 Session（内存 + 本地持久化）
-    /// Update session (memory + local persistence)
-    public func updateSession(sid: String, did: String?) {
-        apiClient.updateSession(sid: sid, did: did)
-    }
-
-    /// 获取 Session（优先内存，其次本地持久化）
-    /// Get session (memory first, then local persistence)
-    public func getSession() -> (sid: String, did: String?)? {
-        if let current = apiClient.session, !current.sid.isEmpty {
-            return current
-        }
-
-        if let session = keyChainStorage.getSessionInfo(), !session.sid.isEmpty {
-            updateSession(sid: session.sid, did: session.did)
-            return (session.sid, session.did)
-        }
-
-        return nil
-    }
-
-    /// 检查是否存在有效 Session（不暴露 sid/did）
-    /// Check whether a valid session exists (without exposing sid/did)
-    public func hasValidSession() -> Bool {
-        getSession() != nil
-    }
-
-    /// 移除当前 Session（内存 + 本地持久化）
-    /// Remove current session (memory + local persistence)
-    public func clearSession() {
-        apiClient.clearSession()
-        keyChainStorage.removeSessionInfo()
     }
 }
