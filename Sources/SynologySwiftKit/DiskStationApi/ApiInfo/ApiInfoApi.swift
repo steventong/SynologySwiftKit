@@ -9,9 +9,9 @@ import Foundation
 
 // MARK: - ApiInfoApi
 
-/// API 信息管理类 (Actor 保证并发安全)
-/// API information manager (Actor ensures concurrency safety)
-actor ApiInfoApi: ApiInfoProviding {
+/// API 信息管理类
+/// API information manager
+final class ApiInfoApi: ApiInfoProviding {
     // MARK: - Dependencies & State
 
     /// API 客户端
@@ -20,8 +20,7 @@ actor ApiInfoApi: ApiInfoProviding {
     /// 键值存储 (用于持久化缓存)
     private let keyValueStorage: KeyValueStorage
 
-    /// 缓存的 API 信息
-    private var cachedApiInfo: [String: ApiInfoNode] = [:]
+    private let cache = ApiInfoCache()
 
     /// API 缓存有效期 (秒)
     private let cacheValidity: Int32
@@ -43,12 +42,12 @@ actor ApiInfoApi: ApiInfoProviding {
             return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
         }
 
-        if cachedApiInfo.isEmpty, let cached = getApiInfoFromStorage() {
-            cachedApiInfo = cached
+        if cache.isEmpty, let cached = getApiInfoFromStorage() {
+            cache.replace(with: cached)
             Logger.debug("ApiInfoApi#getApiInfoByApiName load from cache: \(cached.count)")
         }
 
-        guard let apiInfo = cachedApiInfo[apiName] else {
+        guard let apiInfo = cache.node(for: apiName) else {
             Logger.info("ApiInfoApi#getApiInfoByApiName (\(apiName)) not exist")
             throw SynologyError.api(code: 102, message: "API not found: \(apiName)")
         }
@@ -60,7 +59,7 @@ actor ApiInfoApi: ApiInfoProviding {
     func loadFromCacheOrRefresh() async throws {
         if isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
             Logger.debug("ApiInfoApi#loadFromCacheOrRefresh from cache: \(cached.count)")
-            cachedApiInfo = cached
+            cache.replace(with: cached)
             return
         }
 
@@ -68,11 +67,12 @@ actor ApiInfoApi: ApiInfoProviding {
     }
 
     func refresh() async throws {
-        cachedApiInfo = try await queryApiInfoFromDsm()
-        Logger.debug("ApiInfoApi#refresh from api: \(cachedApiInfo.count)")
+        let apiInfo = try await queryApiInfoFromDsm()
+        cache.replace(with: apiInfo)
+        Logger.debug("ApiInfoApi#refresh from api: \(apiInfo.count)")
 
-        if cachedApiInfo.isEmpty == false {
-            keyValueStorage.setCodable(cachedApiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
+        if apiInfo.isEmpty == false {
+            keyValueStorage.setCodable(apiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
             keyValueStorage.setDate(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
         }
     }
@@ -100,5 +100,32 @@ extension ApiInfoApi {
             return Int32(Date().timeIntervalSince(lastUpdateTime)) < (validTime ?? 24 * 60 * 60)
         }
         return false
+    }
+}
+
+private final class ApiInfoCache {
+    private let lock = NSLock()
+    private var nodes: [String: ApiInfoNode] = [:]
+
+    var isEmpty: Bool {
+        lock.withLock { nodes.isEmpty }
+    }
+
+    func node(for apiName: String) -> ApiInfoNode? {
+        lock.withLock { nodes[apiName] }
+    }
+
+    func replace(with nodes: [String: ApiInfoNode]) {
+        lock.withLock {
+            self.nodes = nodes
+        }
+    }
+}
+
+private extension NSLock {
+    func withLock<Value>(_ body: () throws -> Value) rethrows -> Value {
+        lock()
+        defer { unlock() }
+        return try body()
     }
 }

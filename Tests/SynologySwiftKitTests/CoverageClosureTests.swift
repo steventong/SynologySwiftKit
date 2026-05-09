@@ -319,7 +319,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var removeEvents: [SynologyUserLoginProgress] = []
-        for await progress in await removeLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret", shouldSavePassword: false) {
+        for await progress in removeLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret", shouldSavePassword: false) {
             removeEvents.append(progress)
         }
         guard case .completed = removeEvents.last else {
@@ -354,7 +354,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var otpEvents: [SynologyUserLoginProgress] = []
-        for await progress in await otpLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
+        for await progress in otpLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
             otpEvents.append(progress)
         }
         guard case .otpRequired? = otpEvents.last else {
@@ -381,7 +381,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var missingEvents: [SynologyUserLoginProgress] = []
-        for await progress in await missingLogin.login() {
+        for await progress in missingLogin.login() {
             missingEvents.append(progress)
         }
         guard case let .invalidSession(message)? = missingEvents.last else {
@@ -423,7 +423,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var failureEvents: [SynologyUserLoginProgress] = []
-        for await progress in await failureLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
+        for await progress in failureLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
             failureEvents.append(progress)
         }
         guard case let .failed(message)? = failureEvents.last else {

@@ -56,8 +56,11 @@ public final class SynologyUserLogin {
     /// - Returns: AsyncStream 返回登录进度
     public func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 await self.performPasswordLogin(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
@@ -65,7 +68,7 @@ public final class SynologyUserLogin {
     /// 刷新登录信息，静默登录
     public func login() -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 guard let credentials = keyChainStorage.getCredentials() else {
                     Logger.warn("SynologyUserLogin#login(auto-full), no saved credentials found")
                     continuation.yield(.invalidSession(message: "No saved credentials found"))
@@ -81,6 +84,9 @@ public final class SynologyUserLogin {
                 // set sliceLogin: true
                 await self.performPasswordLogin(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: nil, shouldSavePassword: true, fetchApiList: true, sliceLogin: true, continuation: continuation)
             }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
         }
     }
 }
@@ -91,6 +97,11 @@ private extension SynologyUserLogin {
     /// 执行密码登录
     /// Perform password login
     func performPasswordLogin(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, sliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
+
         // 连接检查
         continuation.yield(.connecting)
 
@@ -115,6 +126,11 @@ private extension SynologyUserLogin {
             var resolvedConnection: SynologyConnection?
             var resolvedFromCache = false
             for await progress in connectionChecker.checkConnectionStatus(server: server, usesHTTPS: usesHTTPS) {
+                guard !Task.isCancelled else {
+                    continuation.finish()
+                    return
+                }
+
                 switch progress {
                 case .checking:
                     break
@@ -139,6 +155,11 @@ private extension SynologyUserLogin {
             return
         }
 
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
+
         // 更新 ApiClient 连接状态 (Update ApiClient connection status)
         apiClient.updateConnection(type: connection.type, url: connection.url)
         // 保存可用地址 (Save available address to Keychain)
@@ -153,6 +174,10 @@ private extension SynologyUserLogin {
             if fetchApiList {
                 try await apiInfoApi.refresh()
             }
+            try Task.checkCancellation()
+        } catch is CancellationError {
+            continuation.finish()
+            return
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
@@ -161,11 +186,14 @@ private extension SynologyUserLogin {
         }
 
         do {
+            try Task.checkCancellation()
+
             if sliceLogin && usedCachedConnection,
                let sessionInfo = keyChainStorage.getSessionInfo()
             {
                 // 静默登录且没有更换连接地址时，必须验证缓存 SID 仍然可用。
                 _ = try await audioStationApi.info.query()
+                try Task.checkCancellation()
 
                 let loginResult = SynologyUserLoginResult(
                     session: SynologySession(sid: sessionInfo.sid, did: sessionInfo.did),
@@ -178,6 +206,7 @@ private extension SynologyUserLogin {
             }
 
             let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
+            try Task.checkCancellation()
 
             // 登录成功，保存会话
             // Login succeeded, save session
@@ -202,6 +231,8 @@ private extension SynologyUserLogin {
         } catch let SynologyError.sessionExpired(code, msg) {
             Logger.info("SynologyUserLogin#performPasswordLogin, invalidSession: \(code), \(msg)")
             continuation.yield(.invalidSession(message: "session expired"))
+            continuation.finish()
+        } catch is CancellationError {
             continuation.finish()
         } catch {
             Logger.error("SynologyUserLogin#performPasswordLogin, auth failed: \(error)")

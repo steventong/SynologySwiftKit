@@ -31,7 +31,7 @@ public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
     /// - Returns: AsyncStream 返回连接检查进度
     public func checkConnectionStatus() -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     guard let credentials = keyChainStorage.getCredentials() else {
                         throw SynologyError.network(message: "Connection unreachable and no saved credentials")
@@ -46,6 +46,9 @@ public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
                     continuation.finish()
                 }
             }
+            continuation.onTermination = { _ in
+                task.cancel()
+            }
         }
     }
 
@@ -54,8 +57,11 @@ public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
     /// - Returns: AsyncStream 返回连接检查进度
     public func checkConnectionStatus(server: String, usesHTTPS: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 await self.performConnectionCheck(server: server, usesHTTPS: usesHTTPS, continuation: continuation)
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
@@ -67,11 +73,20 @@ private extension CheckDeviceConnection {
     /// 执行连接检查的内部方法
     /// Internal method to perform connection check
     private func performConnectionCheck(server: String, usesHTTPS: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
+
         continuation.yield(.checking)
 
         do {
+            try Task.checkCancellation()
+
             // 如果连接信息存在，测试简单 Ping 检查
             if let currentConn = apiClient.connection, await pingpong.pingpong(url: currentConn.url) {
+                try Task.checkCancellation()
+
                 // Success
                 Logger.info("CheckDeviceConnection#checkConnectionStatus, checking current url: \(currentConn.url)")
                 let cachedConnection = SynologyConnection(type: currentConn.type, url: currentConn.url)
@@ -82,11 +97,13 @@ private extension CheckDeviceConnection {
 
             // 获取新的地址 - quickconnectid
             let newConn = try await resolveAvailableConnection(server: server, usesHTTPS: usesHTTPS)
+            try Task.checkCancellation()
 
             // 新地址 pingpong 检查
             guard await pingpong.pingpong(url: newConn.url) else {
                 throw SynologyError.network(message: "Refreshed connection unreachable")
             }
+            try Task.checkCancellation()
 
             // 更新 ApiClient 连接状态 (Update ApiClient connection status)
             // 保存可用地址 (Save available address to Keychain)
@@ -96,6 +113,8 @@ private extension CheckDeviceConnection {
             continuation.yield(.success(connection: newConn, usedCachedConnection: false))
             continuation.finish()
             return
+        } catch is CancellationError {
+            continuation.finish()
         } catch {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, connection check failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))

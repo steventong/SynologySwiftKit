@@ -58,7 +58,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         )
 
         var events: [SynologyUserLoginProgress] = []
-        for await progress in await login.login() {
+        for await progress in login.login() {
             events.append(progress)
         }
 

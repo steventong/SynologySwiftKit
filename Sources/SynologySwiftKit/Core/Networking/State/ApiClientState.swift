@@ -1,7 +1,7 @@
 import Foundation
 
 final class ApiClientState {
-    private let lock = NSRecursiveLock()
+    private let lock = NSLock()
     private var storedConnection: (type: ConnectionType, url: String)?
     private var storedSession: (sid: String, did: String?)?
     private var storedInterceptors: [RequestInterceptor] = []
@@ -49,7 +49,7 @@ final class ApiClientState {
     }
 }
 
-private extension NSRecursiveLock {
+private extension NSLock {
     func withLock<Value>(_ body: () throws -> Value) rethrows -> Value {
         lock()
         defer { unlock() }

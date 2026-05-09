@@ -43,12 +43,15 @@ public final class QueryAllSongs {
     /// - Returns: AsyncStream 返回查询进度
     public func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 await self.performQueryAllSongs(
                     batchSize: batchSize,
                     concurrency: concurrency,
                     continuation: continuation
                 )
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
@@ -60,8 +63,18 @@ private extension QueryAllSongs {
     /// 执行查询所有歌曲
     /// Perform query all songs
     func performQueryAllSongs(batchSize: Int, concurrency: Int, continuation: AsyncStream<QueryAllSongsProgress>.Continuation) async {
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
+
         // 获取总数
         let total = await queryTotalSongsCount()
+
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
 
         if total == -1 {
             continuation.yield(.failed(error: .fetchTotalFailed))
@@ -99,6 +112,12 @@ private extension QueryAllSongs {
             var nextTaskIndex = concurrency
 
             for await result in taskGroup {
+                guard !Task.isCancelled else {
+                    taskGroup.cancelAll()
+                    continuation.finish()
+                    return
+                }
+
                 let (batchIndex, success, songs, errorMsg) = result
                 completedBatches += 1
 
@@ -137,6 +156,10 @@ private extension QueryAllSongs {
     /// 查询单批次歌曲
     /// Query single batch of songs
     func querySongBatch(batchIndex: Int, batchSize: Int, total: Int) async -> (Int, Bool, [Song], String) {
+        if Task.isCancelled {
+            return (batchIndex, false, [], CancellationError().localizedDescription)
+        }
+
         let offset = batchSize * batchIndex
 
         Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), offset: \(offset), limit: \(batchSize)")
