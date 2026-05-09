@@ -30,21 +30,29 @@ enum ApiParameterValue: Sendable {
         }
     }
 
-    static func from(_ value: Any) -> ApiParameterValue {
-        switch value {
-        case let v as String:
-            return .string(v)
-        case let v as Int:
-            return .int(v)
-        case let v as Bool:
-            return .bool(v)
-        case let v as Double:
-            return .double(v)
-        case let v as Float:
-            return .double(Double(v))
-        default:
-            return .string(String(describing: value))
-        }
+}
+
+extension ApiParameterValue: ExpressibleByStringLiteral {
+    init(stringLiteral value: String) {
+        self = .string(value)
+    }
+}
+
+extension ApiParameterValue: ExpressibleByIntegerLiteral {
+    init(integerLiteral value: Int) {
+        self = .int(value)
+    }
+}
+
+extension ApiParameterValue: ExpressibleByBooleanLiteral {
+    init(booleanLiteral value: Bool) {
+        self = .bool(value)
+    }
+}
+
+extension ApiParameterValue: ExpressibleByFloatLiteral {
+    init(floatLiteral value: Double) {
+        self = .double(value)
     }
 }
 
@@ -133,15 +141,6 @@ struct ApiEndpoint {
         self.sidOnCookie = sidOnCookie
     }
 
-    /// 标准初始化（兼容 Any 参数）
-    /// Standard initialization (compatible with Any parameters)
-    init(api: ApiDefinition, method: String, version: Int = 1, httpMethod: HTTPMethod = .get, parameters: [String: Any],
-                timeout: TimeInterval = 10, pathSuffix: String? = nil, sidOnQuery: Bool? = nil, sidOnCookie: Bool? = nil) {
-        let converted = parameters.mapValues { ApiParameterValue.from($0) }
-        self.init(api: api, method: method, version: version, httpMethod: httpMethod, parameters: converted,
-                  timeout: timeout, pathSuffix: pathSuffix, sidOnQuery: sidOnQuery, sidOnCookie: sidOnCookie)
-    }
-
     /// 自定义路径初始化
     /// Custom path initialization
     init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, parameters: ApiParameters = [:],
@@ -158,13 +157,6 @@ struct ApiEndpoint {
         sidOnCookie = nil
     }
 
-    /// 自定义路径初始化（兼容 Any 参数）
-    /// Custom path initialization (compatible with Any parameters)
-    init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, parameters: [String: Any],
-                timeout: TimeInterval = 10) {
-        let converted = parameters.mapValues { ApiParameterValue.from($0) }
-        self.init(api: api, fullPath: fullPath, httpMethod: httpMethod, parameters: converted, timeout: timeout)
-    }
 }
 
 // MARK: - Convenience Factory Methods

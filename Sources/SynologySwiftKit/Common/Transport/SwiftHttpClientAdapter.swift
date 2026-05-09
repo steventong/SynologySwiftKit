@@ -1,7 +1,7 @@
 import Foundation
 import SwiftHttpClient
 
-/// Transport adapter that keeps SwiftHttpClient dependency at transport layer only.
+/// HTTP client adapter that keeps SwiftHttpClient behind the SDK protocol.
 public struct SwiftHttpClientAdapter: HTTPClientProtocol {
     typealias ClientFactory = @Sendable (TimeInterval, String?) -> any SwiftHTTPClientSending
 

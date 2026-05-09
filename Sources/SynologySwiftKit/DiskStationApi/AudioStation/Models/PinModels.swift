@@ -71,17 +71,6 @@ public struct PinCriteria: Codable, Sendable {
 
     // MARK: Internal
 
-    /// 转换为字典（用于 API 请求）
-    func toDictionary() -> [String: String] {
-        var result: [String: String] = [:]
-        if let folder = folder { result["folder"] = folder }
-        if let album = album { result["album"] = album }
-        if let albumArtist = albumArtist { result["album_artist"] = albumArtist }
-        if let artist = artist { result["artist"] = artist }
-        if let composer = composer { result["composer"] = composer }
-        if let genre = genre { result["genre"] = genre }
-        return result
-    }
 }
 
 // MARK: - Pin Item
@@ -128,6 +117,12 @@ struct PinListResult: Decodable, Sendable {
 struct PinOperationResult: Codable, Sendable {
     let errors: [Int]
     let items: [PinItem]
+}
+
+struct PinRequestItem: Encodable, Sendable {
+    let type: PinType
+    let criteria: PinCriteria
+    let name: String
 }
 
 /// Unpin 操作结果

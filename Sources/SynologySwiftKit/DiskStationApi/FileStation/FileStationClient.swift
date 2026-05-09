@@ -27,11 +27,11 @@ public final class FileStationClient {
     /// - Returns: 删除任务信息
     public func delete(path: String) async throws -> FileDeletionTask {
         let delete: DeleteTask = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.FileStation.DELETE, method: "start", version: 2, httpMethod: .post,
-                        parameters: [
-                            "accurate_progress": true,
-                            "path": "[\"\(path)\"]",
-                        ]))
+            ApiEndpoint(api: SynologyApi.FileStation.DELETE, method: "start", version: 2, httpMethod: .post) {
+                ("accurate_progress", true)
+                ("path", "[\"\(path)\"]")
+            }
+        )
         Logger.info("delete: \(path), result = \(delete)")
         guard let taskID = delete.taskid, !taskID.isEmpty else {
             throw SynologyError.api(code: -1, message: "delete task not started")

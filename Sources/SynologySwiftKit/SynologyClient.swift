@@ -47,19 +47,19 @@ public final class SynologyClient {
     ///   - config: 全局配置 (默认为 SynologyConfig.default)
     ///   - keyValueStorage: 非敏感缓存存储，默认使用 `UserDefaultsStorage`
     ///   - keyChainStorage: 敏感信息存储，默认使用 `KeyChainStorage`
-    ///   - transport: HTTP 客户端实现，默认使用 `SwiftHttpClientAdapter`
+    ///   - httpClient: HTTP 客户端实现，默认使用 `SwiftHttpClientAdapter`
     ///   - autoRegisterAuthInterceptor: 是否自动注册默认鉴权拦截器
     ///   - interceptors: 初始化时需要预注册的额外拦截器
     public convenience init(config: SynologyConfig = .default,
                             keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
                             keyChainStorage: KeyChainStorage = KeyChainStorage(),
-                            transport: HTTPClientProtocol = SwiftHttpClientAdapter(),
+                            httpClient: HTTPClientProtocol = SwiftHttpClientAdapter(),
                             autoRegisterAuthInterceptor: Bool = true) {
         self.init(
             config: config,
             keyValueStorage: keyValueStorage,
             keyChainStorage: keyChainStorage,
-            apiClient: ApiClient(httpTransport: transport),
+            apiClient: ApiClient(httpClient: httpClient),
             autoRegisterAuthInterceptor: autoRegisterAuthInterceptor
         )
     }

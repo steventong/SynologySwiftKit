@@ -4,7 +4,7 @@ import XCTest
 final class ApiClientHappyPathTests: XCTestCase {
     func testRequestBuildsAuthenticatedPostAndDecodesEnvelope() async throws {
         let transport = MockHTTPTransport()
-        let client = ApiClient(httpTransport: transport)
+        let client = ApiClient(httpClient: transport)
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.SONG.name: ApiInfoNode(path: "AudioStation/song.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )
@@ -52,7 +52,7 @@ final class ApiClientHappyPathTests: XCTestCase {
 
     func testBuildUrlAddsSidForQueryAuthenticatedApi() async throws {
         let transport = MockHTTPTransport()
-        let client = ApiClient(httpTransport: transport)
+        let client = ApiClient(httpClient: transport)
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.COVER.name: ApiInfoNode(path: "AudioStation/cover.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )

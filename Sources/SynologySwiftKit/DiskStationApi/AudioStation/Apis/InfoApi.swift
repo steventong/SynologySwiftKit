@@ -61,12 +61,12 @@ public final class InfoApi {
     }
 
     private func saveAudioStationInfoCache(info: AudioStationInfo) {
-        keyValueStorage.set(info, forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
-        keyValueStorage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
+        keyValueStorage.setCodable(info, forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
+        keyValueStorage.setDate(Date(), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
     }
 
     private func isAudioStationInfoCacheValid() -> Bool {
-        if let updateTime = keyValueStorage.object(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date {
+        if let updateTime = keyValueStorage.date(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) {
             return Date().timeIntervalSince(updateTime) < 24 * 60 * 60
         }
         return false

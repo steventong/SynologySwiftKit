@@ -228,7 +228,7 @@ final class CoverageClosureTests: XCTestCase {
         let service = UUID().uuidString
         let keychain = KeyChainStorage(service: service)
         let transport = MockHTTPTransport()
-        let apiClient = ApiClient(httpTransport: transport)
+        let apiClient = ApiClient(httpClient: transport)
         let client = SynologyClient(
             config: .default,
             keyValueStorage: MockKeyValueStorage(),

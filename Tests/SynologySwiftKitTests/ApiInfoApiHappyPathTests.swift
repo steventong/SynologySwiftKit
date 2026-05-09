@@ -18,7 +18,7 @@ final class ApiInfoApiHappyPathTests: XCTestCase {
 
         let cached: [String: ApiInfoNode]? = storage.codable(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
         XCTAssertEqual(cached?[SynologyApi.AudioStation.SONG.name]?.maxVersion, 3)
-        XCTAssertNotNil(storage.object(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) as? Date)
+        XCTAssertNotNil(storage.date(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName))
     }
 
     func testLoadFromCacheOrRefreshUsesValidStoredCacheWithoutNetworkRequest() async throws {
@@ -29,8 +29,8 @@ final class ApiInfoApiHappyPathTests: XCTestCase {
         let cachedNodes = [
             SynologyApi.AudioStation.PLAYLIST.name: ApiInfoNode(path: "AudioStation/playlist.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil),
         ]
-        storage.set(cachedNodes, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
-        storage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
+        storage.setCodable(cachedNodes, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
+        storage.setDate(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
 
         try await apiInfoApi.loadFromCacheOrRefresh()
         let node = try await apiInfoApi.getApiInfoByApiName(apiName: SynologyApi.AudioStation.PLAYLIST.name)

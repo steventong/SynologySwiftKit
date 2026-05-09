@@ -190,7 +190,7 @@ private extension QuickConnectClient {
     /// Save synology server URL to cache
     private func saveSynologyServerToCache(quickConnectId: String, synologyServer: String) {
         let key = KeyValueStorageKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
-        keyValueStorage.set(synologyServer, forKey: key)
+        keyValueStorage.setString(synologyServer, forKey: key)
         Logger.debug("persist user-defaults: \(key)=\(synologyServer)")
     }
 }

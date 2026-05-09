@@ -139,7 +139,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
             keyChainStorage: keychain,
-            apiClient: ApiClient(httpTransport: MockHTTPTransport())
+            apiClient: ApiClient(httpClient: MockHTTPTransport())
         )
 
         XCTAssertTrue(client.session.hasValidSession)

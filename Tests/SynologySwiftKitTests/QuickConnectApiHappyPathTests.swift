@@ -4,7 +4,7 @@ import XCTest
 final class QuickConnectClientHappyPathTests: XCTestCase {
     func testGetDeviceConnectionFollowsRedirectAndReturnsBestReachableURL() async throws {
         let transport = MockHTTPTransport()
-        let apiClient = ApiClient(httpTransport: transport)
+        let apiClient = ApiClient(httpClient: transport)
         let storage = MockKeyValueStorage()
         let pingpong = TestPingPong(firstResult: SynologyConnection(type: .lan, url: "https://192.168.1.2:5001"))
         let quickConnectApi = QuickConnectClient(

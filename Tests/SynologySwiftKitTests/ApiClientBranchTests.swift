@@ -4,7 +4,7 @@ import XCTest
 final class ApiClientBranchTests: XCTestCase {
     func testRawRequestRejectsNon200Responses() async {
         let transport = MockHTTPTransport()
-        let client = ApiClient(httpTransport: transport)
+        let client = ApiClient(httpClient: transport)
         transport.handler = { request, _, _ in
             (
                 Data("{}".utf8),
@@ -27,7 +27,7 @@ final class ApiClientBranchTests: XCTestCase {
 
         for code in cases {
             let transport = MockHTTPTransport()
-            let client = ApiClient(httpTransport: transport)
+            let client = ApiClient(httpClient: transport)
             transport.handler = { _, _, _ in
                 throw URLError(code)
             }
@@ -45,7 +45,7 @@ final class ApiClientBranchTests: XCTestCase {
 
     func testRequestHandlesSessionAndApiErrors() async {
         let transport = MockHTTPTransport()
-        let client = ApiClient(httpTransport: transport)
+        let client = ApiClient(httpClient: transport)
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.INFO.name: ApiInfoNode(path: "AudioStation/info.cgi", minVersion: 1, maxVersion: 6, requestFormat: nil)]
         )
@@ -68,7 +68,7 @@ final class ApiClientBranchTests: XCTestCase {
     }
 
     func testBuildUrlSupportsCustomPathEndpoints() async throws {
-        let client = ApiClient(httpTransport: MockHTTPTransport())
+        let client = ApiClient(httpClient: MockHTTPTransport())
         client.updateConnection(type: .custom_domain, url: "https://nas.local")
         let url = try await client.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: "/custom/path", parameters: ["action": "load"]))
         XCTAssertEqual(url.absoluteString, "https://nas.local/custom/path?action=load&api=tagEditorUI")
@@ -76,7 +76,7 @@ final class ApiClientBranchTests: XCTestCase {
 
     func testRequestDecodingFailureBecomesNetworkError() async {
         let transport = MockHTTPTransport()
-        let client = ApiClient(httpTransport: transport)
+        let client = ApiClient(httpClient: transport)
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.SONG.name: ApiInfoNode(path: "AudioStation/song.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )

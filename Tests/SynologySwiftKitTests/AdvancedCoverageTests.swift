@@ -4,9 +4,9 @@ import XCTest
 final class AdvancedCoverageTests: XCTestCase {
     func testQuickConnectUsesCachedServerAndFallsBackToRelayTunnel() async throws {
         let transport = MockHTTPTransport()
-        let apiClient = ApiClient(httpTransport: transport)
+        let apiClient = ApiClient(httpClient: transport)
         let storage = MockKeyValueStorage()
-        storage.set("cached.quickconnect.to", forKey: KeyValueStorageKeys.SYNOLOGY_SERVER_URL("demoqc").keyName)
+        storage.setString("cached.quickconnect.to", forKey: KeyValueStorageKeys.SYNOLOGY_SERVER_URL("demoqc").keyName)
 
         let quickConnectApi = QuickConnectClient(
             apiClient: apiClient,
@@ -62,7 +62,7 @@ final class AdvancedCoverageTests: XCTestCase {
 
     func testQuickConnectThrowsWhenServerInfoCannotBeResolved() async {
         let transport = MockHTTPTransport()
-        let apiClient = ApiClient(httpTransport: transport)
+        let apiClient = ApiClient(httpClient: transport)
         let quickConnectApi = QuickConnectClient(
             apiClient: apiClient,
             pingpong: TestPingPong(firstResult: nil),
@@ -94,7 +94,7 @@ final class AdvancedCoverageTests: XCTestCase {
 
     func testApiClientCoversMissingStateGetRequestsAndBusinessErrors() async throws {
         let transport = MockHTTPTransport()
-        let client = ApiClient(httpTransport: transport)
+        let client = ApiClient(httpClient: transport)
 
         do {
             _ = try await client.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.INFO, method: "getinfo"))
@@ -145,7 +145,7 @@ final class AdvancedCoverageTests: XCTestCase {
 
     func testApiClientCoversExplicitCookieAndInterceptorFailure() async {
         let transport = MockHTTPTransport()
-        let client = ApiClient(httpTransport: transport)
+        let client = ApiClient(httpClient: transport)
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.INFO.name: ApiInfoNode(path: "AudioStation/info.cgi", minVersion: 1, maxVersion: 6, requestFormat: nil)]
         )

@@ -6,10 +6,6 @@ final class FoundationAndUtilityTests: XCTestCase {
         let encoded = UrlUtils.urlEncode("a b&c")
         XCTAssertTrue(encoded.contains("a"))
 
-        let anyDict: [String: Any] = ["title": "Hello World", "count": 2]
-        XCTAssertTrue(anyDict.urlEncodedString.contains("title="))
-        XCTAssertNotNil(anyDict.urlEncodedData)
-
         let apiDict: [String: ApiParameterValue] = ["title": .string("Hello World"), "count": .int(2)]
         XCTAssertTrue(apiDict.urlEncodedString.contains("count=2"))
         XCTAssertNotNil(apiDict.urlEncodedData)
@@ -52,16 +48,16 @@ final class FoundationAndUtilityTests: XCTestCase {
 
     func testKeyValueStorageSupportsPrimitiveAndCodableValues() {
         let storage = MockKeyValueStorage()
-        storage.set("value", forKey: "string")
-        storage.set(3, forKey: "int")
-        storage.set(true, forKey: "bool")
-        storage.set(Date(timeIntervalSince1970: 10), forKey: "date")
-        storage.set(makeAudioStationInfo(), forKey: "info")
+        storage.setString("value", forKey: "string")
+        storage.setInteger(3, forKey: "int")
+        storage.setBool(true, forKey: "bool")
+        storage.setDate(Date(timeIntervalSince1970: 10), forKey: "date")
+        storage.setCodable(makeAudioStationInfo(), forKey: "info")
 
         XCTAssertEqual(storage.string(forKey: "string"), "value")
         XCTAssertEqual(storage.integer(forKey: "int"), 3)
         XCTAssertEqual(storage.bool(forKey: "bool"), true)
-        XCTAssertNotNil(storage.object(forKey: "date") as? Date)
+        XCTAssertNotNil(storage.date(forKey: "date"))
         let storedInfo: AudioStationInfo? = storage.codable(forKey: "info")
         XCTAssertEqual(storedInfo?.version, makeAudioStationInfo().version)
     }
@@ -109,7 +105,8 @@ final class FoundationAndUtilityTests: XCTestCase {
         XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "shared")
         XCTAssertEqual(ApiEndpoint.post(api: SynologyApi.AudioStation.SEARCH, method: "list").httpMethod, .post)
         XCTAssertTrue(ApiEndpoint.custom(api: SynologyApi.AudioStation.TAG_EDITOR_UI, path: "/tag").isCustomPath)
-        XCTAssertEqual(ApiParameterValue.from(Float(1.5)).stringValue, "1.5")
+        let floatLiteralValue: ApiParameterValue = 1.5
+        XCTAssertEqual(floatLiteralValue.stringValue, "1.5")
     }
 
     func testAuthInterceptorInjectsSidAndCookieAndClearsExpiredSession() async throws {

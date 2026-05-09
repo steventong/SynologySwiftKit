@@ -6,8 +6,8 @@ final class FeatureApiHappyPathTests: XCTestCase {
         let apiClient = MockApiClient()
         let storage = MockKeyValueStorage()
         let cachedInfo = makeAudioStationInfo(version: 4000)
-        storage.set(cachedInfo, forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
-        storage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
+        storage.setCodable(cachedInfo, forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
+        storage.setDate(Date(), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
 
         let infoApi = InfoApi(apiClient: apiClient, keyValueStorage: storage)
         let result = try await infoApi.query(usesCache: true)
@@ -31,14 +31,14 @@ final class FeatureApiHappyPathTests: XCTestCase {
 
         XCTAssertEqual(result.version, 5000)
         XCTAssertEqual(infoApi.cachedInfo()?.version, 5000)
-        XCTAssertNotNil(storage.object(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName) as? Date)
+        XCTAssertNotNil(storage.date(forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName))
     }
 
     func testInfoApiIgnoresExpiredCacheAndRefetches() async throws {
         let apiClient = MockApiClient()
         let storage = MockKeyValueStorage()
-        storage.set(makeAudioStationInfo(version: 3000), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
-        storage.set(Date(timeIntervalSinceNow: -(25 * 60 * 60)), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
+        storage.setCodable(makeAudioStationInfo(version: 3000), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO.keyName)
+        storage.setDate(Date(timeIntervalSinceNow: -(25 * 60 * 60)), forKey: KeyValueStorageKeys.DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME.keyName)
         apiClient.mockResponse = makeAudioStationInfo(version: 6000)
 
         let infoApi = InfoApi(apiClient: apiClient, keyValueStorage: storage)

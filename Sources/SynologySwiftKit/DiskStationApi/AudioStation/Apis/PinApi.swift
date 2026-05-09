@@ -22,7 +22,10 @@ public final class PinApi {
     /// Get pinned items list
     public func list(limit: Int = -1, offset: Int = 0) async throws -> SynologyPage<PinItem> {
         let result: PinListResult = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "list", parameters: ["offset": offset, "limit": limit])
+            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "list") {
+                ("offset", offset)
+                ("limit", limit)
+            }
         )
         return SynologyPage(total: result.total, items: result.items)
     }
@@ -31,18 +34,11 @@ public final class PinApi {
     /// Pin an item
     /// - Throws: SynologyError.api(.idempotentSuccess) when item already pinned
     public func pin(type: PinType, name: String, criteria: PinCriteria) async throws -> PinItem {
-        let item: [[String: Any]] = [
-            [
-                "type": type.rawValue,
-                "criteria": criteria.toDictionary(),
-                "name": name,
-            ],
-        ]
+        let itemsString = try encodeJSONString([PinRequestItem(type: type, criteria: criteria, name: name)])
 
-        let itemsJSON = try JSONSerialization.data(withJSONObject: item)
-        let itemsString = String(data: itemsJSON, encoding: .utf8) ?? "[]"
-
-        let api = ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "pin", httpMethod: .post, parameters: ["items": itemsString])
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "pin", httpMethod: .post) {
+            ("items", itemsString)
+        }
         let response: SynologyResponse<PinOperationResult> = try await apiClient.request(api, rawResponse: true)
 
         if response.success {
@@ -67,13 +63,24 @@ public final class PinApi {
     /// Unpin items by IDs
     @discardableResult
     public func unpin(ids: [String]) async throws -> PinRemovalResult {
-        let itemsJSON = try JSONSerialization.data(withJSONObject: ids)
-        let itemsString = String(data: itemsJSON, encoding: .utf8) ?? "[]"
+        let itemsString = try encodeJSONString(ids)
 
         let result: UnpinOperationResult = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "unpin", httpMethod: .post, parameters: ["items": itemsString])
+            ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "unpin", httpMethod: .post) {
+                ("items", itemsString)
+            }
         )
         return PinRemovalResult(removedIDs: result.items, failures: result.errors)
+    }
+}
+
+private extension PinApi {
+    func encodeJSONString<Value: Encodable>(_ value: Value) throws -> String {
+        let data = try JSONEncoder().encode(value)
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw SynologyError.network(message: "Failed to encode pin request")
+        }
+        return string
     }
 }
 

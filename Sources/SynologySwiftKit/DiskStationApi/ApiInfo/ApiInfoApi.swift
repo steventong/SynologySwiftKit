@@ -11,7 +11,7 @@ import Foundation
 
 /// API 信息管理类 (Actor 保证并发安全)
 /// API information manager (Actor ensures concurrency safety)
-public actor ApiInfoApi: ApiInfoProviding {
+actor ApiInfoApi: ApiInfoProviding {
     // MARK: - Dependencies & State
 
     /// API 客户端
@@ -38,7 +38,7 @@ public actor ApiInfoApi: ApiInfoProviding {
         self.cacheValidity = cacheValidity
     }
 
-    public func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
+    func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
         if apiName == SynologyApi.Core.INFO.name {
             return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
         }
@@ -57,7 +57,7 @@ public actor ApiInfoApi: ApiInfoProviding {
         return apiInfo
     }
 
-    public func loadFromCacheOrRefresh() async throws {
+    func loadFromCacheOrRefresh() async throws {
         if isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
             Logger.debug("ApiInfoApi#loadFromCacheOrRefresh from cache: \(cached.count)")
             cachedApiInfo = cached
@@ -67,22 +67,22 @@ public actor ApiInfoApi: ApiInfoProviding {
         try await refresh()
     }
 
-    public func refresh() async throws {
+    func refresh() async throws {
         cachedApiInfo = try await queryApiInfoFromDsm()
         Logger.debug("ApiInfoApi#refresh from api: \(cachedApiInfo.count)")
 
         if cachedApiInfo.isEmpty == false {
-            keyValueStorage.set(cachedApiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
-            keyValueStorage.set(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
+            keyValueStorage.setCodable(cachedApiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
+            keyValueStorage.setDate(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
         }
     }
 }
 
 extension ApiInfoApi {
     private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
-        let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query", parameters:
-            ["query": "all"]
-        )
+        let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query") {
+            ("query", "all")
+        }
         let apiInfo: [String: ApiInfoNode] = try await apiClient.request(api)
         return apiInfo
     }
@@ -96,7 +96,7 @@ extension ApiInfoApi {
     }
 
     private func isApiInfoCacheValid(validTime: Int32?) -> Bool {
-        if let lastUpdateTime = keyValueStorage.object(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) as? Date {
+        if let lastUpdateTime = keyValueStorage.date(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) {
             return Int32(Date().timeIntervalSince(lastUpdateTime)) < (validTime ?? 24 * 60 * 60)
         }
         return false

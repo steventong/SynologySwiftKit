@@ -13,17 +13,18 @@ public protocol KeyValueStorage {
     func string(forKey defaultName: String) -> String?
     func integer(forKey defaultName: String) -> Int
     func bool(forKey defaultName: String) -> Bool
-    func object(forKey defaultName: String) -> Any?
+    func date(forKey defaultName: String) -> Date?
     func data(forKey defaultName: String) -> Data?
     func codable<T: Decodable>(forKey defaultName: String) -> T?
 
-    func set(_ value: Any?, forKey defaultName: String)
-    func set<T: Encodable>(_ value: T?, forKey defaultName: String)
+    func setString(_ value: String?, forKey defaultName: String)
+    func setInteger(_ value: Int, forKey defaultName: String)
+    func setBool(_ value: Bool, forKey defaultName: String)
+    func setDate(_ value: Date?, forKey defaultName: String)
+    func setData(_ value: Data?, forKey defaultName: String)
+    func setCodable<T: Encodable>(_ value: T?, forKey defaultName: String)
 
     func removeObject(forKey defaultName: String)
-
-    // 注意：Actor 环境下不再需要显示调用 synchronize，
-    // 具体实现应自己处理持久化策略。
 }
 
 // MARK: - UserDefaults Implementation
@@ -48,15 +49,31 @@ public final class UserDefaultsStorage: KeyValueStorage {
         userDefaults.bool(forKey: defaultName)
     }
 
-    public func object(forKey defaultName: String) -> Any? {
-        userDefaults.object(forKey: defaultName)
+    public func date(forKey defaultName: String) -> Date? {
+        userDefaults.object(forKey: defaultName) as? Date
     }
 
     public func data(forKey defaultName: String) -> Data? {
         userDefaults.data(forKey: defaultName)
     }
 
-    public func set(_ value: Any?, forKey defaultName: String) {
+    public func setString(_ value: String?, forKey defaultName: String) {
+        userDefaults.set(value, forKey: defaultName)
+    }
+
+    public func setInteger(_ value: Int, forKey defaultName: String) {
+        userDefaults.set(value, forKey: defaultName)
+    }
+
+    public func setBool(_ value: Bool, forKey defaultName: String) {
+        userDefaults.set(value, forKey: defaultName)
+    }
+
+    public func setDate(_ value: Date?, forKey defaultName: String) {
+        userDefaults.set(value, forKey: defaultName)
+    }
+
+    public func setData(_ value: Data?, forKey defaultName: String) {
         userDefaults.set(value, forKey: defaultName)
     }
 
@@ -66,34 +83,8 @@ public final class UserDefaultsStorage: KeyValueStorage {
 
     /// 写入 Encodable 对象（以 JSON Data 存储）
     /// Save an Encodable value as JSON data
-    public func set<T: Encodable>(_ value: T?, forKey defaultName: String) {
-        if let value {
-            switch value {
-            case let raw as Data:
-                set(raw as Any?, forKey: defaultName)
-                return
-            case let raw as Date:
-                set(raw as Any?, forKey: defaultName)
-                return
-            case let raw as String:
-                set(raw as Any?, forKey: defaultName)
-                return
-            case let raw as Int:
-                set(raw as Any?, forKey: defaultName)
-                return
-            case let raw as Bool:
-                set(raw as Any?, forKey: defaultName)
-                return
-            case let raw as Double:
-                set(raw as Any?, forKey: defaultName)
-                return
-            case let raw as Float:
-                set(raw as Any?, forKey: defaultName)
-                return
-            default:
-                break
-            }
-        } else {
+    public func setCodable<T: Encodable>(_ value: T?, forKey defaultName: String) {
+        guard let value else {
             removeObject(forKey: defaultName)
             return
         }
@@ -102,7 +93,7 @@ public final class UserDefaultsStorage: KeyValueStorage {
             Logger.error("[KeyValueStorage] Failed to encode data for \(defaultName)")
             return
         }
-        userDefaults.set(encoded, forKey: defaultName)
+        setData(encoded, forKey: defaultName)
     }
 
     /// 读取 Decodable 对象（从 JSON Data 解码）

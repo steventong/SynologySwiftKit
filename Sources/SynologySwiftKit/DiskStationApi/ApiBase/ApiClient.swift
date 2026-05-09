@@ -9,21 +9,12 @@ import Foundation
 
 // MARK: - ApiClient
 
-/// 网络请求客户端（支持依赖注入）
-/// Network request client (supports dependency injection)
-///
-/// 使用示例 / Usage example:
-/// ```swift
-/// let result: PinListResult = try await ApiClient.shared.request(
-///     ApiEndpoint(api: SynologyApi.AudioStation.pin, method: "list", parameters: ["limit": 10])
-/// )
-/// ```
 final class ApiClient: ApiClientProviding {
     // MARK: - Dependencies
 
     // MARK: - internal State
 
-    private let httpTransport: HTTPClientProtocol
+    private let httpClient: HTTPClientProtocol
 
     /// 网络拦截器链
     private var interceptors: [RequestInterceptor] = []
@@ -44,9 +35,9 @@ final class ApiClient: ApiClientProviding {
 
     /// 初始化 API 客户端
     /// Initialize API client
-    /// - Parameter httpTransport: HTTP transport adapter
-    init(httpTransport: HTTPClientProtocol = SwiftHttpClientAdapter()) {
-        self.httpTransport = httpTransport
+    /// - Parameter httpClient: HTTP client implementation
+    init(httpClient: HTTPClientProtocol = SwiftHttpClientAdapter()) {
+        self.httpClient = httpClient
     }
 
     /// 注册拦截器
@@ -56,21 +47,21 @@ final class ApiClient: ApiClientProviding {
 
     /// 构建请求 URL（不发送请求）
     /// Build request URL (without sending request)
-    public func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
+    func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL {
         try await buildApiUrlWithQueryParameters(endpoint: endpoint)
     }
 
     // MARK: - Public Methods
 
     /// 默认请求（解包数据）
-    public func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
+    func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
         try await request(endpoint, rawResponse: false)
     }
 
     /// 发送请求并解码响应
     /// Send request and decode response
     /// 通用请求方法
-    public func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool = false) async throws -> T {
+    func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool = false) async throws -> T {
         if rawResponse {
             // 返回原始响应
             return try await sendApiRequest(endpoint: endpoint, resultType: T.self, checkResultIsSuccess: { _ in true }, parseErrorCode: { _ in nil })
@@ -83,7 +74,7 @@ final class ApiClient: ApiClientProviding {
 
     /// 发送原始 HTTP 请求
     /// Send raw HTTP request (non-DSM API scenarios)
-    public func request<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil, timeout: TimeInterval = 10) async throws -> T {
+    func request<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil, timeout: TimeInterval = 10) async throws -> T {
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
         request.httpBody = body
@@ -99,19 +90,19 @@ extension ApiClient {
     
     /// 更新连接信息
     /// Update connection info
-    public func updateConnection(type: ConnectionType, url: String) {
+    func updateConnection(type: ConnectionType, url: String) {
         connection = (type, url)
     }
 
     /// 更新会话信息
     /// Update session info
-    public func updateSession(sid: String, did: String?) {
+    func updateSession(sid: String, did: String?) {
         session = (sid, did)
     }
 
     /// 清除会话
     /// Clear session
-    public func clearSession() {
+    func clearSession() {
         session = nil
     }
 }
@@ -428,7 +419,7 @@ extension ApiClient {
         currentRequest = try await applyRequestInterceptors(currentRequest, endpoint: endpoint, context: &context)
 
         do {
-            let (data, response) = try await httpTransport.send(currentRequest, timeout: timeout, trustedSSLDomain: trustedSSLDomain)
+            let (data, response) = try await httpClient.send(currentRequest, timeout: timeout, trustedSSLDomain: trustedSSLDomain)
 
             context.duration = Date().timeIntervalSince(context.startTime)
 
