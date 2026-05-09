@@ -8,7 +8,9 @@ let package = Package(
     defaultLocalization: "en",
     platforms: [
         .iOS(.v13),
-        .macOS(.v10_15)
+        .macOS(.v10_15),
+        .tvOS(.v13),
+        .visionOS(.v1)
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -16,17 +18,13 @@ let package = Package(
             name: "SynologySwiftKit",
             targets: ["SynologySwiftKit"]),
     ],
-    dependencies: [
-        .package(url: "https://github.com/steventong/SwiftHttpClient", branch: "main")
-    ],
+    dependencies: [],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "SynologySwiftKit",
-            dependencies: [
-                .product(name: "SwiftHttpClient", package: "SwiftHttpClient")
-            ],
+            dependencies: [],
             resources: [
                 .process("Resources")
             ]

@@ -12,13 +12,13 @@ import OSLog
 
 /// Synology 用户登录管理（依赖注入）
 /// Synology user login management (dependency injection)
-public actor SynologyUserLogin {
+public final class SynologyUserLogin {
     // MARK: - Dependencies
 
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
     private let audioStationApi: AudioStationClient
-    private let apiClient: ApiClientProviding
+    private let apiClient: ConnectionStateUpdating & SessionStateUpdating
     private let connectionChecker: CheckDeviceConnectionProviding
     private let keyChainStorage: KeyChainStorage
 
@@ -31,7 +31,7 @@ public actor SynologyUserLogin {
     ///   - apiInfoApi: API 信息提供者 / API info provider
     ///   - apiClient: API 客户端 / API client
     init(apiInfoApi: ApiInfoProviding,
-         apiClient: ApiClientProviding,
+         apiClient: ConnectionStateUpdating & SessionStateUpdating,
          authApi: AuthClient,
          audioStationApi: AudioStationClient,
          connectionChecker: CheckDeviceConnectionProviding,

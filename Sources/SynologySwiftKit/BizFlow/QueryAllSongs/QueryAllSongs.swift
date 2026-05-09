@@ -10,13 +10,13 @@ import Foundation
 /// 批量查询所有歌曲（依赖注入）
 /// Batch query all songs (dependency injection)
 public final class QueryAllSongs {
-    private let audioStationApi: AudioStationClient
+    private let songsApi: SongApi
 
     /// 初始化查询器
     /// Initialize query helper
     /// - Parameter apiClient: API 客户端
-    init(apiClient: ApiClientProviding) {
-        audioStationApi = AudioStationClient(apiClient: apiClient)
+    init(apiClient: ApiRequestSending) {
+        songsApi = SongApi(apiClient: apiClient)
     }
 
     // MARK: - Query Total Count
@@ -26,7 +26,7 @@ public final class QueryAllSongs {
     /// - Returns: 歌曲总数，失败返回 -1
     public func queryTotalSongsCount() async -> Int {
         do {
-            let songs = try await audioStationApi.songs.list(limit: 1, offset: 0, includeFields: nil)
+            let songs = try await songsApi.list(limit: 1, offset: 0, includeFields: nil)
             return songs.total
         } catch {
             return -1
@@ -142,7 +142,7 @@ private extension QueryAllSongs {
         Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), offset: \(offset), limit: \(batchSize)")
 
         do {
-            let result = try await audioStationApi.songs.list(
+            let result = try await songsApi.list(
                 limit: batchSize,
                 offset: offset
             )

@@ -1,5 +1,4 @@
 import XCTest
-import SwiftHttpClient
 @testable import SynologySwiftKit
 
 final class CoverageClosureTests: XCTestCase {
@@ -120,23 +119,6 @@ final class CoverageClosureTests: XCTestCase {
         let callbackInterceptor = AuthInterceptor(sessionProvider: { ("sid-2", nil) }, onSessionExpired: { expired = true })
         _ = try? await callbackInterceptor.process(.failure(SynologyError.api(code: 102, message: "not expired")), for: cookieEndpoint)
         XCTAssertFalse(expired)
-    }
-
-    func testSwiftHttpClientAdapterSendsAndMapsErrors() async throws {
-        let successURL = URL(string: "https://nas.local")!
-        let successTransport = SwiftHttpClientAdapter { timeout, trustedSSLDomain in
-            XCTAssertEqual(timeout, 3)
-            XCTAssertEqual(trustedSSLDomain, "nas.local")
-            return StubSwiftHTTPClient(result: .success((Data("ok".utf8), makeHTTPURLResponse(url: successURL))))
-        }
-
-        let (data, response) = try await successTransport.send(URLRequest(url: successURL), timeout: 3, trustedSSLDomain: "nas.local")
-        XCTAssertEqual(String(data: data, encoding: .utf8), "ok")
-        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
-
-        try await assertTransportError(.invalidResponse, expectedMessage: "invalid response")
-        try await assertTransportError(.httpStatus(code: 500), expectedMessage: "http status: 500")
-        try await assertTransportError(.decodingFailed(message: "bad json"), expectedMessage: "decoding failed: bad json")
     }
 
     func testDSMInfoClientSuccessAndErrorMapping() async throws {
@@ -471,39 +453,18 @@ private struct ThrowingCodable: Codable {
     }
 }
 
-private struct StubSwiftHTTPClient: SwiftHTTPClientSending {
-    let result: Result<(Data, URLResponse), Error>
-
-    func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
-        try result.get()
-    }
-}
-
-private struct HeaderAppendingInterceptor: RequestInterceptor {
-    func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
+private struct HeaderAppendingInterceptor: SynologyRequestInterceptor {
+    func adapt(_ request: URLRequest) async throws -> URLRequest {
         var request = request
         request.setValue("1", forHTTPHeaderField: "X-Test")
         return request
     }
 
-    func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error> {
+    func process(_ result: Result<(Data, URLResponse), Error>) async throws -> Result<(Data, URLResponse), Error> {
         result
     }
 }
 
 private struct SimplePayload: Codable {
     let ok: Bool
-}
-
-private func assertTransportError(_ clientError: SwiftHttpClient.HTTPClientError, expectedMessage: String, file: StaticString = #filePath, line: UInt = #line) async throws {
-    let transport = SwiftHttpClientAdapter { _, _ in
-        StubSwiftHTTPClient(result: .failure(clientError))
-    }
-
-    do {
-        _ = try await transport.send(URLRequest(url: URL(string: "https://nas.local")!), timeout: 1, trustedSSLDomain: nil)
-        XCTFail("Expected transport error", file: file, line: line)
-    } catch let SynologyError.network(message) {
-        XCTAssertEqual(message, expectedMessage, file: file, line: line)
-    }
 }

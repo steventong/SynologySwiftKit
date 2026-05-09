@@ -34,10 +34,9 @@ public final class SynologyClient {
 
     private let keyChainStorage: KeyChainStorage
 
-    /// 注册请求拦截器
-    /// Register request interceptor
-    func addInterceptor(_ interceptor: RequestInterceptor) {
-        apiClient.addInterceptor(interceptor)
+    /// Register a public request interceptor.
+    public func addInterceptor(_ interceptor: any SynologyRequestInterceptor) {
+        apiClient.addInterceptor(PublicRequestInterceptorAdapter(interceptor))
     }
 
     // MARK: - Initialization
@@ -47,13 +46,13 @@ public final class SynologyClient {
     ///   - config: 全局配置 (默认为 SynologyConfig.default)
     ///   - keyValueStorage: 非敏感缓存存储，默认使用 `UserDefaultsStorage`
     ///   - keyChainStorage: 敏感信息存储，默认使用 `KeyChainStorage`
-    ///   - httpClient: HTTP 客户端实现，默认使用 `SwiftHttpClientAdapter`
+    ///   - httpClient: HTTP 客户端实现，默认使用 `URLSessionHTTPClient`
     ///   - autoRegisterAuthInterceptor: 是否自动注册默认鉴权拦截器
     ///   - interceptors: 初始化时需要预注册的额外拦截器
     public convenience init(config: SynologyConfig = .default,
                             keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
                             keyChainStorage: KeyChainStorage = KeyChainStorage(),
-                            httpClient: HTTPClientProtocol = SwiftHttpClientAdapter(),
+                            httpClient: HTTPClientProtocol = URLSessionHTTPClient(),
                             autoRegisterAuthInterceptor: Bool = true) {
         self.init(
             config: config,
@@ -138,6 +137,9 @@ public final class SynologyClient {
 
                 return nil
             },
+            connectionUpdater: { [weak apiClient] type, url in
+                apiClient?.updateConnection(type: type, url: url)
+            },
             sessionUpdater: { [weak apiClient] sid, did in
                 apiClient?.updateSession(sid: sid, did: did)
             },
@@ -167,5 +169,21 @@ public final class SynologyClient {
         for interceptor in interceptors {
             apiClient.addInterceptor(interceptor)
         }
+    }
+
+    /// Configure a known DSM endpoint without running the discovery/login flows.
+    public func configureConnection(type: ConnectionType, url: String) {
+        session.updateConnection(type: type, url: url)
+    }
+
+    /// Configure an existing DSM session for direct SDK calls.
+    public func configureSession(sid: String, did: String? = nil) {
+        session.update(sid: sid, did: did)
+    }
+
+    /// Configure both endpoint and session when the host app owns persistence.
+    public func configureConnection(type: ConnectionType, url: String, sid: String, did: String? = nil) {
+        configureConnection(type: type, url: url)
+        configureSession(sid: sid, did: did)
     }
 }

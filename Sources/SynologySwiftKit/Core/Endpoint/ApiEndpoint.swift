@@ -16,6 +16,7 @@ enum ApiParameterValue: Sendable {
     case int(Int)
     case bool(Bool)
     case double(Double)
+    case array([ApiParameterValue])
 
     var stringValue: String {
         switch self {
@@ -27,9 +28,18 @@ enum ApiParameterValue: Sendable {
             return value ? "true" : "false"
         case let .double(value):
             return String(value)
+        case let .array(values):
+            return values.map(\.stringValue).joined(separator: ",")
         }
     }
 
+    static func jsonEncoded<Value: Encodable>(_ value: Value, encoder: JSONEncoder = JSONEncoder()) throws -> ApiParameterValue {
+        let data = try encoder.encode(value)
+        guard let string = String(data: data, encoding: .utf8) else {
+            throw SynologyError.network(message: "JSON encoding failed")
+        }
+        return .string(string)
+    }
 }
 
 extension ApiParameterValue: ExpressibleByStringLiteral {
@@ -53,6 +63,12 @@ extension ApiParameterValue: ExpressibleByBooleanLiteral {
 extension ApiParameterValue: ExpressibleByFloatLiteral {
     init(floatLiteral value: Double) {
         self = .double(value)
+    }
+}
+
+extension ApiParameterValue: ExpressibleByArrayLiteral {
+    init(arrayLiteral elements: ApiParameterValue...) {
+        self = .array(elements)
     }
 }
 
@@ -82,6 +98,12 @@ extension Double: ApiParameterValueConvertible {
 
 extension Float: ApiParameterValueConvertible {
     var apiParameterValue: ApiParameterValue { .double(Double(self)) }
+}
+
+extension Array: ApiParameterValueConvertible where Element: ApiParameterValueConvertible {
+    var apiParameterValue: ApiParameterValue {
+        .array(map(\.apiParameterValue))
+    }
 }
 
 /// API 端点（纯数据结构，描述一个 API 请求）

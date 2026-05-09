@@ -7,12 +7,12 @@ public final class AuthFlowClient {
         self.loginFlow = loginFlow
     }
 
-    public func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) async -> AsyncStream<SynologyUserLoginProgress> {
-        await loginFlow.login(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword)
+    public func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+        loginFlow.login(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword)
     }
 
-    public func resume() async -> AsyncStream<SynologyUserLoginProgress> {
-        await loginFlow.login()
+    public func resume() -> AsyncStream<SynologyUserLoginProgress> {
+        loginFlow.login()
     }
 }
 

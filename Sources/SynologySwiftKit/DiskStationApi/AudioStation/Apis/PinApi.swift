@@ -12,9 +12,9 @@ import Foundation
 /// AudioStation 固定 API（依赖注入）
 /// AudioStation Pin API (dependency injection)
 public final class PinApi {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
 
-    init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
@@ -34,12 +34,12 @@ public final class PinApi {
     /// Pin an item
     /// - Throws: SynologyError.api(.idempotentSuccess) when item already pinned
     public func pin(type: PinType, name: String, criteria: PinCriteria) async throws -> PinItem {
-        let itemsString = try encodeJSONString([PinRequestItem(type: type, criteria: criteria, name: name)])
+        let itemsString = try ApiParameterValue.jsonEncoded([PinRequestItem(type: type, criteria: criteria, name: name)]).stringValue
 
         let api = ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "pin", httpMethod: .post) {
             ("items", itemsString)
         }
-        let response: SynologyResponse<PinOperationResult> = try await apiClient.request(api, rawResponse: true)
+        let response: SynologyResponse<PinOperationResult> = try await apiClient.requestEnvelope(api)
 
         if response.success {
             guard let result = response.data, let pinItem = result.items.first else {
@@ -63,7 +63,7 @@ public final class PinApi {
     /// Unpin items by IDs
     @discardableResult
     public func unpin(ids: [String]) async throws -> PinRemovalResult {
-        let itemsString = try encodeJSONString(ids)
+        let itemsString = try ApiParameterValue.jsonEncoded(ids).stringValue
 
         let result: UnpinOperationResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "unpin", httpMethod: .post) {
@@ -71,16 +71,6 @@ public final class PinApi {
             }
         )
         return PinRemovalResult(removedIDs: result.items, failures: result.errors)
-    }
-}
-
-private extension PinApi {
-    func encodeJSONString<Value: Encodable>(_ value: Value) throws -> String {
-        let data = try JSONEncoder().encode(value)
-        guard let string = String(data: data, encoding: .utf8) else {
-            throw SynologyError.network(message: "Failed to encode pin request")
-        }
-        return string
     }
 }
 

@@ -78,4 +78,22 @@ final class ApiClientHappyPathTests: XCTestCase {
             "_sid": "sid-xyz",
         ])
     }
+
+    func testBuildUrlNormalizesConnectionBasePath() async throws {
+        let client = ApiClient(httpClient: MockHTTPTransport())
+        client.apiInfoProvider = TestApiInfoProvider(
+            nodes: [SynologyApi.AudioStation.COVER.name: ApiInfoNode(path: "AudioStation/cover.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
+        )
+        client.updateConnection(type: .custom_domain, url: "https://nas.local/dsm/")
+        client.updateSession(sid: "sid-xyz", did: nil)
+
+        let url = try await client.buildUrl(
+            ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
+                ("id", "music_99")
+            }
+        )
+
+        XCTAssertEqual(url.absoluteString.contains("//webapi"), false)
+        XCTAssertEqual(url.path, "/dsm/webapi/AudioStation/cover.cgi")
+    }
 }

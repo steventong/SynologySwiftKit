@@ -10,6 +10,8 @@ Swift package for building Synology DSM and Audio Station clients in Swift.
 - Xcode 15.4+
 - iOS 13+
 - macOS 10.15+
+- tvOS 13+
+- visionOS 1+
 
 ## Installation
 
@@ -35,7 +37,7 @@ targets: [
 ```swift
 import SynologySwiftKit
 
-let client = SynologyClient()
+let client = SynologyClientFactory.make()
 
 for await progress in await client.flows.auth.login(
     server: "your-quickconnect-id",
@@ -104,6 +106,19 @@ let playbackURL = try await client.audioStation.playback.playbackURL(
 ## Session
 
 ```swift
+client.configureConnection(
+    type: .custom_domain,
+    url: "https://nas.local",
+    sid: "existing-sid",
+    did: "existing-device-id"
+)
+
+let restoredClient = SynologyClientFactory.makeWithExistingSession(
+    connectionType: .custom_domain,
+    url: "https://nas.local",
+    sid: "existing-sid"
+)
+
 if let session = client.session.current {
     print(session.sid)
 }
@@ -116,6 +131,22 @@ client.session.clear()
 ```
 
 `SynologyClient` restores persisted session state when available. `client.session.clear()` clears both in-memory and persisted session state.
+
+## Request Interceptors
+
+```swift
+struct HeaderInterceptor: SynologyRequestInterceptor {
+    func adapt(_ request: URLRequest) async throws -> URLRequest {
+        var request = request
+        request.setValue("1", forHTTPHeaderField: "X-Trace")
+        return request
+    }
+}
+
+client.addInterceptor(HeaderInterceptor())
+```
+
+Use interceptors for logging, tracing, diagnostics, and host-application headers. Authentication is handled by the SDK session pipeline.
 
 ## Custom Storage And HTTP Client
 

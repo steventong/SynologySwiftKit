@@ -10,9 +10,9 @@ import Foundation
 /// 加密 API（依赖注入）
 /// Encryption API (dependency injection)
 public final class EncryptionClient {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
 
-    init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 

@@ -8,10 +8,10 @@
 import Foundation
 
 public final class AuthClient {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending & SessionStateUpdating
     private let keyChainStorage: KeyChainStorage
 
-    init(apiClient: ApiClientProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+    init(apiClient: ApiRequestSending & SessionStateUpdating, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
         self.apiClient = apiClient
         self.keyChainStorage = keyChainStorage
     }
@@ -52,7 +52,7 @@ public final class AuthClient {
 
     public func logout() async throws {
         let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
-        let _: EmptyData = try await apiClient.request(api, rawResponse: false)
+        let _: EmptyData = try await apiClient.request(api)
         apiClient.clearSession()
         keyChainStorage.removeSessionInfo()
     }

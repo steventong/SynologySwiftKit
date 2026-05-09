@@ -7,6 +7,38 @@
 
 import Foundation
 
+/// Public request interceptor extension point for SDK users.
+public protocol SynologyRequestInterceptor: Sendable {
+    func adapt(_ request: URLRequest) async throws -> URLRequest
+    func process(_ result: Result<(Data, URLResponse), Error>) async throws -> Result<(Data, URLResponse), Error>
+}
+
+public extension SynologyRequestInterceptor {
+    func adapt(_ request: URLRequest) async throws -> URLRequest {
+        request
+    }
+
+    func process(_ result: Result<(Data, URLResponse), Error>) async throws -> Result<(Data, URLResponse), Error> {
+        result
+    }
+}
+
+struct PublicRequestInterceptorAdapter: RequestInterceptor {
+    private let interceptor: any SynologyRequestInterceptor
+
+    init(_ interceptor: any SynologyRequestInterceptor) {
+        self.interceptor = interceptor
+    }
+
+    func adapt(_ request: URLRequest, for endpoint: ApiEndpoint) async throws -> URLRequest {
+        try await interceptor.adapt(request)
+    }
+
+    func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error> {
+        try await interceptor.process(result)
+    }
+}
+
 /// 网络请求拦截器协议
 /// Protocol for intercepting network requests
 protocol RequestInterceptor: Sendable {

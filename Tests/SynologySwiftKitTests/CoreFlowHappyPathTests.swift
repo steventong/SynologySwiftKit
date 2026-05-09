@@ -150,4 +150,59 @@ final class CoreFlowHappyPathTests: XCTestCase {
         XCTAssertFalse(client.session.hasValidSession)
         XCTAssertNil(keychain.getSessionInfo())
     }
+
+    func testSynologyClientSupportsManualConnectionAndSessionConfiguration() {
+        let client = SynologyClient(
+            config: .default,
+            keyValueStorage: MockKeyValueStorage(),
+            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            apiClient: ApiClient(httpClient: MockHTTPTransport())
+        )
+
+        client.configureConnection(type: .custom_domain, url: "https://nas.local", sid: "sid-123", did: "did-123")
+
+        XCTAssertEqual(client.session.connection?.type, .custom_domain)
+        XCTAssertEqual(client.session.connection?.url, "https://nas.local")
+        XCTAssertEqual(client.session.current?.sid, "sid-123")
+        XCTAssertEqual(client.session.current?.did, "did-123")
+    }
+
+    func testSynologyClientFactorySupportsExistingSession() {
+        let client = SynologyClientFactory.makeWithExistingSession(
+            connectionType: .custom_domain,
+            url: "https://nas.local",
+            sid: "sid-123",
+            did: "did-123",
+            keyValueStorage: MockKeyValueStorage(),
+            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            httpClient: MockHTTPTransport()
+        )
+
+        XCTAssertEqual(client.session.connection?.url, "https://nas.local")
+        XCTAssertEqual(client.session.current?.sid, "sid-123")
+        XCTAssertEqual(client.session.current?.did, "did-123")
+    }
+
+    func testSessionStateSupportsConcurrentUpdatesAndReads() async {
+        let client = SynologyClient(
+            config: .default,
+            keyValueStorage: MockKeyValueStorage(),
+            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            apiClient: ApiClient(httpClient: MockHTTPTransport())
+        )
+
+        await withTaskGroup(of: Void.self) { group in
+            for index in 0 ..< 100 {
+                group.addTask {
+                    client.configureConnection(type: .custom_domain, url: "https://nas-\(index).local")
+                    client.configureSession(sid: "sid-\(index)", did: "did-\(index)")
+                    _ = client.session.current
+                    _ = client.session.connection
+                }
+            }
+        }
+
+        XCTAssertNotNil(client.session.current?.sid)
+        XCTAssertNotNil(client.session.connection?.url)
+    }
 }

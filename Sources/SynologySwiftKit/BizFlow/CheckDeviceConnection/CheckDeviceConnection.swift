@@ -8,7 +8,7 @@ import Foundation
 public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
     // MARK: - Dependencies
 
-    private let apiClient: ApiClientProviding
+    private let apiClient: ConnectionStateProviding & ConnectionStateUpdating
     private let quickConnectApi: QuickConnectClient
     private let pingpong: PingPongProviding
     private let keyChainStorage: KeyChainStorage
@@ -17,7 +17,7 @@ public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
 
     /// 初始化连接检查器 (直接注入所有依赖)
     /// Initialize connection checker (inject all dependencies directly)
-    init(apiClient: ApiClientProviding, quickConnectApi: QuickConnectClient, pingpong: PingPongProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+    init(apiClient: ConnectionStateProviding & ConnectionStateUpdating, quickConnectApi: QuickConnectClient, pingpong: PingPongProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong

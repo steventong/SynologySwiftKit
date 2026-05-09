@@ -107,6 +107,15 @@ final class FoundationAndUtilityTests: XCTestCase {
         XCTAssertTrue(ApiEndpoint.custom(api: SynologyApi.AudioStation.TAG_EDITOR_UI, path: "/tag").isCustomPath)
         let floatLiteralValue: ApiParameterValue = 1.5
         XCTAssertEqual(floatLiteralValue.stringValue, "1.5")
+
+        let arrayValue: ApiParameterValue = ["music_1", "music_2"]
+        XCTAssertEqual(arrayValue.stringValue, "music_1,music_2")
+
+        struct Payload: Encodable {
+            let id: String
+        }
+        let jsonValue = try? ApiParameterValue.jsonEncoded(Payload(id: "music_1"))
+        XCTAssertEqual(jsonValue?.stringValue, #"{"id":"music_1"}"#)
     }
 
     func testAuthInterceptorInjectsSidAndCookieAndClearsExpiredSession() async throws {

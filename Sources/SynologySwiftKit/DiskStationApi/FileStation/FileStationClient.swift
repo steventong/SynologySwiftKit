@@ -12,12 +12,12 @@ import Foundation
 public final class FileStationClient {
     /// API 客户端（internal 以便 extension 使用）
     /// API client (internal for extension access)
-    let apiClient: ApiClientProviding
+    let apiClient: ApiRequestSending
 
     /// 初始化 FileStation API
     /// Initialize FileStation API
     /// - Parameter apiClient: API 客户端
-    init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 

@@ -8,10 +8,12 @@
 import Foundation
 
 public final class SongApi {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
+    private let urlBuilder: ApiURLBuilding?
 
-    init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiRequestSending, urlBuilder: ApiURLBuilding? = nil) {
         self.apiClient = apiClient
+        self.urlBuilder = urlBuilder ?? apiClient as? ApiURLBuilding
     }
 
     /**
@@ -52,7 +54,11 @@ public final class SongApi {
      build song fetch url
      */
     public func listURL(limit: Int, offset: Int, libraryScope: SynologyLibraryScope = .shared) async throws -> URL {
-        try await apiClient.buildUrl(
+        guard let urlBuilder else {
+            throw SynologyError.network(message: "URL builder not configured")
+        }
+
+        return try await urlBuilder.buildUrl(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post,
                 sidOnQuery: true

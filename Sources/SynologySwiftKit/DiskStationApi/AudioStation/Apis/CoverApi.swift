@@ -8,10 +8,10 @@
 import Foundation
 
 public final class CoverApi {
-    private let apiClient: ApiClientProviding
+    private let urlBuilder: ApiURLBuilding
 
-    init(apiClient: ApiClientProviding) {
-        self.apiClient = apiClient
+    init(urlBuilder: ApiURLBuilding) {
+        self.urlBuilder = urlBuilder
     }
 
     /**
@@ -19,7 +19,7 @@ public final class CoverApi {
      Get song cover URL
      */
     public func songCoverURL(songID: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
-        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
+        return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
             ("library", libraryScope.rawValue)
             ("id", songID)
         }
@@ -31,7 +31,7 @@ public final class CoverApi {
      Get album cover URL
      */
     public func albumCoverURL(albumName: String, albumArtistName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
-        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+        return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)
             ("album_name", albumName)
             ("album_artist_name", albumArtistName)
@@ -44,7 +44,7 @@ public final class CoverApi {
      Get artist cover URL
      */
     public func artistCoverURL(artistName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
-        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+        return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)
             ("artist_name", artistName)
         }
@@ -56,7 +56,7 @@ public final class CoverApi {
      Get composer cover URL
      */
     public func composerCoverURL(composerName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
-        return try await apiClient.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
+        return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)
             ("composer_name", composerName)
         }

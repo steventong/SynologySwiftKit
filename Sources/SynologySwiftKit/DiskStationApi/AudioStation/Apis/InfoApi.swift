@@ -8,10 +8,10 @@
 import Foundation
 
 public final class InfoApi {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
     private let keyValueStorage: KeyValueStorage
 
-    init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+    init(apiClient: ApiRequestSending, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage
     }

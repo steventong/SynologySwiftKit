@@ -23,15 +23,18 @@ public struct SynologySession: Sendable {
 public final class SessionClient {
     private let connectionProvider: () -> SynologyConnection?
     private let sessionProvider: () -> SynologySession?
+    private let connectionUpdater: (ConnectionType, String) -> Void
     private let sessionUpdater: (String, String?) -> Void
     private let sessionClearer: () -> Void
 
     init(connectionProvider: @escaping () -> SynologyConnection?,
          sessionProvider: @escaping () -> SynologySession?,
+         connectionUpdater: @escaping (ConnectionType, String) -> Void,
          sessionUpdater: @escaping (String, String?) -> Void,
          sessionClearer: @escaping () -> Void) {
         self.connectionProvider = connectionProvider
         self.sessionProvider = sessionProvider
+        self.connectionUpdater = connectionUpdater
         self.sessionUpdater = sessionUpdater
         self.sessionClearer = sessionClearer
     }
@@ -46,6 +49,10 @@ public final class SessionClient {
 
     public var hasValidSession: Bool {
         current != nil
+    }
+
+    public func updateConnection(type: ConnectionType, url: String) {
+        connectionUpdater(type, url)
     }
 
     public func update(sid: String, did: String?) {

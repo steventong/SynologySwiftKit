@@ -9,10 +9,10 @@ import Foundation
 import OSLog
 
 public final class StreamApi {
-    private let apiClient: ApiClientProviding
+    private let urlBuilder: ApiURLBuilding
 
-    init(apiClient: ApiClientProviding) {
-        self.apiClient = apiClient
+    init(urlBuilder: ApiURLBuilding) {
+        self.urlBuilder = urlBuilder
     }
 
     /// 构建音频播放地址
@@ -24,7 +24,7 @@ public final class StreamApi {
                 ("format", "mp3")
                 ("id", source.id)
             }
-            return try await apiClient.buildUrl(api)
+            return try await urlBuilder.buildUrl(api)
         }
 
         // build parameters
@@ -113,7 +113,7 @@ public final class StreamApi {
                 pair
             }
         }
-        return try await apiClient.buildUrl(api)
+        return try await urlBuilder.buildUrl(api)
     }
 
     private func buildTranscodeUrl(fileExtension: String, quality: SongStreamQuality, parameters: inout ApiParameters) async throws -> URL {
@@ -128,6 +128,6 @@ public final class StreamApi {
                 pair
             }
         }
-        return try await apiClient.buildUrl(api)
+        return try await urlBuilder.buildUrl(api)
     }
 }

@@ -187,8 +187,8 @@ final class FeatureApiHappyPathTests: XCTestCase {
             return URL(string: "https://mock.local/\(method)")!
         }
 
-        let coverApi = CoverApi(apiClient: apiClient)
-        let streamApi = StreamApi(apiClient: apiClient)
+        let coverApi = CoverApi(urlBuilder: apiClient)
+        let streamApi = StreamApi(urlBuilder: apiClient)
 
         _ = try await coverApi.songCoverURL(songID: "music_1", libraryScope: .shared)
         _ = try await streamApi.playbackURL(
@@ -220,7 +220,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
         apiClient.buildUrlHandler = { endpoint in
             URL(string: "https://mock.local/\(endpoint.method)")!
         }
-        let coverApi = CoverApi(apiClient: apiClient)
+        let coverApi = CoverApi(urlBuilder: apiClient)
 
         let songURL = try await coverApi.songCoverURL(songID: "song1")
         let albumURL = try await coverApi.albumCoverURL(albumName: "Album", albumArtistName: "Artist")
@@ -239,7 +239,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
         apiClient.buildUrlHandler = { endpoint in
             URL(string: "https://mock.local/\(endpoint.method)")!
         }
-        let api = StreamApi(apiClient: apiClient)
+        let api = StreamApi(urlBuilder: apiClient)
 
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "track1", path: "/music/file.m4a", bitrate: 1000, frequency: 44_100, fileExtension: ".aac"), quality: .HIGH)
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "track2", path: "/music/file.dsf", bitrate: 1000, frequency: 44_100), quality: .HIGH)

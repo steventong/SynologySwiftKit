@@ -8,9 +8,9 @@
 import Foundation
 
 public final class ArtistApi {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
 
-    init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 

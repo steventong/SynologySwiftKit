@@ -15,7 +15,7 @@ actor ApiInfoApi: ApiInfoProviding {
     // MARK: - Dependencies & State
 
     /// API 客户端
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
 
     /// 键值存储 (用于持久化缓存)
     private let keyValueStorage: KeyValueStorage
@@ -30,7 +30,7 @@ actor ApiInfoApi: ApiInfoProviding {
 
     /// 初始化 API 信息管理器
     /// Initialize API information manager
-    init(apiClient: ApiClientProviding,
+    init(apiClient: ApiRequestSending,
                 keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
                 cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
         self.apiClient = apiClient

@@ -9,13 +9,13 @@ import Foundation
 
 /// QuickConnect API，通过 Synology QuickConnect 服务查找设备连接地址
 /// QuickConnect API for discovering device connection URLs via Synology QuickConnect service
-public actor QuickConnectClient {
-    private let apiClient: ApiClientProviding
+public final class QuickConnectClient {
+    private let apiClient: RawRequestSending
     private let pingpong: PingPongProviding
     private let keyValueStorage: KeyValueStorage
     private let timeout: TimeInterval
 
-    init(apiClient: ApiClientProviding,
+    init(apiClient: RawRequestSending,
                 pingpong: PingPongProviding,
                 timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout,
                 keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {

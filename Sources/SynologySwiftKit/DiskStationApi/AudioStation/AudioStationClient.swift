@@ -25,7 +25,7 @@ public final class AudioStationClient {
 
     /// API 客户端（internal 以便 extension 访问）
     /// API client (internal for extension access)
-    let apiClient: ApiClientProviding
+    let apiClient: ApiEndpointClient
     private let keyValueStorage: KeyValueStorage
 
     // MARK: - API Modules
@@ -49,7 +49,7 @@ public final class AudioStationClient {
     public lazy var genres = GenreApi(apiClient: apiClient)
 
     /// 歌曲 API
-    public lazy var songs = SongApi(apiClient: apiClient)
+    public lazy var songs = SongApi(apiClient: apiClient, urlBuilder: apiClient)
 
     /// 播放列表 API
     public lazy var playlists = PlaylistApi(apiClient: apiClient)
@@ -61,10 +61,10 @@ public final class AudioStationClient {
     public lazy var search = SearchApi(apiClient: apiClient)
 
     /// 封面 API
-    public lazy var covers = CoverApi(apiClient: apiClient)
+    public lazy var covers = CoverApi(urlBuilder: apiClient)
 
     /// 流媒体 API
-    public lazy var playback = StreamApi(apiClient: apiClient)
+    public lazy var playback = StreamApi(urlBuilder: apiClient)
 
     /// 信息 API
     public lazy var info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
@@ -77,7 +77,7 @@ public final class AudioStationClient {
     /// 初始化 AudioStation API
     /// Initialize AudioStation API
     /// - Parameter apiClient: API 客户端
-    init(apiClient: ApiClientProviding, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+    init(apiClient: ApiEndpointClient, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage
     }

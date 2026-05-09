@@ -8,11 +8,11 @@
 import Foundation
 
 public final class TagEditorApi {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
 
     private static let TAG_EDITOR_URL = "/webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi"
 
-    init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
@@ -25,7 +25,7 @@ public final class TagEditorApi {
             ("requestFrom", "")
             ("audioInfos", "[{\"path\":\"\(path)\"}]")
         }
-        let result: TagEditorResult = try await apiClient.request(api, rawResponse: true)
+        let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
             throw SynologyError.api(code: -1, message: "query failed")
         }
@@ -45,7 +45,7 @@ public final class TagEditorApi {
             ("requestFrom", "")
             ("data", JsonUtils.toJson(codable: [TagEditorRequest(update: update)]) ?? "")
         }
-        let result: TagEditorResult = try await apiClient.request(api, rawResponse: true)
+        let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
             throw SynologyError.api(code: -1, message: "update failed")
         }

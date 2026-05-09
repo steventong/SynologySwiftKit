@@ -10,9 +10,9 @@ import Foundation
 /// DSM 信息 API（依赖注入）
 /// DSM Info API (dependency injection)
 public final class DSMInfoClient {
-    private let apiClient: ApiClientProviding
+    private let apiClient: ApiRequestSending
 
-    init(apiClient: ApiClientProviding) {
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
