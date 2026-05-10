@@ -42,19 +42,23 @@ struct SynologyApiError: Error, Decodable, Sendable {
 
     // MARK: - Conversion
 
-    /// 转换为 SynologyError
-    /// Convert to SynologyError
+    /// 将当前实例转换为统一的 SynologyError
+    /// Convert to unified SynologyError
+    ///
+    /// - Session 相关错误码（105/106/107/119）→ `.sessionExpired`
+    ///   Session-related codes (105/106/107/119) → `.sessionExpired`
+    /// - 120-149 保留错误码 → `.api`
+    ///   Reserved codes 120-149 → `.api`
+    /// - 其余错误码通过 `SynologyErrorCode` 获取描述后 → `.api`
+    ///   Other codes → `.api` with description from `SynologyErrorCode`
     func toSynologyError() -> SynologyError {
-        // Session 相关错误
-        switch code {
-        case 105, 106, 107, 119:
-            let message = SynologyErrorCodeMapper.description(for: code) ?? "Session error (code: \(code))"
-            return .sessionExpired(code: code, message: message)
-        case 102:
-            return .api(code: code, message: "API not found (code: 102)")
-        default:
-            let message = SynologyErrorCodeMapper.description(for: code) ?? "errorCode = \(code)"
-            return .api(code: code, message: message)
-        }
+        SynologyErrorCode(rawValue: code).toSynologyError()
+    }
+
+    /// 仅凭错误码构造对应的 SynologyError（无需完整 SynologyApiError 实例）
+    /// Create a SynologyError directly from an error code
+    /// - Parameter code: API 业务错误码 / API business error code
+    static func toSynologyError(from code: Int) -> SynologyError {
+        SynologyErrorCode(rawValue: code).toSynologyError()
     }
 }

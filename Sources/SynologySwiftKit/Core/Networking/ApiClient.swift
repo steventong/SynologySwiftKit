@@ -17,7 +17,6 @@ final class ApiClient: ApiClientProviding {
     private let state = ApiClientState()
     private let executor: ApiRequestExecutor
     private let envelopeDecoder = SynologyEnvelopeDecoder()
-    private let errorMapper = SynologyErrorMapper()
 
     private lazy var endpointResolver = ApiEndpointResolver(
         apiInfoProvider: { [weak state] in state?.apiInfoProvider }
@@ -78,7 +77,7 @@ final class ApiClient: ApiClientProviding {
     func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
         let response: SynologyResponse<T> = try await requestEnvelope(endpoint)
         if let errorCode = envelopeDecoder.errorCode(response) {
-            try errorMapper.throwBusinessError(code: errorCode)
+            throw SynologyApiError.toSynologyError(from: errorCode)
         }
         return try envelopeDecoder.unwrap(response)
     }

@@ -61,19 +61,7 @@ extension SynologyError {
     /// 认证错误码 → 本地化消息
     /// Auth error code → localized message
     public static func authMessage(forCode code: Int) -> String {
-        switch code {
-        case 400: return Localization.text("NO_SUCH_ACCOUNT_OR_INCORRECT_PASSWORD")
-        case 401: return Localization.text("DISABLED_ACCOUNT")
-        case 402: return Localization.text("DENIED_PERMISSION")
-        case 403: return Localization.text("AUTHENTICATION_CODE_REQUIRED")
-        case 404: return Localization.text("AUTHENTICATION_CODE_FAILED")
-        case 406: return Localization.text("ENFORCE_AUTHENTICATION_WITH_CODE")
-        case 407: return Localization.text("BLOCKED_IP_SOURCE")
-        case 408: return Localization.text("EXPIRED_PASSWORD_CANNOT_CHANGE")
-        case 409: return Localization.text("EXPIRED_PASSWORD")
-        case 410: return Localization.text("PASSWORD_MUST_BE_CHANGED")
-        default: return "Auth error (code: \(code))"
-        }
+        return SynologyErrorCode(rawValue: code).description
     }
 
     /// 从错误码创建认证错误
