@@ -3,9 +3,9 @@ import XCTest
 
 final class ApiClientBranchTests: XCTestCase {
     func testRawRequestRejectsNon200Responses() async {
-        let transport = MockHTTPTransport()
-        let client = ApiClient(httpClient: transport)
-        transport.handler = { request, _, _ in
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory())
+        transport.handler = { request, _ in
             (
                 Data("{}".utf8),
                 makeHTTPURLResponse(url: try XCTUnwrap(request.url), statusCode: 500)
@@ -26,9 +26,9 @@ final class ApiClientBranchTests: XCTestCase {
         let cases: [URLError.Code] = [.timedOut, .cannotFindHost, .secureConnectionFailed, .badURL]
 
         for code in cases {
-            let transport = MockHTTPTransport()
-            let client = ApiClient(httpClient: transport)
-            transport.handler = { _, _, _ in
+            let transport = HTTPClientFactorySpy()
+            let client = ApiClient(httpClientFactory: transport.makeFactory())
+            transport.handler = { _, _ in
                 throw URLError(code)
             }
 
@@ -44,14 +44,14 @@ final class ApiClientBranchTests: XCTestCase {
     }
 
     func testRequestHandlesSessionAndApiErrors() async {
-        let transport = MockHTTPTransport()
-        let client = ApiClient(httpClient: transport)
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory())
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.INFO.name: ApiInfoNode(path: "AudioStation/info.cgi", minVersion: 1, maxVersion: 6, requestFormat: nil)]
         )
         client.updateConnection(type: .custom_domain, url: "https://nas.local")
         client.updateSession(sid: "sid-123", did: nil)
-        transport.handler = { request, _, _ in
+        transport.handler = { request, _ in
             let url = try XCTUnwrap(request.url)
             return (try makeJSONData(["success": false, "error": ["code": 105]]), makeHTTPURLResponse(url: url))
         }
@@ -68,21 +68,21 @@ final class ApiClientBranchTests: XCTestCase {
     }
 
     func testBuildUrlSupportsCustomPathEndpoints() async throws {
-        let client = ApiClient(httpClient: MockHTTPTransport())
+        let client = ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         client.updateConnection(type: .custom_domain, url: "https://nas.local")
         let url = try await client.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: "/custom/path", parameters: ["action": "load"]))
         XCTAssertEqual(url.absoluteString, "https://nas.local/custom/path?action=load&api=tagEditorUI")
     }
 
     func testRequestDecodingFailureBecomesNetworkError() async {
-        let transport = MockHTTPTransport()
-        let client = ApiClient(httpClient: transport)
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory())
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.SONG.name: ApiInfoNode(path: "AudioStation/song.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )
         client.updateConnection(type: .custom_domain, url: "https://nas.local")
         client.updateSession(sid: "sid-123", did: nil)
-        transport.handler = { request, _, _ in
+        transport.handler = { request, _ in
             (Data("not-json".utf8), makeHTTPURLResponse(url: try XCTUnwrap(request.url)))
         }
 

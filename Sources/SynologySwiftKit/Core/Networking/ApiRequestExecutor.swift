@@ -1,4 +1,5 @@
 import Foundation
+import SwiftHttpClient
 
 // MARK: - ApiRequestExecutor
 
@@ -12,7 +13,7 @@ import Foundation
 /// - 请求阶段（adapt）：正向执行（注册顺序）/ Request phase (adapt): forward order (registration order)
 /// - 响应阶段（process）：逆向执行（注册逆序）/ Response phase (process): reverse order
 final class ApiRequestExecutor {
-    private let httpClient: HTTPClientProtocol
+    private let httpClientFactory: SynologyHTTPClientFactory
     /// 拦截器快照提供者（通过闭包延迟获取，避免强引用）
     /// Interceptor snapshot provider (lazily fetched via closure to avoid strong reference)
     private let interceptorsProvider: () -> [RequestInterceptor]
@@ -22,17 +23,17 @@ final class ApiRequestExecutor {
     /// 初始化执行器
     /// Initialize executor
     /// - Parameters:
-    ///   - httpClient: HTTP 客户端实现 / HTTP client implementation
+    ///   - httpClientFactory: HTTP 客户端工厂 / HTTP client factory
     ///   - interceptorsProvider: 拦截器列表提供者（快照，避免并发竞争）/ Interceptor list provider (snapshot)
     ///   - responseDecoder: 响应解码器 / Response decoder
     ///   - errorMapper: URL 错误映射器 / URL error mapper
     init(
-        httpClient: HTTPClientProtocol,
+        httpClientFactory: @escaping SynologyHTTPClientFactory,
         interceptorsProvider: @escaping () -> [RequestInterceptor],
         responseDecoder: ApiResponseDecoder = ApiResponseDecoder(),
         errorMapper: SynologyErrorMapper = SynologyErrorMapper()
     ) {
-        self.httpClient = httpClient
+        self.httpClientFactory = httpClientFactory
         self.interceptorsProvider = interceptorsProvider
         self.responseDecoder = responseDecoder
         self.errorMapper = errorMapper
@@ -65,9 +66,10 @@ final class ApiRequestExecutor {
     ) async throws -> Value {
         var context = RequestContext()
         let currentRequest = try await applyRequestInterceptors(request, endpoint: endpoint, context: &context)
+        let httpClient = httpClientFactory(timeout, trustedSSLDomain)
 
         do {
-            let (data, response) = try await httpClient.send(currentRequest, timeout: timeout, trustedSSLDomain: trustedSSLDomain)
+            let (data, response) = try await httpClient.send(currentRequest)
 
             context.duration = Date().timeIntervalSince(context.startTime)
 

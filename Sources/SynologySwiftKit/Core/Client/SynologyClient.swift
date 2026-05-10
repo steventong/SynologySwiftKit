@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftHttpClient
 
 // MARK: - SynologyClient
 
@@ -46,19 +47,19 @@ public final class SynologyClient {
     ///   - config: 全局配置 (默认为 SynologyConfig.default)
     ///   - keyValueStorage: 非敏感缓存存储，默认使用统一 `StorageService`
     ///   - keyChainStorage: 敏感信息存储，默认使用统一 `StorageService`
-    ///   - httpClient: HTTP 客户端实现，默认使用 `URLSessionHTTPClient`
+    ///   - httpClientFactory: HTTP 客户端工厂，默认按请求创建 `SwiftHttpClient.HTTPClient`
     ///   - autoRegisterAuthInterceptor: 是否自动注册默认鉴权拦截器
     ///   - interceptors: 初始化时需要预注册的额外拦截器
     public convenience init(config: SynologyConfig = .default,
                             keyValueStorage: KeyValueStorage = StorageService(),
                             keyChainStorage: any SensitiveStorage = StorageService(),
-                            httpClient: HTTPClientProtocol = URLSessionHTTPClient(),
+                            httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory,
                             autoRegisterAuthInterceptor: Bool = true) {
         self.init(
             config: config,
             keyValueStorage: keyValueStorage,
             keyChainStorage: keyChainStorage,
-            apiClient: ApiClient(httpClient: httpClient),
+            apiClient: ApiClient(httpClientFactory: httpClientFactory),
             autoRegisterAuthInterceptor: autoRegisterAuthInterceptor
         )
     }

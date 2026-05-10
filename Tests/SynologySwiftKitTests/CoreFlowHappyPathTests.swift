@@ -139,7 +139,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
             keyChainStorage: keychain,
-            apiClient: ApiClient(httpClient: MockHTTPTransport())
+            apiClient: ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         )
 
         XCTAssertTrue(client.session.hasValidSession)
@@ -156,7 +156,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
             keyChainStorage: KeyChainStorage(service: UUID().uuidString),
-            apiClient: ApiClient(httpClient: MockHTTPTransport())
+            apiClient: ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         )
 
         client.configureConnection(type: .custom_domain, url: "https://nas.local", sid: "sid-123", did: "did-123")
@@ -181,7 +181,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             did: "did-123",
             keyValueStorage: MockKeyValueStorage(),
             keyChainStorage: KeyChainStorage(service: UUID().uuidString),
-            httpClient: MockHTTPTransport()
+            httpClientFactory: HTTPClientFactorySpy().makeFactory()
         )
 
         XCTAssertEqual(client.session.connection?.url, "https://nas.local")
@@ -194,7 +194,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
             keyChainStorage: KeyChainStorage(service: UUID().uuidString),
-            apiClient: ApiClient(httpClient: MockHTTPTransport())
+            apiClient: ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         )
 
         await withTaskGroup(of: Void.self) { group in

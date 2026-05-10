@@ -1,4 +1,5 @@
 import Foundation
+import SwiftHttpClient
 
 // MARK: - SynologyClientFactory
 
@@ -18,21 +19,21 @@ public enum SynologyClientFactory {
     ///   - config: 全局配置，默认使用 `SynologyConfig.default` / Global config, default: `SynologyConfig.default`
     ///   - keyValueStorage: 非敏感缓存存储，默认使用统一 `StorageService` / Non-sensitive cache storage, default: unified `StorageService`
     ///   - keyChainStorage: 敏感信息存储，默认使用统一 `StorageService` / Sensitive storage, default: unified `StorageService`
-    ///   - httpClient: HTTP 客户端实现，默认使用 `URLSessionHTTPClient` / HTTP client implementation, default: `URLSessionHTTPClient`
+    ///   - httpClientFactory: HTTP 客户端工厂，默认按请求创建 `SwiftHttpClient.HTTPClient`
     ///   - autoRegisterAuthInterceptor: 是否自动注册鉴权拦截器，默认 true / Auto-register auth interceptor, default: true
     /// - Returns: 配置好的 `SynologyClient` 实例 / Configured `SynologyClient` instance
     public static func make(
         config: SynologyConfig = .default,
         keyValueStorage: KeyValueStorage = StorageService(),
         keyChainStorage: any SensitiveStorage = StorageService(),
-        httpClient: HTTPClientProtocol = URLSessionHTTPClient(),
+        httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory,
         autoRegisterAuthInterceptor: Bool = true
     ) -> SynologyClient {
         SynologyClient(
             config: config,
             keyValueStorage: keyValueStorage,
             keyChainStorage: keyChainStorage,
-            httpClient: httpClient,
+            httpClientFactory: httpClientFactory,
             autoRegisterAuthInterceptor: autoRegisterAuthInterceptor
         )
     }
@@ -51,7 +52,7 @@ public enum SynologyClientFactory {
     ///   - config: 全局配置 / Global config
     ///   - keyValueStorage: 非敏感缓存存储 / Non-sensitive cache storage
     ///   - keyChainStorage: 敏感信息存储 / Sensitive storage
-    ///   - httpClient: HTTP 客户端实现 / HTTP client implementation
+    ///   - httpClientFactory: HTTP 客户端工厂 / HTTP client factory
     /// - Returns: 已注入 Session 的 `SynologyClient` 实例 / `SynologyClient` with injected session
     public static func makeWithExistingSession(
         connectionType: ConnectionType,
@@ -61,13 +62,13 @@ public enum SynologyClientFactory {
         config: SynologyConfig = .default,
         keyValueStorage: KeyValueStorage = StorageService(),
         keyChainStorage: any SensitiveStorage = StorageService(),
-        httpClient: HTTPClientProtocol = URLSessionHTTPClient()
+        httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory
     ) -> SynologyClient {
         let client = make(
             config: config,
             keyValueStorage: keyValueStorage,
             keyChainStorage: keyChainStorage,
-            httpClient: httpClient
+            httpClientFactory: httpClientFactory
         )
         client.configureConnection(type: connectionType, url: url, sid: sid, did: did)
         return client

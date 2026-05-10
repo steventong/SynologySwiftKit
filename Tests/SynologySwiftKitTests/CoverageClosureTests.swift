@@ -209,8 +209,8 @@ final class CoverageClosureTests: XCTestCase {
     func testSynologyClientCoversSessionConnectionAndInterceptorPaths() async throws {
         let service = UUID().uuidString
         let keychain = KeyChainStorage(service: service)
-        let transport = MockHTTPTransport()
-        let apiClient = ApiClient(httpClient: transport)
+        let transport = HTTPClientFactorySpy()
+        let apiClient = ApiClient(httpClientFactory: transport.makeFactory())
         let client = SynologyClient(
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
@@ -231,7 +231,7 @@ final class CoverageClosureTests: XCTestCase {
         let testInterceptor = HeaderAppendingInterceptor()
         client.addInterceptor(testInterceptor)
 
-        transport.handler = { request, _, _ in
+        transport.handler = { request, _ in
             XCTAssertEqual(request.value(forHTTPHeaderField: "X-Test"), "1")
             let payload = try JSONEncoder().encode(SimplePayload(ok: true))
             return (payload, makeHTTPURLResponse(url: request.url!))

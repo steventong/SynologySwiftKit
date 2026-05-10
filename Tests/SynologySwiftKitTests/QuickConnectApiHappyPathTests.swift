@@ -3,8 +3,8 @@ import XCTest
 
 final class QuickConnectClientHappyPathTests: XCTestCase {
     func testGetDeviceConnectionFollowsRedirectAndReturnsBestReachableURL() async throws {
-        let transport = MockHTTPTransport()
-        let apiClient = ApiClient(httpClient: transport)
+        let transport = HTTPClientFactorySpy()
+        let apiClient = ApiClient(httpClientFactory: transport.makeFactory())
         let storage = MockKeyValueStorage()
         let pingpong = TestPingPong(firstResult: SynologyConnection(type: .lan, url: "https://192.168.1.2:5001"))
         let quickConnectApi = QuickConnectClient(
@@ -14,7 +14,7 @@ final class QuickConnectClientHappyPathTests: XCTestCase {
             keyValueStorage: storage
         )
 
-        transport.handler = { request, _, _ in
+        transport.handler = { request, _ in
             let url = try XCTUnwrap(request.url)
             if url.host == SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER {
                 return (

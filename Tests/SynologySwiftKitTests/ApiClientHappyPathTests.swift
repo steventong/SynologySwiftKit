@@ -3,8 +3,8 @@ import XCTest
 
 final class ApiClientHappyPathTests: XCTestCase {
     func testRequestBuildsAuthenticatedPostAndDecodesEnvelope() async throws {
-        let transport = MockHTTPTransport()
-        let client = ApiClient(httpClient: transport)
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory())
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.SONG.name: ApiInfoNode(path: "AudioStation/song.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )
@@ -12,13 +12,13 @@ final class ApiClientHappyPathTests: XCTestCase {
         client.updateSession(sid: "sid-123", did: "did-123")
         client.addInterceptor(AuthInterceptor(sessionProvider: { client.session }))
 
-        transport.handler = { request, _, trustedSSLDomain in
-            XCTAssertEqual(trustedSSLDomain, "nas.local")
+        transport.handler = { request, configuration in
+            XCTAssertEqual(configuration.trustedSSLDomain, "nas.local")
             XCTAssertEqual(request.url?.absoluteString, "https://nas.local/webapi/AudioStation/song.cgi")
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Cookie"), "id=sid-123; did=did-123")
 
-            let body = String(data: try XCTUnwrap(request.httpBody), encoding: .utf8) ?? ""
+            let body = String(data: try XCTUnwrap(requestBodyData(request)), encoding: .utf8) ?? ""
             XCTAssertTrue(body.contains("api=SYNO.AudioStation.Song"))
             XCTAssertTrue(body.contains("method=getinfo"))
             XCTAssertTrue(body.contains("version=2"))
@@ -52,8 +52,8 @@ final class ApiClientHappyPathTests: XCTestCase {
     }
 
     func testBuildUrlAddsSidForQueryAuthenticatedApi() async throws {
-        let transport = MockHTTPTransport()
-        let client = ApiClient(httpClient: transport)
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory())
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.COVER.name: ApiInfoNode(path: "AudioStation/cover.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )
@@ -81,7 +81,7 @@ final class ApiClientHappyPathTests: XCTestCase {
     }
 
     func testBuildUrlNormalizesConnectionBasePath() async throws {
-        let client = ApiClient(httpClient: MockHTTPTransport())
+        let client = ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.COVER.name: ApiInfoNode(path: "AudioStation/cover.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )

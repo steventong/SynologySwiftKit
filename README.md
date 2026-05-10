@@ -161,18 +161,17 @@ Use interceptors for logging, tracing, diagnostics, and host-application headers
 
 ```swift
 import SynologySwiftKit
+import SwiftHttpClient
 
-struct MyHTTPClient: HTTPClientProtocol {
-    func send(_ request: URLRequest, timeout: TimeInterval, trustedSSLDomain: String?) async throws -> (Data, URLResponse) {
-        fatalError("Provide your own HTTP client")
-    }
+let factory: SynologyHTTPClientFactory = { timeout, trustedSSLDomain in
+    HTTPClient(timeout: timeout, trustedSSLDomain: trustedSSLDomain)
 }
 
 let client = SynologyClient(
     config: SynologyConfig(enableNetworkLogging: false),
     keyValueStorage: UserDefaultsStorage(userDefaults: .standard),
     keyChainStorage: KeyChainStorage(service: "com.example.synology"),
-    httpClient: MyHTTPClient()
+    httpClientFactory: factory
 )
 ```
 

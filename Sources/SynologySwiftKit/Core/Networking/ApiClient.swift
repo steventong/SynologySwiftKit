@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftHttpClient
 
 // MARK: - ApiClient
 
@@ -50,10 +51,10 @@ final class ApiClient: ApiClientProviding {
 
     /// 初始化 API 客户端
     /// Initialize API client
-    /// - Parameter httpClient: HTTP client implementation
-    init(httpClient: HTTPClientProtocol = URLSessionHTTPClient()) {
+    /// - Parameter httpClientFactory: HTTP client factory
+    init(httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory) {
         executor = ApiRequestExecutor(
-            httpClient: httpClient,
+            httpClientFactory: httpClientFactory,
             interceptorsProvider: { [weak state] in
                 state?.interceptorsSnapshot() ?? []
             }
