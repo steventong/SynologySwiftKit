@@ -20,7 +20,7 @@ public final class AuthClient {
 
     /// 初始化登录客户端
     /// Initialize login client
-    init(apiClient: ApiRequestSending & SessionStateUpdating, keyChainStorage: any SensitiveStorage = KeyChainStorage()) {
+    init(apiClient: ApiRequestSending & SessionStateUpdating, keyChainStorage: any SensitiveStorage = StorageService()) {
         self.apiClient = apiClient
         self.keyChainStorage = keyChainStorage
     }

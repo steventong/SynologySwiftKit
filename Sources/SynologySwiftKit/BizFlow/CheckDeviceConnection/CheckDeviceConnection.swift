@@ -17,7 +17,7 @@ final class CheckDeviceConnection: CheckDeviceConnectionProviding {
 
     /// 初始化连接检查器 (直接注入所有依赖)
     /// Initialize connection checker (inject all dependencies directly)
-    init(apiClient: ConnectionStateProviding & ConnectionStateUpdating, quickConnectApi: QuickConnectClient, pingpong: PingPongProviding, keyChainStorage: any SensitiveStorage = KeyChainStorage()) {
+    init(apiClient: ConnectionStateProviding & ConnectionStateUpdating, quickConnectApi: QuickConnectClient, pingpong: PingPongProviding, keyChainStorage: any SensitiveStorage = StorageService()) {
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong

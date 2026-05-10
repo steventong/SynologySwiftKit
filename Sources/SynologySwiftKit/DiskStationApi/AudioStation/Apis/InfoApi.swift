@@ -11,7 +11,7 @@ public final class InfoApi {
     private let apiClient: ApiRequestSending
     private let keyValueStorage: KeyValueStorage
 
-    init(apiClient: ApiRequestSending, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+    init(apiClient: ApiRequestSending, keyValueStorage: KeyValueStorage = StorageService()) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage
     }

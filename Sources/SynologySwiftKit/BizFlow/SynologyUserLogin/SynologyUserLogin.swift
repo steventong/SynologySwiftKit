@@ -35,7 +35,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
          authApi: AuthClient,
          audioStationApi: AudioStationClient,
          connectionChecker: CheckDeviceConnectionProviding,
-         keyChainStorage: any SensitiveStorage = KeyChainStorage()) {
+         keyChainStorage: any SensitiveStorage = StorageService()) {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.authApi = authApi

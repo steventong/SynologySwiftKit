@@ -30,7 +30,7 @@ final class ApiInfoApi: ApiInfoProviding {
     /// 初始化 API 信息管理器
     /// Initialize API information manager
     init(apiClient: ApiRequestSending,
-                keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
+                keyValueStorage: KeyValueStorage = StorageService(),
                 cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage

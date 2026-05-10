@@ -44,14 +44,14 @@ public final class SynologyClient {
     /// 初始化 Synology 客户端
     /// - Parameters:
     ///   - config: 全局配置 (默认为 SynologyConfig.default)
-    ///   - keyValueStorage: 非敏感缓存存储，默认使用 `UserDefaultsStorage`
-    ///   - keyChainStorage: 敏感信息存储，默认使用 `KeyChainStorage`
+    ///   - keyValueStorage: 非敏感缓存存储，默认使用统一 `StorageService`
+    ///   - keyChainStorage: 敏感信息存储，默认使用统一 `StorageService`
     ///   - httpClient: HTTP 客户端实现，默认使用 `URLSessionHTTPClient`
     ///   - autoRegisterAuthInterceptor: 是否自动注册默认鉴权拦截器
     ///   - interceptors: 初始化时需要预注册的额外拦截器
     public convenience init(config: SynologyConfig = .default,
-                            keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
-                            keyChainStorage: any SensitiveStorage = KeyChainStorage(),
+                            keyValueStorage: KeyValueStorage = StorageService(),
+                            keyChainStorage: any SensitiveStorage = StorageService(),
                             httpClient: HTTPClientProtocol = URLSessionHTTPClient(),
                             autoRegisterAuthInterceptor: Bool = true) {
         self.init(
@@ -176,6 +176,12 @@ private struct SynologyClientContainer {
             pingpong: ping,
             keyChainStorage: keyChainStorage
         )
+        let connectionRecovery = ConnectionRecovery(
+            apiClient: apiClient,
+            quickConnectApi: quickConnect,
+            pingpong: ping,
+            keyChainStorage: keyChainStorage
+        )
         let userLogin = SynologyUserLogin(
             apiInfoApi: apiInfo,
             apiClient: apiClient,
@@ -187,16 +193,28 @@ private struct SynologyClientContainer {
         let queryAllSongs = QueryAllSongs(apiClient: apiClient)
         let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
         let checkDeviceConnectionFlow = CheckDeviceConnectionFlowClient(connectionFlow: checkConnection)
+        let connectionRecoveryFlow = ConnectionRecoveryFlowClient(recoveryFlow: connectionRecovery)
         let queryAllSongsFlow = QueryAllSongsFlowClient(queryFlow: queryAllSongs)
         self.flows = FlowClient(
             userLogin: userLoginFlow,
             checkDeviceConnection: checkDeviceConnectionFlow,
+            connectionRecovery: connectionRecoveryFlow,
             queryAllSongs: queryAllSongsFlow
         )
         self.session = SessionClient(
-            connectionProvider: { [weak apiClient] in
-                guard let connection = apiClient?.connection else { return nil }
-                return SynologyConnection(type: connection.type, url: connection.url)
+            connectionProvider: { [weak apiClient, weak keyChainStorage] in
+                if let connection = apiClient?.connection {
+                    return SynologyConnection(type: connection.type, url: connection.url)
+                }
+
+                if let persisted = keyChainStorage?.getConnectionInfo(),
+                   let type = ConnectionType(rawValue: persisted.typeString)
+                {
+                    apiClient?.updateConnection(type: type, url: persisted.url)
+                    return SynologyConnection(type: type, url: persisted.url)
+                }
+
+                return nil
             },
             sessionProvider: { [weak apiClient, weak keyChainStorage] in
                 if let current = apiClient?.session, !current.sid.isEmpty {
@@ -210,8 +228,9 @@ private struct SynologyClientContainer {
 
                 return nil
             },
-            connectionUpdater: { [weak apiClient] type, url in
+            connectionUpdater: { [weak apiClient, weak keyChainStorage] type, url in
                 apiClient?.updateConnection(type: type, url: url)
+                keyChainStorage?.saveConnectionInfo(url: url, typeString: type.rawValue)
             },
             sessionUpdater: { [weak apiClient] sid, did in
                 apiClient?.updateSession(sid: sid, did: did)

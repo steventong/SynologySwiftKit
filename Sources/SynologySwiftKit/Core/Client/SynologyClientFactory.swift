@@ -16,15 +16,15 @@ public enum SynologyClientFactory {
     ///
     /// - Parameters:
     ///   - config: 全局配置，默认使用 `SynologyConfig.default` / Global config, default: `SynologyConfig.default`
-    ///   - keyValueStorage: 非敏感缓存存储，默认使用 `UserDefaultsStorage` / Non-sensitive cache storage, default: `UserDefaultsStorage`
-    ///   - keyChainStorage: 敏感信息存储，默认使用 `KeyChainStorage` / Sensitive storage, default: `KeyChainStorage`
+    ///   - keyValueStorage: 非敏感缓存存储，默认使用统一 `StorageService` / Non-sensitive cache storage, default: unified `StorageService`
+    ///   - keyChainStorage: 敏感信息存储，默认使用统一 `StorageService` / Sensitive storage, default: unified `StorageService`
     ///   - httpClient: HTTP 客户端实现，默认使用 `URLSessionHTTPClient` / HTTP client implementation, default: `URLSessionHTTPClient`
     ///   - autoRegisterAuthInterceptor: 是否自动注册鉴权拦截器，默认 true / Auto-register auth interceptor, default: true
     /// - Returns: 配置好的 `SynologyClient` 实例 / Configured `SynologyClient` instance
     public static func make(
         config: SynologyConfig = .default,
-        keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
-        keyChainStorage: any SensitiveStorage = KeyChainStorage(),
+        keyValueStorage: KeyValueStorage = StorageService(),
+        keyChainStorage: any SensitiveStorage = StorageService(),
         httpClient: HTTPClientProtocol = URLSessionHTTPClient(),
         autoRegisterAuthInterceptor: Bool = true
     ) -> SynologyClient {
@@ -59,8 +59,8 @@ public enum SynologyClientFactory {
         sid: String,
         did: String? = nil,
         config: SynologyConfig = .default,
-        keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
-        keyChainStorage: any SensitiveStorage = KeyChainStorage(),
+        keyValueStorage: KeyValueStorage = StorageService(),
+        keyChainStorage: any SensitiveStorage = StorageService(),
         httpClient: HTTPClientProtocol = URLSessionHTTPClient()
     ) -> SynologyClient {
         let client = make(

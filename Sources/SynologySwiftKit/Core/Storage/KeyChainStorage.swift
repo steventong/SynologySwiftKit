@@ -39,28 +39,15 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     ///   - password: 密码 / Password
     ///   - usesHTTPS: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
     public func saveCredentials(server: String, username: String, password: String, usesHTTPS: Bool) {
-        let credentials: [String: String] = ["server": server,
-                                             "username": username,
-                                             "password": password,
-                                             "usesHTTPS": usesHTTPS ? "Y" : "N"]
-
-        save(account: key_credentials, data: credentials)
+        let credentials = SynologyCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
+        setCodable(credentials, forKey: key_credentials)
     }
 
     /// 从 Keychain 读取已保存的凭据
     /// Read saved credentials from Keychain
     /// - Returns: 凭据对象，如果不存在则返回 nil
     public func getCredentials() -> SynologyCredentials? {
-        if let data: [String: String] = read(account: key_credentials),
-           let server = data["server"],
-           let username = data["username"],
-           let password = data["password"]
-        {
-            let usesHTTPS = data["usesHTTPS"] == "Y" || data["isEnableHttps"] == "Y"
-            return SynologyCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
-        }
-
-        return nil
+        codable(forKey: key_credentials)
     }
 
     /// 从 Keychain 删除凭据
@@ -74,24 +61,17 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 保存 Session 信息
     /// Save session info
     public func saveSessionInfo(sid: String, did: String?) {
-        let sessionInfo: [String: String] = ["sid": sid, "did": did ?? ""]
-        save(account: key_session, data: sessionInfo)
+        let sessionInfo = SynologySessionInfo(sid: sid, did: did)
+        setCodable(sessionInfo, forKey: key_session)
     }
 
     /// 获取 Session 信息
     /// Get session info
     public func getSessionInfo() -> (sid: String, did: String?)? {
-        // Try reading as SessionInfoData (new format)
-        if let data: [String: String] = read(account: key_session),
-           let sid = data["sid"], let did = data["did"] {
-            return (sid, did)
+        guard let sessionInfo: SynologySessionInfo = codable(forKey: key_session) else {
+            return nil
         }
-
-        // Fallback: Try reading as [String: String] (old format) for migration compatibility?
-        // Actually, let's just ignore old data or try to read it.
-        // Given this is a library, maybe strict migration is better if we want to force cleanup.
-        // But user data loss (session logout) is acceptable for update.
-        return nil
+        return (sessionInfo.sid, sessionInfo.did)
     }
 
     /// 移除 Session 信息
@@ -105,18 +85,17 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 保存设备 ID (持久化，不随登出清除)
     /// Save Device ID (Persistent, not cleared on logout)
     public func saveDeviceInfo(_ did: String, _ name: String) {
-        let data: [String: String] = ["did": did, "name": name]
-        save(account: key_device, data: data)
+        let data = SynologyDeviceInfo(did: did, name: name)
+        setCodable(data, forKey: key_device)
     }
 
     /// 获取设备 ID
     /// Get Device ID
     public func getDeviceInfo() -> (String, String)? {
-        if let data: [String: String] = read(account: key_device),
-           let did = data["did"], let name = data["name"] {
-            return (did, name)
+        guard let data: SynologyDeviceInfo = codable(forKey: key_device) else {
+            return nil
         }
-        return nil
+        return (data.did, data.name)
     }
 
     // MARK: - Connection URL
@@ -124,18 +103,17 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 保存连接地址信息
     /// Save connection URL info
     public func saveConnectionInfo(url: String, typeString: String) {
-        let data: [String: String] = ["url": url, "type": typeString]
-        save(account: key_connection, data: data)
+        let data = SynologyConnectionInfo(url: url, typeString: typeString)
+        setCodable(data, forKey: key_connection)
     }
 
     /// 获取连接地址信息
     /// Get connection URL info
     public func getConnectionInfo() -> (url: String, typeString: String)? {
-        if let data: [String: String] = read(account: key_connection),
-           let url = data["url"], let typeString = data["type"] {
-            return (url, typeString)
+        guard let data: SynologyConnectionInfo = codable(forKey: key_connection) else {
+            return nil
         }
-        return nil
+        return (data.url, data.typeString)
     }
 
     /// 移除连接地址信息
@@ -146,6 +124,22 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
 }
 
 extension KeyChainStorage {
+    func setCodable<T: Encodable>(_ value: T?, forKey key: String) {
+        guard let value else {
+            removeValue(forKey: key)
+            return
+        }
+        save(account: key, data: value)
+    }
+
+    func codable<T: Decodable>(forKey key: String) -> T? {
+        read(account: key)
+    }
+
+    func removeValue(forKey key: String) {
+        delete(account: key)
+    }
+
     // MARK: - API Info Cache (Optional, maybe keep in UserDefaults for performance?)
 
     // API Info is not sensitive and accessed frequently. UserDefaults/Memory is better.

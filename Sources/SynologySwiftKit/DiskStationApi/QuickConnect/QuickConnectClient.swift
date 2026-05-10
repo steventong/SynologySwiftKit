@@ -18,7 +18,7 @@ public final class QuickConnectClient {
     init(apiClient: RawRequestSending,
                 pingpong: PingPongProviding,
                 timeout: TimeInterval = SynologyConfig.default.quickConnectTimeout,
-                keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+                keyValueStorage: KeyValueStorage = StorageService()) {
         self.apiClient = apiClient
         self.pingpong = pingpong
         self.timeout = timeout

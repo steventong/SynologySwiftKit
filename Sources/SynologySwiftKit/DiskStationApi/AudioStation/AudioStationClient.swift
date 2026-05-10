@@ -77,7 +77,7 @@ public final class AudioStationClient {
     /// 初始化 AudioStation API
     /// Initialize AudioStation API
     /// - Parameter apiClient: API 客户端
-    init(apiClient: ApiEndpointClient, keyValueStorage: KeyValueStorage = UserDefaultsStorage()) {
+    init(apiClient: ApiEndpointClient, keyValueStorage: KeyValueStorage = StorageService()) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage
     }
