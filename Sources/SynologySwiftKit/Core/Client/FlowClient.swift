@@ -68,6 +68,24 @@ public final class CheckDeviceConnectionFlowClient {
     }
 }
 
+// MARK: - ConnectionRecoveryFlowClient
+
+public final class ConnectionRecoveryFlowClient {
+    private let recoveryFlow: any ConnectionRecoveryProviding
+
+    init(recoveryFlow: any ConnectionRecoveryProviding) {
+        self.recoveryFlow = recoveryFlow
+    }
+
+    public func recover() async -> ConnectionRecoveryDecision {
+        await recoveryFlow.recoverConnection()
+    }
+
+    public func optimizeQuickConnectEndpoint() async -> SynologyConnection? {
+        await recoveryFlow.optimizeQuickConnectEndpoint()
+    }
+}
+
 // MARK: - QueryAllSongsFlowClient
 
 /// 查询全部歌曲流程客户端（公开入口）
@@ -109,6 +127,7 @@ public final class QueryAllSongsFlowClient {
 /// Access all business flows through `SynologyClient.flows`:
 /// - `userLogin`: 用户登录流程 / User login flow
 /// - `checkDeviceConnection`: 设备连接检查流程 / Device connection check flow
+/// - `connectionRecovery`: 连接恢复流程 / Connection recovery flow
 /// - `queryAllSongs`: 批量歌曲查询流程 / Batch song query flow
 public final class FlowClient {
     /// 用户登录流程
@@ -119,13 +138,22 @@ public final class FlowClient {
     /// Device connection check flow
     public let checkDeviceConnection: CheckDeviceConnectionFlowClient
 
+    /// 连接恢复流程
+    /// Connection recovery flow
+    public let connectionRecovery: ConnectionRecoveryFlowClient
+
     /// 批量歌曲查询流程
     /// Batch song query flow
     public let queryAllSongs: QueryAllSongsFlowClient
 
-    init(userLogin: UserLoginFlowClient, checkDeviceConnection: CheckDeviceConnectionFlowClient, queryAllSongs: QueryAllSongsFlowClient) {
+    init(userLogin: UserLoginFlowClient,
+         checkDeviceConnection: CheckDeviceConnectionFlowClient,
+         connectionRecovery: ConnectionRecoveryFlowClient,
+         queryAllSongs: QueryAllSongsFlowClient)
+    {
         self.userLogin = userLogin
         self.checkDeviceConnection = checkDeviceConnection
+        self.connectionRecovery = connectionRecovery
         self.queryAllSongs = queryAllSongs
     }
 }
