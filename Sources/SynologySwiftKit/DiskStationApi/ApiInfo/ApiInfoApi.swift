@@ -51,11 +51,10 @@ final class ApiInfoApi: ApiInfoProviding {
         }
 
         guard let apiInfo = cache.node(for: apiName) else {
-            Logger.info("ApiInfoApi#getApiInfoByApiName (\(apiName)) not exist")
+            Logger.warn("ApiInfoApi#getApiInfoByApiName api not found: \(apiName)")
             throw SynologyError.api(code: 102, message: "API not found: \(apiName)")
         }
 
-        Logger.debug("ApiInfoApi#getApiInfoByApiName get apiInfo, key: \(apiName), value = \(apiInfo)")
         return apiInfo
     }
 
