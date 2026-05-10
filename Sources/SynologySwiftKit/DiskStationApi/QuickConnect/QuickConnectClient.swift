@@ -51,11 +51,56 @@ public final class QuickConnectClient {
 
         return SynologyConnection(type: resolvedConnection.type, url: resolvedConnection.url)
     }
+
+    /// 获取当前 QuickConnect ID 对应的全部候选连接地址
+    /// List all candidate connection endpoints for the current QuickConnect ID
+    public func listDeviceConnections(quickConnectId: String, usesHTTPS: Bool) async throws -> [SynologyConnection] {
+        let resolved = try await resolveConnectionCandidates(
+            quickConnectId: quickConnectId,
+            usesHTTPS: usesHTTPS
+        )
+
+        let currentConnectionMap = resolved.connectionMap
+        let orderedTypes = ConnectionType.ordered
+
+        return orderedTypes.flatMap { type in
+            (currentConnectionMap[type] ?? []).map { url in
+                SynologyConnection(type: type, url: url)
+            }
+        }
+    }
 }
 
 // MARK: - Server Info Discovery
 
 private extension QuickConnectClient {
+    private func resolveConnectionCandidates(quickConnectId: String, usesHTTPS: Bool) async throws -> (synologyServer: String, connectionMap: [ConnectionType: [String]]) {
+        let serverInfo = try await queryAvailableServerInfo(quickConnectId: quickConnectId, usesHTTPS: usesHTTPS)
+        guard let serverInfo else {
+            Logger.error("QuickConnectClient.resolveConnectionCandidates query device serverInfo failed")
+            throw SynologyError.network(message: "QuickConnect server info not available")
+        }
+
+        var connections = parseConnectionUrls(
+            serverInfo: serverInfo.serverInfo,
+            usesHTTPS: usesHTTPS,
+            isRequestTunnel: false
+        )
+
+        if !connections.keys.contains(.relay),
+           let relay = await requestForRelayConnection(
+               connections: connections,
+               synologyServer: serverInfo.synologyServer,
+               quickConnectId: quickConnectId,
+               usesHTTPS: usesHTTPS
+           )
+        {
+            connections[relay.type, default: []].append(relay.url)
+        }
+
+        return (serverInfo.synologyServer, deduplicated(connections))
+    }
+
     /// 获取可用的 serverInfo（带站点重定向支持）
     /// Fetch available serverInfo (with site redirection support)
     private func queryAvailableServerInfo(quickConnectId: String, usesHTTPS: Bool) async throws -> (synologyServer: String, serverInfo: ServerInfo)? {
@@ -172,6 +217,15 @@ private extension QuickConnectClient {
 }
 
 private extension QuickConnectClient {
+    private func deduplicated(_ connections: [ConnectionType: [String]]) -> [ConnectionType: [String]] {
+        var result: [ConnectionType: [String]] = [:]
+        for (type, urls) in connections {
+            var seen = Set<String>()
+            result[type] = urls.filter { seen.insert($0).inserted }
+        }
+        return result
+    }
+
     /// 从缓存获取 synology server
     /// Fetch synology server URL from cache
     private func fetchSynologyServerFromCache(quickConnectId: String) -> String {

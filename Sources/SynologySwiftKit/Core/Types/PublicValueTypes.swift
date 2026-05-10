@@ -108,6 +108,22 @@ public struct SynologyConnectionInfo: Codable, Equatable, Sendable, SensitiveSto
     }
 }
 
+/// 可切换的连接地址候选项
+/// Switchable connection endpoint candidate
+public struct SynologyConnectionCandidate: Equatable, Sendable {
+    public let url: String
+    public let type: ConnectionType
+    public let isCurrent: Bool
+    public let isReachable: Bool
+
+    public init(url: String, type: ConnectionType, isCurrent: Bool, isReachable: Bool) {
+        self.url = url
+        self.type = type
+        self.isCurrent = isCurrent
+        self.isReachable = isReachable
+    }
+}
+
 /// 持久化的设备身份信息
 /// Persisted device identity info
 public struct SynologyDeviceInfo: Codable, Equatable, Sendable, SensitiveStorageValue {

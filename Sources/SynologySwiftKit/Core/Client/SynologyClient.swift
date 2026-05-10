@@ -182,6 +182,12 @@ private struct SynologyClientContainer {
             pingpong: ping,
             keyChainStorage: keyChainStorage
         )
+        let connectionRoute = ConnectionRouteManager(
+            apiClient: apiClient,
+            quickConnectApi: quickConnect,
+            pingpong: ping,
+            keyChainStorage: keyChainStorage
+        )
         let userLogin = SynologyUserLogin(
             apiInfoApi: apiInfo,
             apiClient: apiClient,
@@ -194,11 +200,13 @@ private struct SynologyClientContainer {
         let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
         let checkDeviceConnectionFlow = CheckDeviceConnectionFlowClient(connectionFlow: checkConnection)
         let connectionRecoveryFlow = ConnectionRecoveryFlowClient(recoveryFlow: connectionRecovery)
+        let connectionRouteFlow = ConnectionRouteFlowClient(routeFlow: connectionRoute)
         let queryAllSongsFlow = QueryAllSongsFlowClient(queryFlow: queryAllSongs)
         self.flows = FlowClient(
             userLogin: userLoginFlow,
             checkDeviceConnection: checkDeviceConnectionFlow,
             connectionRecovery: connectionRecoveryFlow,
+            connectionRoute: connectionRouteFlow,
             queryAllSongs: queryAllSongsFlow
         )
         self.session = SessionClient(

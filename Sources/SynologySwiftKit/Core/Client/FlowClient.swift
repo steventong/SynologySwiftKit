@@ -86,6 +86,24 @@ public final class ConnectionRecoveryFlowClient {
     }
 }
 
+// MARK: - ConnectionRouteFlowClient
+
+public final class ConnectionRouteFlowClient {
+    private let routeFlow: any ConnectionRouteManaging
+
+    init(routeFlow: any ConnectionRouteManaging) {
+        self.routeFlow = routeFlow
+    }
+
+    public func listCandidates() async throws -> [SynologyConnectionCandidate] {
+        try await routeFlow.listCandidates()
+    }
+
+    public func switchConnection(to connection: SynologyConnection) async throws -> SynologyConnection {
+        try await routeFlow.switchConnection(to: connection)
+    }
+}
+
 // MARK: - QueryAllSongsFlowClient
 
 /// 查询全部歌曲流程客户端（公开入口）
@@ -142,6 +160,10 @@ public final class FlowClient {
     /// Connection recovery flow
     public let connectionRecovery: ConnectionRecoveryFlowClient
 
+    /// 连接地址枚举与切换流程
+    /// Connection route listing and switching flow
+    public let connectionRoute: ConnectionRouteFlowClient
+
     /// 批量歌曲查询流程
     /// Batch song query flow
     public let queryAllSongs: QueryAllSongsFlowClient
@@ -149,11 +171,13 @@ public final class FlowClient {
     init(userLogin: UserLoginFlowClient,
          checkDeviceConnection: CheckDeviceConnectionFlowClient,
          connectionRecovery: ConnectionRecoveryFlowClient,
+         connectionRoute: ConnectionRouteFlowClient,
          queryAllSongs: QueryAllSongsFlowClient)
     {
         self.userLogin = userLogin
         self.checkDeviceConnection = checkDeviceConnection
         self.connectionRecovery = connectionRecovery
+        self.connectionRoute = connectionRoute
         self.queryAllSongs = queryAllSongs
     }
 }
