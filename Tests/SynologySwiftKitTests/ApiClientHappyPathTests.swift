@@ -10,6 +10,7 @@ final class ApiClientHappyPathTests: XCTestCase {
         )
         client.updateConnection(type: .custom_domain, url: "https://nas.local")
         client.updateSession(sid: "sid-123", did: "did-123")
+        client.addInterceptor(AuthInterceptor(sessionProvider: { client.session }))
 
         transport.handler = { request, _, trustedSSLDomain in
             XCTAssertEqual(trustedSSLDomain, "nas.local")

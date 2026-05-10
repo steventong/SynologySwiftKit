@@ -13,10 +13,10 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertNotNil(api.genres)
         XCTAssertNotNil(api.songs)
         XCTAssertNotNil(api.playlists)
-        XCTAssertNotNil(api.lyricsCatalog)
+        XCTAssertNotNil(api.lyrics)
         XCTAssertNotNil(api.search)
         XCTAssertNotNil(api.covers)
-        XCTAssertNotNil(api.playback)
+        XCTAssertNotNil(api.stream)
         XCTAssertNotNil(api.info)
         XCTAssertNotNil(api.tagEditor)
     }

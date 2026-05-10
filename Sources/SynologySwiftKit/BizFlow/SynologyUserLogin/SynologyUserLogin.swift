@@ -12,7 +12,7 @@ import OSLog
 
 /// Synology 用户登录管理（依赖注入）
 /// Synology user login management (dependency injection)
-public final class SynologyUserLogin {
+final class SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
     private let apiInfoApi: ApiInfoProviding
@@ -20,7 +20,7 @@ public final class SynologyUserLogin {
     private let audioStationApi: AudioStationClient
     private let apiClient: ConnectionStateUpdating & SessionStateUpdating
     private let connectionChecker: CheckDeviceConnectionProviding
-    private let keyChainStorage: KeyChainStorage
+    private let keyChainStorage: any SensitiveStorage
 
     // MARK: - Initialization
 
@@ -35,7 +35,7 @@ public final class SynologyUserLogin {
          authApi: AuthClient,
          audioStationApi: AudioStationClient,
          connectionChecker: CheckDeviceConnectionProviding,
-         keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+         keyChainStorage: any SensitiveStorage = KeyChainStorage()) {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.authApi = authApi
@@ -54,7 +54,7 @@ public final class SynologyUserLogin {
     ///   - otpCode: 可选的 OTP 代码
     ///   - shouldSavePassword: 是否保存密码（默认为 true）
     /// - Returns: AsyncStream 返回登录进度
-    public func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+    func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = Task {
                 await self.performPasswordLogin(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, continuation: continuation)
@@ -66,7 +66,7 @@ public final class SynologyUserLogin {
     }
 
     /// 刷新登录信息，静默登录
-    public func login() -> AsyncStream<SynologyUserLoginProgress> {
+    func login() -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = Task {
                 guard let credentials = keyChainStorage.getCredentials() else {

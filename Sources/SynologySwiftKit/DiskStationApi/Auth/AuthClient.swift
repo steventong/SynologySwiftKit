@@ -9,9 +9,9 @@ import Foundation
 
 public final class AuthClient {
     private let apiClient: ApiRequestSending & SessionStateUpdating
-    private let keyChainStorage: KeyChainStorage
+    private let keyChainStorage: any SensitiveStorage
 
-    init(apiClient: ApiRequestSending & SessionStateUpdating, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+    init(apiClient: ApiRequestSending & SessionStateUpdating, keyChainStorage: any SensitiveStorage = KeyChainStorage()) {
         self.apiClient = apiClient
         self.keyChainStorage = keyChainStorage
     }

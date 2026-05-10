@@ -39,7 +39,7 @@ import SynologySwiftKit
 
 let client = SynologyClientFactory.make()
 
-for await progress in await client.flows.auth.login(
+for await progress in client.flows.userLogin.login(
     server: "your-quickconnect-id",
     usesHTTPS: true,
     username: "demo",
@@ -63,22 +63,22 @@ for await progress in await client.flows.auth.login(
 ## Audio Station
 
 ```swift
-let albums = try await client.audioStation.albums.list(limit: 20)
-let songs = try await client.audioStation.songs.list(limit: 100, libraryScope: .shared)
-let playlists = try await client.audioStation.playlists.list(limit: 50, offset: 0)
-let searchResults = try await client.audioStation.search.list(keyword: "Miles")
+let albums = try await client.albums.list(limit: 20)
+let songs = try await client.songs.list(limit: 100, libraryScope: .shared)
+let playlists = try await client.playlists.list(limit: 50, offset: 0)
+let searchResults = try await client.search.list(keyword: "Miles")
 ```
 
 ## Playlists
 
 ```swift
-let playlist = try await client.audioStation.playlists.create(
+let playlist = try await client.playlists.create(
     name: "Favorites",
     libraryScope: .personal,
     songIDs: ["music_1", "music_2"]
 )
 
-try await client.audioStation.playlists.addSongs(
+try await client.playlists.addSongs(
     id: playlist.id,
     songIDs: ["music_3"]
 )
@@ -87,12 +87,12 @@ try await client.audioStation.playlists.addSongs(
 ## Covers And Playback
 
 ```swift
-let coverURL = try await client.audioStation.covers.songCoverURL(
+let coverURL = try await client.covers.songCoverURL(
     songID: "music_1",
     libraryScope: .shared
 )
 
-let playbackURL = try await client.audioStation.playback.playbackURL(
+let playbackURL = try await client.stream.playbackURL(
     for: SongPlaybackSource(
         id: "music_1",
         path: "/music/demo.mp3",
@@ -131,6 +131,15 @@ client.session.clear()
 ```
 
 `SynologyClient` restores persisted session state when available. `client.session.clear()` clears both in-memory and persisted session state.
+
+## Entrypoints
+
+Use one naming system only:
+
+- grouped modules: `client.auth`, `client.system`, `client.audioStation`, `client.files`, `client.session`, `client.flows`
+- direct API names: `client.quickConnect`, `client.dsmInfo`, `client.encryption`, `client.songs`, `client.albums`, `client.artists`, `client.composers`, `client.genres`, `client.folders`, `client.playlists`, `client.pins`, `client.lyrics`, `client.search`, `client.covers`, `client.stream`, `client.tagEditor`
+- task flows: `client.flows.userLogin`, `client.flows.checkDeviceConnection`, `client.flows.queryAllSongs`
+- `client.files`: File Station file operations
 
 ## Request Interceptors
 
@@ -171,9 +180,9 @@ let client = SynologyClient(
 
 | Area | APIs |
 | --- | --- |
-| DSM | `auth`, `system`, `files` |
-| Audio Station | `albums`, `artists`, `composers`, `folders`, `genres`, `info`, `lyricsCatalog`, `pins`, `playlists`, `search`, `songs`, `playback`, `covers`, `tagEditor` |
-| Flows | `flows.auth`, `flows.connection`, `flows.library` |
+| Grouped modules | `auth`, `system`, `audioStation`, `files`, `session`, `flows` |
+| Direct API names | `quickConnect`, `dsmInfo`, `encryption`, `songs`, `albums`, `artists`, `composers`, `genres`, `folders`, `playlists`, `pins`, `lyrics`, `search`, `covers`, `stream`, `tagEditor` |
+| Task flows | `userLogin`, `checkDeviceConnection`, `queryAllSongs` |
 
 ## Development
 

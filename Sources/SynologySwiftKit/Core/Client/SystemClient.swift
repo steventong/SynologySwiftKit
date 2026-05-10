@@ -11,13 +11,13 @@ public final class ConnectionClient {
 }
 
 public final class SystemClient {
-    public let device: DSMInfoClient
-    public let security: EncryptionClient
-    public let network: ConnectionClient
+    public let dsmInfo: DSMInfoClient
+    public let encryption: EncryptionClient
+    public let connection: ConnectionClient
 
-    init(device: DSMInfoClient, security: EncryptionClient, network: ConnectionClient) {
-        self.device = device
-        self.security = security
-        self.network = network
+    init(dsmInfo: DSMInfoClient, encryption: EncryptionClient, connection: ConnectionClient) {
+        self.dsmInfo = dsmInfo
+        self.encryption = encryption
+        self.connection = connection
     }
 }

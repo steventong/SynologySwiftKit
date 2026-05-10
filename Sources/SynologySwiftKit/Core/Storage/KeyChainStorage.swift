@@ -12,7 +12,7 @@ import Security
 
 /// Keychain 安全存储（用于保存账号密码等敏感信息）
 /// Keychain secure storage for saving credentials and other sensitive data
-public final class KeyChainStorage: @unchecked Sendable {
+public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Keychain 服务名称前缀
     /// Keychain service name prefix
     private let service: String
@@ -73,14 +73,14 @@ public final class KeyChainStorage: @unchecked Sendable {
 
     /// 保存 Session 信息
     /// Save session info
-    func saveSessionInfo(sid: String, did: String?) {
+    public func saveSessionInfo(sid: String, did: String?) {
         let sessionInfo: [String: String] = ["sid": sid, "did": did ?? ""]
         save(account: key_session, data: sessionInfo)
     }
 
     /// 获取 Session 信息
     /// Get session info
-    func getSessionInfo() -> (sid: String, did: String)? {
+    public func getSessionInfo() -> (sid: String, did: String?)? {
         // Try reading as SessionInfoData (new format)
         if let data: [String: String] = read(account: key_session),
            let sid = data["sid"], let did = data["did"] {
@@ -96,7 +96,7 @@ public final class KeyChainStorage: @unchecked Sendable {
 
     /// 移除 Session 信息
     /// Remove session info
-    func removeSessionInfo() {
+    public func removeSessionInfo() {
         delete(account: key_session)
     }
 
@@ -104,14 +104,14 @@ public final class KeyChainStorage: @unchecked Sendable {
 
     /// 保存设备 ID (持久化，不随登出清除)
     /// Save Device ID (Persistent, not cleared on logout)
-    func saveDeviceInfo(_ did: String, _ name: String) {
+    public func saveDeviceInfo(_ did: String, _ name: String) {
         let data: [String: String] = ["did": did, "name": name]
         save(account: key_device, data: data)
     }
 
     /// 获取设备 ID
     /// Get Device ID
-    func getDeviceInfo() -> (String, String)? {
+    public func getDeviceInfo() -> (String, String)? {
         if let data: [String: String] = read(account: key_device),
            let did = data["did"], let name = data["name"] {
             return (did, name)
@@ -123,14 +123,14 @@ public final class KeyChainStorage: @unchecked Sendable {
 
     /// 保存连接地址信息
     /// Save connection URL info
-    func saveConnectionInfo(url: String, typeString: String) {
+    public func saveConnectionInfo(url: String, typeString: String) {
         let data: [String: String] = ["url": url, "type": typeString]
         save(account: key_connection, data: data)
     }
 
     /// 获取连接地址信息
     /// Get connection URL info
-    func getConnectionInfo() -> (url: String, typeString: String)? {
+    public func getConnectionInfo() -> (url: String, typeString: String)? {
         if let data: [String: String] = read(account: key_connection),
            let url = data["url"], let typeString = data["type"] {
             return (url, typeString)
@@ -140,7 +140,7 @@ public final class KeyChainStorage: @unchecked Sendable {
 
     /// 移除连接地址信息
     /// Remove connection URL info
-    func removeConnectionInfo() {
+    public func removeConnectionInfo() {
         delete(account: key_connection)
     }
 }

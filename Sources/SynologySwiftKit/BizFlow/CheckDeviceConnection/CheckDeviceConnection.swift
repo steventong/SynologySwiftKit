@@ -5,19 +5,19 @@ import Foundation
 
 /// 设备连接检查类（依赖注入）
 /// Device connection checker (dependency injection)
-public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
+final class CheckDeviceConnection: CheckDeviceConnectionProviding {
     // MARK: - Dependencies
 
     private let apiClient: ConnectionStateProviding & ConnectionStateUpdating
     private let quickConnectApi: QuickConnectClient
     private let pingpong: PingPongProviding
-    private let keyChainStorage: KeyChainStorage
+    private let keyChainStorage: any SensitiveStorage
 
     // MARK: - Initialization
 
     /// 初始化连接检查器 (直接注入所有依赖)
     /// Initialize connection checker (inject all dependencies directly)
-    init(apiClient: ConnectionStateProviding & ConnectionStateUpdating, quickConnectApi: QuickConnectClient, pingpong: PingPongProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+    init(apiClient: ConnectionStateProviding & ConnectionStateUpdating, quickConnectApi: QuickConnectClient, pingpong: PingPongProviding, keyChainStorage: any SensitiveStorage = KeyChainStorage()) {
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
@@ -29,7 +29,7 @@ public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
     /// 检查当前连接状态（AsyncStream 版本）
     /// Check current connection status with AsyncStream
     /// - Returns: AsyncStream 返回连接检查进度
-    public func checkConnectionStatus() -> AsyncStream<CheckDeviceConnectionProgress> {
+    func checkConnectionStatus() -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
             let task = Task {
                 do {
@@ -55,7 +55,7 @@ public final class CheckDeviceConnection: CheckDeviceConnectionProviding {
     /// 检查当前连接状态（AsyncStream 版本）
     /// Check current connection status with AsyncStream
     /// - Returns: AsyncStream 返回连接检查进度
-    public func checkConnectionStatus(server: String, usesHTTPS: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
+    func checkConnectionStatus(server: String, usesHTTPS: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
             let task = Task {
                 await self.performConnectionCheck(server: server, usesHTTPS: usesHTTPS, continuation: continuation)

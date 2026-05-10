@@ -27,14 +27,6 @@ struct ApiRequestFactory {
             parameters["version"] = .int(resolved.version)
         }
 
-        if let sid = try buildAuthQueryParameter(
-            name: resolved.name,
-            method: resolved.method,
-            requireAuthQuery: resolved.requireAuthQuery
-        ) {
-            parameters["_sid"] = .string(sid)
-        }
-
         switch endpoint.httpMethod {
         case .get:
             request = URLRequest(url: try buildUrl(apiUrl: apiUrl, parameters: parameters))
@@ -50,12 +42,8 @@ struct ApiRequestFactory {
             request.httpBody = formURLEncodedBody(parameters: parameters)
         }
 
-        if let cookie = try await buildAuthCookieHeader(
-            name: resolved.name,
-            method: resolved.method,
-            parameters: resolved.parameters,
-            requireAuthCookie: resolved.requireAuthCookie
-        ) {
+        // Explicit sid/did parameters are kept for call sites that provide a detached session.
+        if let cookie = buildExplicitCookieHeader(parameters: resolved.parameters) {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")
         }
 
@@ -66,13 +54,14 @@ struct ApiRequestFactory {
         let apiUrl = try buildApiUrl(apiPath: resolved.apiPath)
         var parameters = resolved.parameters
 
+        // Public URL generation bypasses interceptors, so ambient `_sid` stays here.
         parameters["api"] = .string(resolved.name)
         if !resolved.method.isEmpty {
             parameters["method"] = .string(resolved.method)
             parameters["version"] = .int(resolved.version)
         }
 
-        if let sid = try buildAuthQueryParameter(
+        if let sid = try buildAmbientAuthQueryParameter(
             name: resolved.name,
             method: resolved.method,
             requireAuthQuery: resolved.requireAuthQuery
@@ -137,18 +126,8 @@ struct ApiRequestFactory {
             .data(using: .utf8)
     }
 
-    private func buildAuthCookieHeader(name: String, method: String, parameters: ApiParameters, requireAuthCookie: Bool) async throws -> String? {
-        if requireAuthCookie {
-            guard let session = sessionProvider() else {
-                Logger.error("接口: \(name) \(method) 必须配置 sid/did cookie，但 session 不存在。")
-                throw SynologyError.sessionExpired(code: 0, message: "session invalid, sid not exist")
-            }
-
-            if let did = session.did {
-                return "id=\(session.sid); did=\(did)"
-            }
-            return "id=\(session.sid)"
-        } else if let sid = parameters["sid"]?.stringValue {
+    private func buildExplicitCookieHeader(parameters: ApiParameters) -> String? {
+        if let sid = parameters["sid"]?.stringValue {
             if let did = parameters["did"]?.stringValue {
                 return "id=\(sid); did=\(did)"
             }
@@ -157,7 +136,7 @@ struct ApiRequestFactory {
         return nil
     }
 
-    private func buildAuthQueryParameter(name: String, method: String, requireAuthQuery: Bool) throws -> String? {
+    private func buildAmbientAuthQueryParameter(name: String, method: String, requireAuthQuery: Bool) throws -> String? {
         if requireAuthQuery {
             guard let session = sessionProvider() else {
                 Logger.error("接口: \(name) \(method) 必须配置 sid 参数，但 session 不存在。")

@@ -165,6 +165,12 @@ final class CoreFlowHappyPathTests: XCTestCase {
         XCTAssertEqual(client.session.connection?.url, "https://nas.local")
         XCTAssertEqual(client.session.current?.sid, "sid-123")
         XCTAssertEqual(client.session.current?.did, "did-123")
+        XCTAssertTrue(client.quickConnect === client.system.connection.quickConnect)
+        XCTAssertTrue(client.songs === client.audioStation.songs)
+        XCTAssertTrue(client.stream === client.audioStation.stream)
+        XCTAssertTrue(client.lyrics === client.audioStation.lyrics)
+        XCTAssertTrue(client.dsmInfo === client.system.dsmInfo)
+        XCTAssertTrue(client.encryption === client.system.encryption)
     }
 
     func testSynologyClientFactorySupportsExistingSession() {

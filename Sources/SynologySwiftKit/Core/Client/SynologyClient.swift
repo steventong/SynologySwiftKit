@@ -32,7 +32,7 @@ public final class SynologyClient {
     public let session: SessionClient
     public let flows: FlowClient
 
-    private let keyChainStorage: KeyChainStorage
+    private let keyChainStorage: any SensitiveStorage
 
     /// Register a public request interceptor.
     public func addInterceptor(_ interceptor: any SynologyRequestInterceptor) {
@@ -51,7 +51,7 @@ public final class SynologyClient {
     ///   - interceptors: 初始化时需要预注册的额外拦截器
     public convenience init(config: SynologyConfig = .default,
                             keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
-                            keyChainStorage: KeyChainStorage = KeyChainStorage(),
+                            keyChainStorage: any SensitiveStorage = KeyChainStorage(),
                             httpClient: HTTPClientProtocol = URLSessionHTTPClient(),
                             autoRegisterAuthInterceptor: Bool = true) {
         self.init(
@@ -66,40 +66,110 @@ public final class SynologyClient {
     init(
         config: SynologyConfig,
         keyValueStorage: KeyValueStorage,
-        keyChainStorage: KeyChainStorage,
+        keyChainStorage: any SensitiveStorage,
         apiClient: ApiClient,
         autoRegisterAuthInterceptor: Bool = true,
         interceptors: [RequestInterceptor] = []
     ) {
+        let container = SynologyClientContainer(
+            config: config,
+            keyValueStorage: keyValueStorage,
+            keyChainStorage: keyChainStorage,
+            apiClient: apiClient,
+            autoRegisterAuthInterceptor: autoRegisterAuthInterceptor,
+            interceptors: interceptors
+        )
         self.config = config
         self.keyChainStorage = keyChainStorage
+        self.apiClient = container.apiClient
+        self.auth = container.auth
+        self.system = container.system
+        self.audioStation = container.audioStation
+        self.files = container.files
+        self.session = container.session
+        self.flows = container.flows
+    }
 
+    /// Configure a known DSM endpoint without running the discovery/login flows.
+    public func configureConnection(type: ConnectionType, url: String) {
+        session.updateConnection(type: type, url: url)
+    }
+
+    /// Configure an existing DSM session for direct SDK calls.
+    public func configureSession(sid: String, did: String? = nil) {
+        session.update(sid: sid, did: did)
+    }
+
+    /// Configure both endpoint and session when the host app owns persistence.
+    public func configureConnection(type: ConnectionType, url: String, sid: String, did: String? = nil) {
+        configureConnection(type: type, url: url)
+        configureSession(sid: sid, did: did)
+    }
+
+    // MARK: - Direct API Entry Points
+
+    public var quickConnect: QuickConnectClient { system.connection.quickConnect }
+    public var dsmInfo: DSMInfoClient { system.dsmInfo }
+    public var encryption: EncryptionClient { system.encryption }
+
+    public var pins: PinApi { audioStation.pins }
+    public var folders: FolderApi { audioStation.folders }
+    public var albums: AlbumApi { audioStation.albums }
+    public var artists: ArtistApi { audioStation.artists }
+    public var composers: ComposerApi { audioStation.composers }
+    public var genres: GenreApi { audioStation.genres }
+    public var songs: SongApi { audioStation.songs }
+    public var playlists: PlaylistApi { audioStation.playlists }
+    public var lyrics: LyricsApi { audioStation.lyrics }
+    public var search: SearchApi { audioStation.search }
+    public var covers: CoverApi { audioStation.covers }
+    public var stream: StreamApi { audioStation.stream }
+    public var tagEditor: TagEditorApi { audioStation.tagEditor }
+}
+
+private struct SynologyClientContainer {
+    let apiClient: ApiClient
+    let auth: AuthClient
+    let system: SystemClient
+    let audioStation: AudioStationClient
+    let files: FileStationClient
+    let session: SessionClient
+    let flows: FlowClient
+
+    init(
+        config: SynologyConfig,
+        keyValueStorage: KeyValueStorage,
+        keyChainStorage: any SensitiveStorage,
+        apiClient: ApiClient,
+        autoRegisterAuthInterceptor: Bool,
+        interceptors: [RequestInterceptor]
+    ) {
         self.apiClient = apiClient
         Logger.isEnabled = config.enableNetworkLogging
+
         let apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
         let ping = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
-
-        // 注入 API 信息提供者
         apiClient.apiInfoProvider = apiInfo
 
-        // 初始化各个 API 模块
         let audioStationClient = AudioStationClient(apiClient: apiClient, keyValueStorage: keyValueStorage)
-        audioStation = audioStationClient
-        files = FileStationClient(apiClient: apiClient)
+        self.audioStation = audioStationClient
+        self.files = FileStationClient(apiClient: apiClient)
+        self.auth = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
 
-        // Inject device identity via KeychainStorage
-        auth = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
-
-        let quickConnect = QuickConnectClient(apiClient: apiClient, pingpong: ping, timeout: config.quickConnectTimeout, keyValueStorage: keyValueStorage)
+        let quickConnect = QuickConnectClient(
+            apiClient: apiClient,
+            pingpong: ping,
+            timeout: config.quickConnectTimeout,
+            keyValueStorage: keyValueStorage
+        )
         let dsmInfo = DSMInfoClient(apiClient: apiClient)
         let encryption = EncryptionClient(apiClient: apiClient)
-        system = SystemClient(
-            device: dsmInfo,
-            security: encryption,
-            network: ConnectionClient(quickConnect: quickConnect, ping: ping)
+        self.system = SystemClient(
+            dsmInfo: dsmInfo,
+            encryption: encryption,
+            connection: ConnectionClient(quickConnect: quickConnect, ping: ping)
         )
 
-        // 初始化流程类
         let checkConnection = CheckDeviceConnection(
             apiClient: apiClient,
             quickConnectApi: quickConnect,
@@ -115,12 +185,15 @@ public final class SynologyClient {
             keyChainStorage: keyChainStorage
         )
         let queryAllSongs = QueryAllSongs(apiClient: apiClient)
-        flows = FlowClient(
-            auth: AuthFlowClient(loginFlow: userLogin),
-            connection: ConnectionFlowClient(connectionFlow: checkConnection),
-            library: LibraryFlowClient(queryFlow: queryAllSongs)
+        let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
+        let checkDeviceConnectionFlow = CheckDeviceConnectionFlowClient(connectionFlow: checkConnection)
+        let queryAllSongsFlow = QueryAllSongsFlowClient(queryFlow: queryAllSongs)
+        self.flows = FlowClient(
+            userLogin: userLoginFlow,
+            checkDeviceConnection: checkDeviceConnectionFlow,
+            queryAllSongs: queryAllSongsFlow
         )
-        session = SessionClient(
+        self.session = SessionClient(
             connectionProvider: { [weak apiClient] in
                 guard let connection = apiClient?.connection else { return nil }
                 return SynologyConnection(type: connection.type, url: connection.url)
@@ -149,12 +222,9 @@ public final class SynologyClient {
             }
         )
 
-        // 恢复上次会话
-        // Restore previous session
         _ = session.current
 
         if autoRegisterAuthInterceptor {
-            // 默认注册鉴权拦截器（按需补充 sid/cookie，并在会话失效时清理持久化会话）
             apiClient.addInterceptor(AuthInterceptor(
                 sessionProvider: { [weak apiClient] in
                     apiClient?.session
@@ -169,21 +239,5 @@ public final class SynologyClient {
         for interceptor in interceptors {
             apiClient.addInterceptor(interceptor)
         }
-    }
-
-    /// Configure a known DSM endpoint without running the discovery/login flows.
-    public func configureConnection(type: ConnectionType, url: String) {
-        session.updateConnection(type: type, url: url)
-    }
-
-    /// Configure an existing DSM session for direct SDK calls.
-    public func configureSession(sid: String, did: String? = nil) {
-        session.update(sid: sid, did: did)
-    }
-
-    /// Configure both endpoint and session when the host app owns persistence.
-    public func configureConnection(type: ConnectionType, url: String, sid: String, did: String? = nil) {
-        configureConnection(type: type, url: url)
-        configureSession(sid: sid, did: did)
     }
 }

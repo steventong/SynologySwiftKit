@@ -1,9 +1,9 @@
 import Foundation
 
-public final class AuthFlowClient {
-    private let loginFlow: SynologyUserLogin
+public final class UserLoginFlowClient {
+    private let loginFlow: any SynologyUserLoginProviding
 
-    init(loginFlow: SynologyUserLogin) {
+    init(loginFlow: any SynologyUserLoginProviding) {
         self.loginFlow = loginFlow
     }
 
@@ -16,10 +16,10 @@ public final class AuthFlowClient {
     }
 }
 
-public final class ConnectionFlowClient {
-    private let connectionFlow: CheckDeviceConnection
+public final class CheckDeviceConnectionFlowClient {
+    private let connectionFlow: any CheckDeviceConnectionProviding
 
-    init(connectionFlow: CheckDeviceConnection) {
+    init(connectionFlow: any CheckDeviceConnectionProviding) {
         self.connectionFlow = connectionFlow
     }
 
@@ -32,10 +32,10 @@ public final class ConnectionFlowClient {
     }
 }
 
-public final class LibraryFlowClient {
-    private let queryFlow: QueryAllSongs
+public final class QueryAllSongsFlowClient {
+    private let queryFlow: any QueryAllSongsProviding
 
-    init(queryFlow: QueryAllSongs) {
+    init(queryFlow: any QueryAllSongsProviding) {
         self.queryFlow = queryFlow
     }
 
@@ -49,13 +49,13 @@ public final class LibraryFlowClient {
 }
 
 public final class FlowClient {
-    public let auth: AuthFlowClient
-    public let connection: ConnectionFlowClient
-    public let library: LibraryFlowClient
+    public let userLogin: UserLoginFlowClient
+    public let checkDeviceConnection: CheckDeviceConnectionFlowClient
+    public let queryAllSongs: QueryAllSongsFlowClient
 
-    init(auth: AuthFlowClient, connection: ConnectionFlowClient, library: LibraryFlowClient) {
-        self.auth = auth
-        self.connection = connection
-        self.library = library
+    init(userLogin: UserLoginFlowClient, checkDeviceConnection: CheckDeviceConnectionFlowClient, queryAllSongs: QueryAllSongsFlowClient) {
+        self.userLogin = userLogin
+        self.checkDeviceConnection = checkDeviceConnection
+        self.queryAllSongs = queryAllSongs
     }
 }

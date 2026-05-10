@@ -4,7 +4,7 @@ public enum SynologyClientFactory {
     public static func make(
         config: SynologyConfig = .default,
         keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
-        keyChainStorage: KeyChainStorage = KeyChainStorage(),
+        keyChainStorage: any SensitiveStorage = KeyChainStorage(),
         httpClient: HTTPClientProtocol = URLSessionHTTPClient(),
         autoRegisterAuthInterceptor: Bool = true
     ) -> SynologyClient {
@@ -24,7 +24,7 @@ public enum SynologyClientFactory {
         did: String? = nil,
         config: SynologyConfig = .default,
         keyValueStorage: KeyValueStorage = UserDefaultsStorage(),
-        keyChainStorage: KeyChainStorage = KeyChainStorage(),
+        keyChainStorage: any SensitiveStorage = KeyChainStorage(),
         httpClient: HTTPClientProtocol = URLSessionHTTPClient()
     ) -> SynologyClient {
         let client = make(

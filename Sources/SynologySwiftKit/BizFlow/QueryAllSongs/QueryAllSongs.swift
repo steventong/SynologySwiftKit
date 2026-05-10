@@ -9,7 +9,7 @@ import Foundation
 
 /// 批量查询所有歌曲（依赖注入）
 /// Batch query all songs (dependency injection)
-public final class QueryAllSongs {
+final class QueryAllSongs: QueryAllSongsProviding {
     private let songsApi: SongApi
 
     /// 初始化查询器
@@ -24,7 +24,7 @@ public final class QueryAllSongs {
     /// 查询音乐总数
     /// Query total songs count
     /// - Returns: 歌曲总数，失败返回 -1
-    public func queryTotalSongsCount() async -> Int {
+    func queryTotalSongsCount() async -> Int {
         do {
             let songs = try await songsApi.list(limit: 1, offset: 0, includeFields: nil)
             return songs.total
@@ -41,7 +41,7 @@ public final class QueryAllSongs {
     ///   - batchSize: 每批次查询数量
     ///   - concurrency: 并发任务数
     /// - Returns: AsyncStream 返回查询进度
-    public func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
+    func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
         AsyncStream { continuation in
             let task = Task {
                 await self.performQueryAllSongs(

@@ -7,11 +7,15 @@
 
 import Foundation
 
-/// 认证拦截器 (初步实现)
+/// 认证拦截器
 ///
 /// 职责：
-/// 1. 为请求注入 SID/DID (Query 或 Cookie)
-/// 2. 处理 105/106 等 Token 过期错误 (尚未实现自动重试)
+/// 1. 为运行时请求注入当前会话的 SID/DID (Query 或 Cookie)
+/// 2. 处理 105/106 等会话过期错误
+///
+/// 说明：
+/// - 常规 API 请求的鉴权统一由该拦截器负责。
+/// - `ApiRequestFactory.buildUrl` 仍会为公开 URL 生成场景补 `_sid`。
 struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
     private let sessionProvider: (() -> (sid: String, did: String?)?)?
     private let onSessionExpired: (() -> Void)?

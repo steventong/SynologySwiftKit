@@ -55,7 +55,7 @@ public final class AudioStationClient {
     public lazy var playlists = PlaylistApi(apiClient: apiClient)
 
     /// 歌词 API
-    public lazy var lyricsCatalog = LyricsApi(apiClient: apiClient)
+    public lazy var lyrics = LyricsApi(apiClient: apiClient)
 
     /// 搜索 API
     public lazy var search = SearchApi(apiClient: apiClient)
@@ -64,7 +64,7 @@ public final class AudioStationClient {
     public lazy var covers = CoverApi(urlBuilder: apiClient)
 
     /// 流媒体 API
-    public lazy var playback = StreamApi(urlBuilder: apiClient)
+    public lazy var stream = StreamApi(urlBuilder: apiClient)
 
     /// 信息 API
     public lazy var info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
