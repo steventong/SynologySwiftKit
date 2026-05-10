@@ -22,13 +22,18 @@ final class PingPong: PingPongProviding {
     /// Test reachability of multiple connection URLs concurrently.
     /// Returns early when the highest possible priority type becomes reachable.
     public func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+        await pingpong(connections: connections, pingPongPaths: [:])
+    }
+
+    public func pingpong(connections: [ConnectionType: [String]], pingPongPaths: [String: String]) async -> [ConnectionType: String] {
         let bestPossibleType = ConnectionType.ordered.first { connections.keys.contains($0) }
 
         return await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
             for (type, urls) in connections {
                 for url in urls {
                     group.addTask {
-                        await self.pingpong(url: url) ? (type, url) : nil
+                        let pingPongPath = pingPongPaths[url]
+                        return await self.pingpong(url: url, pingPongPath: pingPongPath) ? (type, url) : nil
                     }
                 }
             }
@@ -59,13 +64,18 @@ final class PingPong: PingPongProviding {
     /// Race all URLs by connection type priority, return the best reachable connection.
     /// Cancels remaining tasks once the highest possible priority type is found.
     public func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+        await pingpongFirst(connections: connections, pingPongPaths: [:])
+    }
+
+    public func pingpongFirst(connections: [ConnectionType: [String]], pingPongPaths: [String: String]) async -> (type: ConnectionType, url: String)? {
         let bestPossibleType = ConnectionType.ordered.first { connections.keys.contains($0) }
 
         return await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
             for (type, urls) in connections {
                 for url in urls {
                     group.addTask {
-                        await self.pingpong(url: url) ? (type, url) : nil
+                        let pingPongPath = pingPongPaths[url]
+                        return await self.pingpong(url: url, pingPongPath: pingPongPath) ? (type, url) : nil
                     }
                 }
             }
@@ -109,7 +119,11 @@ final class PingPong: PingPongProviding {
     /// - Parameter url: 要测试的 URL / URL to test
     /// - Returns: 是否可达 / Whether the URL is reachable
     public func pingpong(url: String) async -> Bool {
-        let requestUrl = buildPingPongUrl(url: url)
+        await pingpong(url: url, pingPongPath: nil)
+    }
+
+    private func pingpong(url: String, pingPongPath: String?) async -> Bool {
+        let requestUrl = buildPingPongUrl(url: url, pingPongPath: pingPongPath)
 
         guard let url = URL(string: requestUrl) else {
             Logger.debug("send request: pingpong invalid url \(requestUrl)")
@@ -128,7 +142,33 @@ final class PingPong: PingPongProviding {
 extension PingPong {
     /// 构建 PingPong URL
     /// Build PingPong URL
-    private func buildPingPongUrl(url: String) -> String {
-        return "\(url)/webman/pingpong.cgi?action=cors&quickconnect=true"
+    private func buildPingPongUrl(url: String, pingPongPath: String?) -> String {
+        let defaultPath = "/webman/pingpong.cgi?action=cors&quickconnect=true"
+        let targetPath = pingPongPath.flatMap(normalizedPath) ?? defaultPath
+
+        guard var components = URLComponents(string: url) else {
+            return "\(url)\(targetPath)"
+        }
+
+        if let pathComponents = URLComponents(string: targetPath) {
+            components.percentEncodedPath = pathComponents.percentEncodedPath.isEmpty ? "/" : pathComponents.percentEncodedPath
+            if let queryItems = pathComponents.queryItems {
+                components.queryItems = queryItems
+            } else {
+                components.percentEncodedQuery = pathComponents.percentEncodedQuery
+            }
+        } else {
+            components.percentEncodedPath = targetPath
+        }
+
+        return components.url?.absoluteString ?? "\(url)\(targetPath)"
+    }
+
+    private func normalizedPath(_ path: String) -> String? {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed.hasPrefix("/") ? trimmed : "/\(trimmed)"
     }
 }

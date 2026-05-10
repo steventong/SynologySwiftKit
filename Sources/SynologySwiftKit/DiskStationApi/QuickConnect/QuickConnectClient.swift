@@ -43,7 +43,13 @@ public final class QuickConnectClient {
 
         // 竞速查找可用连接：pingpong 测试 + requestTunnel 并发，首个最优结果立即返回
         // Race for available connection: pingpong test + requestTunnel concurrent, first best result returns immediately
-        let resolvedConnection = await raceForBestConnection(connections: connections, synologyServer: serverInfo.synologyServer, quickConnectId: quickConnectId, usesHTTPS: usesHTTPS)
+        let resolvedConnection = await raceForBestConnection(
+            connections: connections.connectionMap,
+            pingPongPaths: connections.pingPongPaths,
+            synologyServer: serverInfo.synologyServer,
+            quickConnectId: quickConnectId,
+            usesHTTPS: usesHTTPS
+        )
 
         guard let resolvedConnection else {
             throw SynologyError.network(message: "Failed to establish QuickConnect connection")
@@ -87,18 +93,18 @@ private extension QuickConnectClient {
             isRequestTunnel: false
         )
 
-        if !connections.keys.contains(.relay),
+        if !connections.connectionMap.keys.contains(.relay),
            let relay = await requestForRelayConnection(
-               connections: connections,
+               connections: connections.connectionMap,
                synologyServer: serverInfo.synologyServer,
                quickConnectId: quickConnectId,
                usesHTTPS: usesHTTPS
            )
         {
-            connections[relay.type, default: []].append(relay.url)
+            connections.connectionMap[relay.type, default: []].append(relay.url)
         }
 
-        return (serverInfo.synologyServer, deduplicated(connections))
+        return (serverInfo.synologyServer, deduplicated(connections.connectionMap))
     }
 
     /// 获取可用的 serverInfo（带站点重定向支持）
@@ -164,13 +170,13 @@ private extension QuickConnectClient {
 
     /// 竞速查找最优连接：pingpong 和 requestTunnel 并发，首个可用连接立即返回
     /// Race pingpong and requestTunnel concurrently, return first available connection
-    private func raceForBestConnection(connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async -> (type: ConnectionType, url: String)? {
+    private func raceForBestConnection(connections: [ConnectionType: [String]], pingPongPaths: [String: String], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async -> (type: ConnectionType, url: String)? {
         await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
             // 子任务 1：pingpong 测试所有已解析地址的可达性（竞速模式）
             // Task 1: Ping all parsed addresses for reachability (race mode)
             group.addTask {
                 Logger.debug("QuickConnectClient.raceForBestConnection: starting pingpong task")
-                return await self.pingpong.pingpongFirst(connections: connections)
+                return await self.pingpong.pingpongFirst(connections: connections, pingPongPaths: pingPongPaths)
             }
 
             // 子任务 2：requestTunnel 获取 relay 连接（仅当没有 relay 地址时）
@@ -267,7 +273,7 @@ private extension QuickConnectClient {
             let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, usesHTTPS: usesHTTPS, command: .request_tunnel)
 
             let tunnelConnections = parseConnectionUrls(serverInfo: serverInfo, usesHTTPS: usesHTTPS, isRequestTunnel: true)
-            if let relay = tunnelConnections[.relay]?.first {
+            if let relay = tunnelConnections.connectionMap[.relay]?.first {
                 Logger.debug("parse relay connection: \(relay)")
                 return (.relay, relay)
             }
@@ -298,95 +304,115 @@ private extension QuickConnectClient {
 private extension QuickConnectClient {
     /// 从 ServerInfo 解析所有连接 URL（数据驱动，消除重复代码）
     /// Parse all connection URLs from ServerInfo (data-driven, eliminates duplicate code)
-    private func parseConnectionUrls(serverInfo: ServerInfo, usesHTTPS: Bool, isRequestTunnel: Bool) -> [ConnectionType: [String]] {
-        let scheme = usesHTTPS ? "https://" : "http://"
+    private func parseConnectionUrls(serverInfo: ServerInfo, usesHTTPS: Bool, isRequestTunnel: Bool) -> (connectionMap: [ConnectionType: [String]], pingPongPaths: [String: String]) {
+        let scheme = usesHTTPS ? "https" : "http"
         let targetTypes: Set<ConnectionType> = isRequestTunnel ? [.relay] : [.lan, .wan, .lanv6, .wanv6, .ddns, .relay]
+        let redirectPrefix = normalizedPathComponent(serverInfo.server?.redirect_prefix)
+        let pingPongPath = resolvedPingPongPath(serverInfo: serverInfo, redirectPrefix: redirectPrefix)
 
         let rules: [ConnectionParseRule] = [
             // LAN: 接口 IP + smartdns LAN
             // LAN: interface IPs + smartdns LAN
             ConnectionParseRule(type: .lan) { info, scheme in
-                var urls: [String] = []
+                var urls: [String?] = []
                 info.server?.interface?.forEach { iface in
-                    if let host = iface.ip, let port = info.service?.port {
-                        urls.append("\(scheme)\(host):\(port)")
-                    }
+                    urls.append(self.makeURL(scheme: scheme, host: iface.ip, port: info.service?.port, basePath: redirectPrefix))
                 }
                 info.smartdns?.lan?.forEach { host in
-                    if let port = info.service?.port {
-                        urls.append("\(scheme)\(host):\(port)")
-                    }
+                    urls.append(self.makeURL(scheme: scheme, host: host, port: info.service?.port, basePath: redirectPrefix))
                 }
-                return urls
+                return urls.compactMap { $0 }
             },
-            // WAN: 外部 IP
-            // WAN: external IP
+            // WAN: 外部直连，优先使用 NAT 映射端口，再回退到设备端口
+            // WAN: external direct access, prefer NAT-mapped port then fall back to device port
             ConnectionParseRule(type: .wan) { info, scheme in
-                guard let host = info.server?.external?.ip, let port = info.service?.port else { return [] }
-                return ["\(scheme)\(host):\(port)"]
+                let portCandidates = self.prioritizedPorts(info.service?.ext_port, info.service?.port)
+                var urls: [String?] = []
+
+                for port in portCandidates {
+                    urls.append(self.makeURL(scheme: scheme, host: info.server?.external?.ip, port: port, basePath: redirectPrefix))
+                }
+                for port in portCandidates {
+                    urls.append(self.makeURL(scheme: scheme, host: info.smartdns?.external, port: port, basePath: redirectPrefix))
+                }
+                if usesHTTPS {
+                    urls.append(self.makeURL(scheme: scheme, host: info.service?.https_ip, port: info.service?.https_port, basePath: redirectPrefix))
+                }
+
+                return urls.compactMap { $0 }
             },
-            // LAN IPv6: 接口 IPv6（addr_type == 0）
-            // LAN IPv6: interface IPv6 (addr_type == 0)
+            // LAN IPv6: 全局可路由 IPv6 + SmartDNS LAN IPv6
+            // LAN IPv6: globally routable IPv6 + SmartDNS LAN IPv6
             ConnectionParseRule(type: .lanv6) { info, scheme in
-                var urls: [String] = []
+                var urls: [String?] = []
                 info.server?.interface?.forEach { iface in
                     iface.ipv6?.forEach { ipv6 in
-                        if ipv6.addr_type == 0, let host = ipv6.address, let port = info.service?.port {
-                            urls.append("\(scheme)\(host):\(port)")
+                        if self.isGloballyReachableIPv6(ipv6) {
+                            urls.append(self.makeURL(scheme: scheme, host: ipv6.address, port: info.service?.port, basePath: redirectPrefix))
                         }
                     }
                 }
-                return urls
+                info.smartdns?.lanv6?.forEach { host in
+                    urls.append(self.makeURL(scheme: scheme, host: host, port: info.service?.port, basePath: redirectPrefix))
+                }
+                return urls.compactMap { $0 }
             },
-            // WAN IPv6: 接口 IPv6 + 外部 IPv6
-            // WAN IPv6: interface IPv6 + external IPv6
+            // WAN IPv6: 外部 IPv6 / SmartDNS IPv6，优先映射端口
+            // WAN IPv6: external IPv6 / SmartDNS IPv6, prefer mapped port
             ConnectionParseRule(type: .wanv6) { info, scheme in
-                var urls: [String] = []
-                info.server?.interface?.forEach { iface in
-                    iface.ipv6?.forEach { ipv6 in
-                        if ipv6.addr_type == 0, let host = ipv6.address, let port = info.service?.ext_port {
-                            urls.append("\(scheme)\(host):\(port)")
-                        }
-                    }
+                let portCandidates = self.prioritizedPorts(info.service?.ext_port, info.service?.port)
+                var urls: [String?] = []
+
+                for port in portCandidates {
+                    urls.append(self.makeURL(scheme: scheme, host: info.server?.external?.ipv6, port: port, basePath: redirectPrefix))
                 }
-                if let host = info.server?.external?.ipv6, let port = info.service?.port {
-                    urls.append("\(scheme)\(host):\(port)")
+                for port in portCandidates {
+                    urls.append(self.makeURL(scheme: scheme, host: info.smartdns?.externalv6, port: port, basePath: redirectPrefix))
                 }
-                if let host = info.server?.external?.ipv6, let port = info.service?.ext_port {
-                    urls.append("\(scheme)\(host):\(port)")
-                }
-                return urls
+
+                return urls.compactMap { $0 }
             },
-            // DDNS: 动态 DNS 域名
-            // DDNS: dynamic DNS hostname
+            // DDNS / SmartDNS Host: 直连域名，优先设备端口，再回退映射端口
+            // DDNS / SmartDNS Host: direct hostnames, prefer device port then mapped port
             ConnectionParseRule(type: .ddns) { info, scheme in
-                var urls: [String] = []
-                if let host = info.server?.ddns, let port = info.service?.port {
-                    urls.append("\(scheme)\(host):\(port)")
+                let portCandidates = self.prioritizedPorts(info.service?.port, info.service?.ext_port)
+                var urls: [String?] = []
+                for port in portCandidates {
+                    urls.append(self.makeURL(scheme: scheme, host: info.server?.ddns, port: port, basePath: redirectPrefix))
                 }
-                if let host = info.server?.ddns, let port = info.service?.ext_port {
-                    urls.append("\(scheme)\(host):\(port)")
+                for port in portCandidates {
+                    urls.append(self.makeURL(scheme: scheme, host: info.smartdns?.host, port: port, basePath: redirectPrefix))
                 }
-                return urls
+                return urls.compactMap { $0 }
             },
-            // Relay: 中继连接
-            // Relay: relay connection
+            // Relay: 中继域名，优先双栈，再回退到 IPv4 / IPv6 relay
+            // Relay: relay endpoints, prefer dual-stack then fall back to IPv4 / IPv6 relay
             ConnectionParseRule(type: .relay) { info, scheme in
-                guard let host = info.service?.relay_dn, let port = info.service?.relay_port else { return [] }
-                return ["\(scheme)\(host):\(port)"]
+                guard let port = info.service?.relay_port else { return [] }
+                return [
+                    self.makeURL(scheme: scheme, host: info.service?.relay_dualstack, port: port, basePath: redirectPrefix),
+                    self.makeURL(scheme: scheme, host: info.service?.relay_dn, port: port, basePath: redirectPrefix),
+                    self.makeURL(scheme: scheme, host: info.service?.relay_ipv6, port: port, basePath: redirectPrefix),
+                ].compactMap { $0 }
             },
         ]
 
         var connections: [ConnectionType: [String]] = [:]
+        var pingPongPaths: [String: String] = [:]
         for rule in rules where targetTypes.contains(rule.type) {
             let urls = rule.extractor(serverInfo, scheme)
             if !urls.isEmpty {
                 connections[rule.type] = urls
+                if let pingPongPath {
+                    for url in urls {
+                        pingPongPaths[url] = pingPongPath
+                    }
+                }
             }
         }
 
         Logger.debug("parseConnectionUrls: require: \(targetTypes), result: \(connections)")
-        return connections
+        return (connections, pingPongPaths)
     }
 
     /// 地址解析规则定义
@@ -394,5 +420,71 @@ private extension QuickConnectClient {
     struct ConnectionParseRule {
         let type: ConnectionType
         let extractor: (ServerInfo, String) -> [String]
+    }
+
+    func prioritizedPorts(_ candidates: Int?...) -> [Int] {
+        var seen = Set<Int>()
+        return candidates.compactMap { $0 }.filter { seen.insert($0).inserted }
+    }
+
+    func makeURL(scheme: String, host: String?, port: Int?, basePath: String?) -> String? {
+        guard let host = normalizedHost(host), let port else {
+            return nil
+        }
+        let formattedHost = host.contains(":") ? "[\(host)]" : host
+        let suffix = basePath.map { "/\($0)" } ?? ""
+        return "\(scheme)://\(formattedHost):\(port)\(suffix)"
+    }
+
+    func normalizedHost(_ host: String?) -> String? {
+        guard let host = host?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !host.isEmpty,
+              host.uppercased() != "NULL"
+        else {
+            return nil
+        }
+
+        if host.hasPrefix("[") && host.hasSuffix("]") {
+            return String(host.dropFirst().dropLast())
+        }
+
+        return host
+    }
+
+    func isGloballyReachableIPv6(_ ipv6: ServerInfo.ExternalInterfaceIpV6) -> Bool {
+        if ipv6.scope?.lowercased() == "global" {
+            return true
+        }
+
+        guard let address = ipv6.address?.lowercased() else {
+            return false
+        }
+
+        return !address.hasPrefix("fe80:")
+            && !address.hasPrefix("fc")
+            && !address.hasPrefix("fd")
+    }
+
+    func normalizedPathComponent(_ value: String?) -> String? {
+        guard let value = normalizedHost(value) else {
+            return nil
+        }
+
+        let trimmed = value.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    func resolvedPingPongPath(serverInfo: ServerInfo, redirectPrefix: String?) -> String? {
+        let defaultPath = "webman/pingpong.cgi?action=cors&quickconnect=true"
+        let explicitPath = normalizedHost(serverInfo.server?.pingpong_path)
+        let trimmedExplicitPath = explicitPath?.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+
+        let target = trimmedExplicitPath?.isEmpty == false ? trimmedExplicitPath! : defaultPath
+        let combined = [redirectPrefix, target]
+            .compactMap { $0?.trimmingCharacters(in: CharacterSet(charactersIn: "/")) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "/")
+
+        return combined.isEmpty ? nil : "/\(combined)"
     }
 }

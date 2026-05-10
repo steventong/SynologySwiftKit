@@ -250,6 +250,14 @@ extension QuickConnectClient {
             /// Relay domain name
             let relay_dn: String?
 
+            /// Relay 双栈域名
+            /// Relay dual-stack domain name
+            let relay_dualstack: String?
+
+            /// Relay IPv6 地址
+            /// Relay IPv6 address
+            let relay_ipv6: String?
+
             /// Relay 端口
             /// Relay port
             let relay_port: Int?
@@ -279,6 +287,14 @@ extension QuickConnectClient {
             /// LAN IPv6 解析地址列表
             /// LAN IPv6 resolution address list
             let lanv6: [String]?
+
+            /// 外网解析地址
+            /// External resolution address
+            let external: String?
+
+            /// 外网 IPv6 解析地址
+            /// External IPv6 resolution address
+            let externalv6: String?
 
             /// 打洞地址（用于 P2P 穿越）
             /// Hole punch address (for P2P traversal)
