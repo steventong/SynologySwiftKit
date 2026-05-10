@@ -7,6 +7,10 @@
 
 import Foundation
 
+// MARK: - GenreApi
+
+/// 流派查询 API 客户端
+/// Genre query API client
 public final class GenreApi {
     private let apiClient: ApiRequestSending
 
@@ -14,9 +18,8 @@ public final class GenreApi {
         self.apiClient = apiClient
     }
 
-    /**
-     genre list
-     */
+    /// 查询流派列表
+    /// Query genre list
     public func list(
         limit: Int = 1000, offset: Int = 0,
         libraryScope: SynologyLibraryScope = .shared, includeFields: String? = nil,

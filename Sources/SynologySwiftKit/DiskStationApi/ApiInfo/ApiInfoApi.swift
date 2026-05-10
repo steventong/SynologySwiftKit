@@ -37,6 +37,9 @@ final class ApiInfoApi: ApiInfoProviding {
         self.cacheValidity = cacheValidity
     }
 
+    /// 根据 API 名称获取 API 节点信息
+    /// Get API node info by API name
+    /// - Note: `SYNO.API.Info` 终端节点直接返回硬编码路径，不查询远端 / `SYNO.API.Info` returns a hardcoded path without querying remote
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
         if apiName == SynologyApi.Core.INFO.name {
             return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
@@ -56,6 +59,8 @@ final class ApiInfoApi: ApiInfoProviding {
         return apiInfo
     }
 
+    /// 优先从缓存加载，缓存过期或不存在时回源刷新
+    /// Load from cache first; refresh from remote if cache is expired or unavailable
     func loadFromCacheOrRefresh() async throws {
         if isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
             Logger.debug("ApiInfoApi#loadFromCacheOrRefresh from cache: \(cached.count)")
@@ -66,6 +71,8 @@ final class ApiInfoApi: ApiInfoProviding {
         try await refresh()
     }
 
+    /// 从 DSM 刷新 API 信息列表并更新内存/持久化缓存
+    /// Refresh API info list from DSM and update memory/persistent cache
     func refresh() async throws {
         let apiInfo = try await queryApiInfoFromDsm()
         cache.replace(with: apiInfo)
@@ -79,6 +86,8 @@ final class ApiInfoApi: ApiInfoProviding {
 }
 
 extension ApiInfoApi {
+    /// 向 DSM 发起 `SYNO.API.Info query` 请求，获取全量 API 信息
+    /// Send `SYNO.API.Info query` request to DSM to get all API info
     private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
         let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query") {
             ("query", "all")
@@ -87,6 +96,8 @@ extension ApiInfoApi {
         return apiInfo
     }
 
+    /// 从 UserDefaults 读取持久化的 API 信息字典
+    /// Read persisted API info dictionary from UserDefaults
     private func getApiInfoFromStorage() -> [String: ApiInfoNode]? {
         if let apiInfo: [String: ApiInfoNode] = keyValueStorage.codable(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName) {
             return apiInfo
@@ -95,6 +106,8 @@ extension ApiInfoApi {
         return nil
     }
 
+    /// 检查 API 信息缓存是否在有效期内
+    /// Check whether the API info cache is within its validity period
     private func isApiInfoCacheValid(validTime: Int32?) -> Bool {
         if let lastUpdateTime = keyValueStorage.date(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) {
             return Int32(Date().timeIntervalSince(lastUpdateTime)) < (validTime ?? 24 * 60 * 60)
@@ -103,18 +116,23 @@ extension ApiInfoApi {
     }
 }
 
+/// 线程安全的 API 信息内存缓存
+/// Thread-safe in-memory cache for API info
 private final class ApiInfoCache {
     private let lock = NSLock()
     private var nodes: [String: ApiInfoNode] = [:]
 
+    /// 缓存是否为空 / Whether the cache is empty
     var isEmpty: Bool {
         lock.withLock { nodes.isEmpty }
     }
 
+    /// 根据 API 名称获取节点 / Get node by API name
     func node(for apiName: String) -> ApiInfoNode? {
         lock.withLock { nodes[apiName] }
     }
 
+    /// 替换所有缓存节点 / Replace all cached nodes
     func replace(with nodes: [String: ApiInfoNode]) {
         lock.withLock {
             self.nodes = nodes

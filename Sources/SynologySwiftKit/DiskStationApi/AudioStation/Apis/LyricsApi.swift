@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - LyricsApi
+
+/// 歌词 API 客户端
+/// Lyrics API client
+///
+/// 封装 `SYNO.AudioStation.Lyrics` 和 `SYNO.AudioStation.Lyrics.Search` 接口。
+/// Wraps `SYNO.AudioStation.Lyrics` and `SYNO.AudioStation.Lyrics.Search`.
 public final class LyricsApi {
     private let apiClient: ApiRequestSending
 
@@ -14,11 +21,10 @@ public final class LyricsApi {
         self.apiClient = apiClient
     }
 
-    /**
-     Get Lyrics
-     获取歌词
-     - Throws: SynologyError.network(.responseEmpty) when lyrics content is empty or not found
-     */
+    /// 获取歌曲歌词
+    /// Get lyrics for a song
+    /// - Parameter id: 歌曲 ID / Song ID
+    /// - Throws: `SynologyError.api(code: 404)` 当歌词不存在时 / When lyrics not found
     public func get(id: String) async throws -> String {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.LYRICS, method: "getlyrics", version: 2) {
             ("id", id)
@@ -31,9 +37,13 @@ public final class LyricsApi {
         return lyrics.lyrics
     }
 
-    /**
-     Search Lyrics
-     */
+    /// 搜索歌词
+    /// Search for lyrics
+    /// - Parameters:
+    ///   - title: 歌曲标题 / Song title
+    ///   - artist: 艺术家名 / Artist name
+    ///   - limit: 返回数量限制 / Result limit
+    ///   - offset: 起始偏移量 / Start offset
     public func search(title: String, artist: String, limit: Int = 10, offset: Int = 0) async throws -> SynologyPage<LyricsItem> {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 1) {
             ("title", title)

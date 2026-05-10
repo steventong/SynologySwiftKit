@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - PlaylistApi
+
+/// 播放列表 API 客户端
+/// Playlist API client
+///
+/// 封装 `SYNO.AudioStation.Playlist` 接口，支持列表、创建、编辑、删除播放列表。
+/// Wraps `SYNO.AudioStation.Playlist`; supports list, create, edit, and delete playlists.
 public final class PlaylistApi {
     private let apiClient: ApiRequestSending
 
@@ -14,9 +21,8 @@ public final class PlaylistApi {
         self.apiClient = apiClient
     }
 
-    /**
-     query playlist list
-     */
+    /// 查询播放列表列表
+    /// Query playlist list
     public func list(limit: Int, offset: Int) async throws -> SynologyPage<Playlist> {
         let result: PlaylistListResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.PLAYLIST, method: "list") {
@@ -28,9 +34,8 @@ public final class PlaylistApi {
         return SynologyPage(total: result.total, items: result.playlists)
     }
 
-    /**
-     query playlist songs
-     */
+    /// 查询播放列表内的歌曲
+    /// Query songs inside a playlist
     public func getSongs(id: String, libraryScope: SynologyLibraryScope,
                          includeFields: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
                          limit: Int, offset: Int,
@@ -52,9 +57,8 @@ public final class PlaylistApi {
         return SynologyPage(total: 0, items: [])
     }
 
-    /**
-     创建播放列表
-     */
+    /// 创建普通播放列表
+    /// Create a regular playlist
     public func create(name: String, libraryScope: SynologyLibraryScope, songIDs: [String] = []) async throws -> PlaylistReference {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3, httpMethod: .post) {
@@ -68,11 +72,9 @@ public final class PlaylistApi {
         return PlaylistReference(id: result.id)
     }
 
-    /**
-     创建智能播放列表
-     Create smart playlist
-     - Throws: SynologyError.api(.playlistOperationFailed) when operation fails
-     */
+    /// 创建智能播放列表
+    /// Create a smart playlist
+    /// - Throws: `SynologyError.api` 当操作失败时 / When operation fails
     public func createSmart(name: String, definition: SmartPlaylistDefinition) async throws -> PlaylistReference {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
@@ -87,11 +89,8 @@ public final class PlaylistApi {
         return PlaylistReference(id: result.id)
     }
 
-    /**
-     重命名播放列表
-     Rename playlist
-     - Throws: SynologyError.api(.playlistOperationFailed) when operation fails
-     */
+    /// 重命名播放列表
+    /// Rename a playlist
     public func rename(id: String, name: String) async throws -> PlaylistReference {
         let result: PlaylistRenameResult = try await apiClient.request(
             ApiEndpoint(
@@ -104,9 +103,8 @@ public final class PlaylistApi {
         return PlaylistReference(id: result.id)
     }
 
-    /**
-     删除播放列表
-     */
+    /// 删除播放列表
+    /// Delete a playlist
     public func delete(id: String) async throws -> PlaylistDeletionResult {
         let result: PlaylistDeleteResult = try await apiClient.request(
             ApiEndpoint(
@@ -119,9 +117,8 @@ public final class PlaylistApi {
         return PlaylistDeletionResult(requestedID: id, failedItemIDs: result.errors)
     }
 
-    /**
-     移除丢失歌曲
-     */
+    /// 移除播放列表中丢失的歌曲
+    /// Remove missing songs from a playlist
     public func removeMissing(id: String) async throws -> PlaylistMutationResult {
         let api = ApiEndpoint(
             api: SynologyApi.AudioStation.PLAYLIST, method: "removemissing", version: 3,
@@ -132,9 +129,8 @@ public final class PlaylistApi {
         return PlaylistMutationResult(playlistID: id)
     }
 
-    /**
-     添加歌曲到播放列表
-     */
+    /// 添加歌曲到播放列表（自动跳过重复项）
+    /// Add songs to a playlist (automatically skips duplicates)
     public func addSongs(id: String, songIDs: [String]) async throws -> PlaylistMutationResult {
         let api = ApiEndpoint(
             api: SynologyApi.AudioStation.PLAYLIST, method: "updatesongs", version: 3,

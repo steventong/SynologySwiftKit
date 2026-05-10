@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - SearchApi
+
+/// 搜索 API 客户端
+/// Search API client
+///
+/// 封装 `SYNO.AudioStation.Search` 接口，支持关键词搜索歌曲/专辑/艺术家。
+/// Wraps `SYNO.AudioStation.Search`; supports keyword search for songs, albums, and artists.
 public final class SearchApi {
     private let apiClient: ApiRequestSending
 
@@ -14,9 +21,12 @@ public final class SearchApi {
         self.apiClient = apiClient
     }
 
-    /**
-     Search List
-     */
+    /// 搜索歌曲、专辑、艺术家
+    /// Search for songs, albums, and artists
+    /// - Parameters:
+    ///   - keyword: 搜索关键词 / Search keyword
+    ///   - limit: 每页数量 / Page size
+    ///   - offset: 起始偏移量 / Start offset
     public func list(
         keyword: String, limit: Int = 1000, offset: Int = 0,
         includeFields: String? = nil,

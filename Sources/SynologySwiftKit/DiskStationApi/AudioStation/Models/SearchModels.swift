@@ -1,5 +1,5 @@
 //
-
+//  SearchModels.swift
 //  SynologySwiftKit
 //
 //  Created by Steven on 2024/10/7.
@@ -7,9 +7,16 @@
 
 import Foundation
 
+// MARK: - AudioStationSearchResults
+
+/// AudioStation 搜索结果（聚合专辑、艺术家、歌曲）
+/// AudioStation search results (aggregated albums, artists, songs)
 public struct AudioStationSearchResults: Sendable {
+    /// 匹配的专辑分页结果 / Matching albums paged result
     public let albums: SynologyPage<Album>
+    /// 匹配的艺术家分页结果 / Matching artists paged result
     public let artists: SynologyPage<Artist>
+    /// 匹配的歌曲分页结果 / Matching songs paged result
     public let songs: SynologyPage<Song>
 
     public init(albums: SynologyPage<Album>, artists: SynologyPage<Artist>, songs: SynologyPage<Song>) {
@@ -19,62 +26,23 @@ public struct AudioStationSearchResults: Sendable {
     }
 }
 
-struct SearchResult: Decodable, Sendable {
-    /**
-     "albumTotal": 15,
-     "albums": [
-         {
-             "album_artist": "谭咏麟",
-             "artist": "",
-             "display_artist": "谭咏麟",
-             "name": "Lorelei 暴风女神",
-             "year": 2015
-         }
-     ],
-     "artistTotal": 22,
-     "artists": [
-         {
-             "name": "P.W.W.画风风"
-         }
-     ],
-     "songTotal": 901,
-     "songs": [
-         {
-             "additional": {
-                 "song_audio": {
-                     "bitrate": 786000,
-                     "channel": 2,
-                     "codec": "flac",
-                     "container": "flac",
-                     "duration": 228,
-                     "filesize": 22606922,
-                     "frequency": 44100
-                 },
-                 "song_tag": {
-                     "album": "One芳 新歌+精选",
-                     "album_artist": "万芳",
-                     "artist": "万芳",
-                     "comment": "",
-                     "composer": "",
-                     "disc": 0,
-                     "genre": "",
-                     "track": 25,
-                     "year": 2005
-                 }
-             },
-             "id": "music_355928",
-             "path": "/music/其他艺人/万芳/万芳 - One芳 新歌+精选/万芳 - 听风的歌.flac",
-             "title": "听风的歌",
-             "type": "file"
-         }
-     */
+// MARK: - SearchResult (Internal)
 
+/// 搜索接口原始响应（内部使用）
+/// Raw search API response (internal use)
+struct SearchResult: Decodable, Sendable {
+    /// 专辑总数 / Total album count
     var albumTotal: Int
+    /// 专辑列表 / Album list
     var albums: [Album]
 
+    /// 艺术家总数 / Total artist count
     var artistTotal: Int
+    /// 艺术家列表 / Artist list
     var artists: [Artist]
 
+    /// 歌曲总数 / Total song count
     var songTotal: Int
+    /// 歌曲列表 / Song list
     var songs: [Song]
 }

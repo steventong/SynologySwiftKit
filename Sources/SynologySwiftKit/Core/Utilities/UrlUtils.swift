@@ -7,10 +7,15 @@
 
 import Foundation
 
+// MARK: - UrlUtils
+
+/// URL 编码工具类
+/// URL encoding utility
 class UrlUtils {
-    /**
-     url coded
-     */
+    /// 对字符串进行 URL 百分比编码（使用 `.urlQueryAllowed` 字符集）
+    /// Percent-encode a string using the `.urlQueryAllowed` character set
+    /// - Parameter value: 待编码的原始字符串 / Raw string to encode
+    /// - Returns: 编码后的字符串，编码失败时返回原始值 / Encoded string, or original value on failure
     public static func urlEncode(_ value: String) -> String {
         return value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
     }

@@ -79,7 +79,14 @@ struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
 }
 
 extension AuthInterceptor {
-    /// injectQuerySidIfNeeded
+    /// 按需将 `_sid` 注入到请求的 Query 参数中
+    /// Inject `_sid` into the request's query parameters if needed
+    ///
+    /// - GET 请求：注入到 URL Query String
+    ///   GET request: inject into URL query string
+    /// - POST/PUT/DELETE 请求：注入到 Body 中
+    ///   POST/PUT/DELETE request: inject into request body
+    /// - 已存在 `_sid` 时不重复注入 / Skips injection if `_sid` already present
     private func injectQuerySidIfNeeded(_ sid: String, into request: URLRequest) -> URLRequest {
         var updatedRequest = request
         let method = HTTPMethod(rawValue: request.httpMethod ?? "GET") ?? .get
@@ -114,7 +121,12 @@ extension AuthInterceptor {
         return updatedRequest
     }
 
-    /// injectCookieIfNeeded
+    /// 按需将 SID/DID 注入到 Cookie Header 中
+    /// Inject SID/DID into the Cookie header if needed
+    ///
+    /// Cookie 格式：`id=<sid>; did=<did>`（did 可选）
+    /// Cookie format: `id=<sid>; did=<did>` (did is optional)
+    /// - 已包含 `id=` 时不重复注入 / Skips injection if `id=` already present in Cookie
     private func injectCookieIfNeeded(sid: String, did: String?, into request: URLRequest) -> URLRequest {
         var updatedRequest = request
         let existingCookie = request.value(forHTTPHeaderField: "Cookie") ?? ""

@@ -7,6 +7,14 @@
 
 import Foundation
 
+// MARK: - ConnectionType
+
+/// Synology 设备连接类型
+/// Synology device connection type
+///
+/// 按优先级排序选择最优路由：
+/// Ordered by priority to select the best routing:
+/// `lan` > `lanv6` > `ddns` > `wan` > `wanv6` > `relay` > `custom_domain`
 public enum ConnectionType: String, CaseIterable, Sendable {
     case lan
     case wan
@@ -52,28 +60,31 @@ public enum ConnectionType: String, CaseIterable, Sendable {
         }
     }
 
-    /**
-     get by name
-     */
+    /// 按名称获取连接类型
+    /// Get connection type by name (rawValue)
+    /// - Parameter name: rawValue 字符串 / rawValue string
+    /// - Returns: 匹配的 ConnectionType，不存在时返回 nil / Matching ConnectionType, nil if not found
     public static func getByName(name: String) -> ConnectionType? {
         return ConnectionType(rawValue: name)
     }
 
-    /**
-     name
-     */
+    /// 连接类型名称（即 rawValue）
+    /// Connection type name (rawValue)
     public var name: String {
         return rawValue
     }
 
-    /**
-     按序
-     */
+    /// 按优先级升序排列的连接类型列表
+    /// All connection types sorted by priority (ascending)
     static var ordered: [ConnectionType] {
         return allCases.sorted { $0.priority < $1.priority }
     }
 }
 
+// MARK: - HttpType
+
+/// HTTP 协议类型
+/// HTTP protocol type
 enum HttpType: Sendable {
     case HTTPS
     case HTTP

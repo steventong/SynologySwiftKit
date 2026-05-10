@@ -7,6 +7,10 @@
 
 import Foundation
 
+// MARK: - ArtistApi
+
+/// 艺术家查询 API 客户端
+/// Artist query API client
 public final class ArtistApi {
     private let apiClient: ApiRequestSending
 
@@ -14,9 +18,8 @@ public final class ArtistApi {
         self.apiClient = apiClient
     }
 
-    /**
-     query artist list
-     */
+    /// 查询艺术家列表
+    /// Query artist list
     public func list(
         limit: Int = 1000, offset: Int = 0,
         libraryScope: SynologyLibraryScope = .shared, includeFields: String? = nil,

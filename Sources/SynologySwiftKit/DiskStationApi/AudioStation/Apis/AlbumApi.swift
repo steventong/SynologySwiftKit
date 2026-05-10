@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - AlbumApi
+
+/// 专辑查询 API 客户端
+/// Album query API client
+///
+/// 封装 `SYNO.AudioStation.Album` 接口，支持分页、过滤、搜索、排序。
+/// Wraps `SYNO.AudioStation.Album`; supports pagination, filtering, search, and sorting.
 public final class AlbumApi {
     private let apiClient: ApiRequestSending
 
@@ -14,9 +21,8 @@ public final class AlbumApi {
         self.apiClient = apiClient
     }
 
-    /**
-     album list
-     */
+    /// 查询专辑列表
+    /// Query album list
     public func list(limit: Int = 1000, offset: Int = 0,
                      libraryScope: SynologyLibraryScope = .shared, includeFields: String? = nil,
                      filter: String? = nil, keyword: String? = nil,

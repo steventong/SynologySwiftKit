@@ -7,6 +7,13 @@
 
 import Foundation
 
+// MARK: - CoverApi
+
+/// 封面 URL 构建 API
+/// Cover URL builder API
+///
+/// 封装 `SYNO.AudioStation.Cover` 接口，返回不同类型封面的直接访问 URL。
+/// Wraps `SYNO.AudioStation.Cover`; returns direct-access URLs for various cover types.
 public final class CoverApi {
     private let urlBuilder: ApiURLBuilding
 
@@ -14,10 +21,8 @@ public final class CoverApi {
         self.urlBuilder = urlBuilder
     }
 
-    /**
-     获取歌曲封面 URL
-     Get song cover URL
-     */
+    /// 获取歌曲封面 URL
+    /// Get song cover URL
     public func songCoverURL(songID: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
             ("library", libraryScope.rawValue)
@@ -26,10 +31,8 @@ public final class CoverApi {
         )
     }
 
-    /**
-     获取专辑封面 URL
-     Get album cover URL
-     */
+    /// 获取专辑封面 URL
+    /// Get album cover URL
     public func albumCoverURL(albumName: String, albumArtistName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)
@@ -39,10 +42,8 @@ public final class CoverApi {
         )
     }
 
-    /**
-     获取艺术家封面 URL
-     Get artist cover URL
-     */
+    /// 获取艺术家封面 URL
+    /// Get artist cover URL
     public func artistCoverURL(artistName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)
@@ -51,10 +52,8 @@ public final class CoverApi {
         )
     }
 
-    /**
-     获取作曲家封面 URL
-     Get composer cover URL
-     */
+    /// 获取作曲家封面 URL
+    /// Get composer cover URL
     public func composerCoverURL(composerName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)

@@ -7,49 +7,10 @@
 
 import Foundation
 
-/**
- {
-   "success" : true,
-   "data" : {
-     "enable_equalizer" : false,
-     "playing_queue_max" : 8192,
-     "same_subnet" : false,
-     "enable_user_home" : false,
-     "has_aac" : false,
-     "support_bluetooth" : false,
-     "version_string" : "6.5.7-3383",
-     "has_music_share" : true,
-     "version" : 3383,
-     "sid" : "",
-     "enable_personal_library" : false,
-     "settings" : {
-       "disable_upnp" : false,
-       "enable_download" : false,
-       "transcode_to_mp3" : true,
-       "prefer_using_html5" : true,
-       "audio_show_virtual_library" : true
-     },
-     "support_usb" : false,
-     "dsd_decode_capability" : true,
-     "browse_personal_library" : "all",
-     "serial_number" : "",
-     "privilege" : {
-       "tag_edit" : false,
-       "sharing" : false,
-       "upnp_browse" : false,
-       "playlist_edit" : false,
-       "remote_player" : false
-     },
-     "support_virtual_library" : true,
-     "remote_controller" : false,
-     "transcode_capability" : [
-       "wav",
-       "mp3"
-     ],
-     "is_manager" : false
-   }
- }
- */
+// MARK: - AudioStationInfo
+
+/// AudioStation 系统信息（由 `SYNO.AudioStation.Info getinfo` 接口返回）
+/// AudioStation system info (returned by `SYNO.AudioStation.Info getinfo`)
 public struct AudioStationInfo: Codable, Sendable {
     public let enable_equalizer: Bool?
     public let playing_queue_max: Int?
@@ -57,6 +18,7 @@ public struct AudioStationInfo: Codable, Sendable {
     public let enable_user_home: Bool?
     public let has_aac: Bool?
     public let support_bluetooth: Bool?
+    /// 版本字符串（如 "6.5.7-3383"）/ Version string (e.g. "6.5.7-3383")
     public let version_string: String?
     public let has_music_share: Bool?
     public let version: Int?
@@ -74,10 +36,15 @@ public struct AudioStationInfo: Codable, Sendable {
 
     public let support_virtual_library: Bool?
     public let remote_controller: Bool?
+    /// 支持的转码格式列表（如 ["wav", "mp3"]）/ Supported transcode formats (e.g. ["wav", "mp3"])
     public let transcode_capability: [String]
     public let is_manager: Bool?
 }
 
+// MARK: - AudioStationInfoSettings
+
+/// AudioStation 设置项
+/// AudioStation settings
 public struct AudioStationInfoSettings: Codable, Sendable {
     public let disable_upnp: Bool?
     public let enable_download: Bool?
@@ -86,6 +53,10 @@ public struct AudioStationInfoSettings: Codable, Sendable {
     public let audio_show_virtual_library: Bool?
 }
 
+// MARK: - AudioStationInfoPrivilege
+
+/// AudioStation 当前用户权限
+/// AudioStation current user privileges
 public struct AudioStationInfoPrivilege: Codable, Sendable {
     public let tag_edit: Bool?
     public let sharing: Bool?

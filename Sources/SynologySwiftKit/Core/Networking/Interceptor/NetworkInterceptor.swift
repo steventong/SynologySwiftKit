@@ -7,9 +7,23 @@
 
 import Foundation
 
-/// Public request interceptor extension point for SDK users.
+/// SDK 公开拦截器扩展点
+/// Public request interceptor extension point for SDK users
+///
+/// 实现此协议可以拦截所有经过 SDK 发送的请求，例如用于记录日志。
+/// Implement this protocol to intercept all requests sent via the SDK, e.g. for custom logging.
+///
+/// 使用方式 / Usage:
+/// ```swift
+/// client.addInterceptor(MyLoggingInterceptor())
+/// ```
 public protocol SynologyRequestInterceptor: Sendable {
+    /// 预处理请求（可用于添加自定义 Header 等）
+    /// Pre-process the request (e.g., add custom headers)
     func adapt(_ request: URLRequest) async throws -> URLRequest
+
+    /// 处理响应结果（可用于记录日志、错误监控等）
+    /// Process the response result (e.g., logging, error monitoring)
     func process(_ result: Result<(Data, URLResponse), Error>) async throws -> Result<(Data, URLResponse), Error>
 }
 
@@ -23,6 +37,8 @@ public extension SynologyRequestInterceptor {
     }
 }
 
+/// 公开拦截器适配器（将 `SynologyRequestInterceptor` 包装为内部 `RequestInterceptor`）
+/// Adapter wrapping `SynologyRequestInterceptor` into the internal `RequestInterceptor`
 struct PublicRequestInterceptorAdapter: RequestInterceptor {
     private let interceptor: any SynologyRequestInterceptor
 

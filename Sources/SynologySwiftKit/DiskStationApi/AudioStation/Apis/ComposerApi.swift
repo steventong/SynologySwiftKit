@@ -7,6 +7,10 @@
 
 import Foundation
 
+// MARK: - ComposerApi
+
+/// 作曲家查询 API 客户端
+/// Composer query API client
 public final class ComposerApi {
     private let apiClient: ApiRequestSending
 
@@ -14,9 +18,8 @@ public final class ComposerApi {
         self.apiClient = apiClient
     }
 
-    /**
-     composer list
-     */
+    /// 查询作曲家列表
+    /// Query composer list
     public func list(limit: Int = 1000, offset: Int = 0, libraryScope: SynologyLibraryScope = .shared, includeFields: String? = nil, filter: String? = nil, keyword: String? = nil, sort: SynologySortDescriptor? = nil) async throws -> SynologyPage<Composer> {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.COMPOSER, method: "list", version: 2, httpMethod: .post) {
             ("library", libraryScope.rawValue)
