@@ -183,18 +183,20 @@ private struct SynologyClientContainer {
             pingpong: ping,
             keyChainStorage: keyChainStorage
         )
-        let connectionRoute = ConnectionRouteManager(
-            apiClient: apiClient,
-            quickConnectApi: quickConnect,
-            pingpong: ping,
-            keyChainStorage: keyChainStorage
-        )
         let userLogin = SynologyUserLogin(
             apiInfoApi: apiInfo,
             apiClient: apiClient,
             authApi: auth,
             audioStationApi: audioStationClient,
             connectionChecker: checkConnection,
+            keyChainStorage: keyChainStorage
+        )
+        let connectionRoute = ConnectionRouteManager(
+            apiClient: apiClient,
+            quickConnectApi: quickConnect,
+            pingpong: ping,
+            apiInfoApi: apiInfo,
+            authApi: auth,
             keyChainStorage: keyChainStorage
         )
         let queryAllSongs = QueryAllSongs(apiClient: apiClient)

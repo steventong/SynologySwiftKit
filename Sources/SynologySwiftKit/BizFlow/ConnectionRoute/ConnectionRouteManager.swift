@@ -1,20 +1,26 @@
 import Foundation
 
 final class ConnectionRouteManager: ConnectionRouteManaging {
-    private let apiClient: ConnectionStateProviding & ConnectionStateUpdating
+    private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
     private let quickConnectApi: QuickConnectClient
     private let pingpong: PingPongProviding
+    private let apiInfoApi: any ApiInfoProviding
+    private let authApi: any AuthenticationProviding
     private let keyChainStorage: any SensitiveStorage
 
     init(
-        apiClient: ConnectionStateProviding & ConnectionStateUpdating,
+        apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
         quickConnectApi: QuickConnectClient,
         pingpong: PingPongProviding,
+        apiInfoApi: any ApiInfoProviding,
+        authApi: any AuthenticationProviding,
         keyChainStorage: any SensitiveStorage = StorageService()
     ) {
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
+        self.apiInfoApi = apiInfoApi
+        self.authApi = authApi
         self.keyChainStorage = keyChainStorage
     }
 
@@ -66,9 +72,32 @@ final class ConnectionRouteManager: ConnectionRouteManaging {
             throw SynologyError.network(message: "Selected endpoint is unreachable")
         }
 
-        apiClient.updateConnection(type: connection.type, url: connection.url)
-        keyChainStorage.saveConnectionInfo(url: connection.url, typeString: connection.type.rawValue)
-        return connection
+        let previousConnection = restoreCurrentConnectionFromPersistence()
+        let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
+
+        saveConnection(url: connection.url, type: connection.type)
+
+        do {
+            try await apiInfoApi.refresh()
+
+            guard let credentials = keyChainStorage.getCredentials() else {
+                throw SynologyError.network(message: "Missing saved credentials")
+            }
+
+            let authResult = try await authApi.login(
+                username: credentials.username,
+                password: credentials.password,
+                otpCode: nil
+            )
+
+            apiClient.updateSession(sid: authResult.sid, did: authResult.did)
+            keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+            return connection
+        } catch {
+            rollbackConnection(to: previousConnection)
+            rollbackSession(to: previousSession)
+            throw error
+        }
     }
 }
 
@@ -95,5 +124,28 @@ private extension ConnectionRouteManager {
             return lhsPriority < rhsPriority
         }
         return lhs.url < rhs.url
+    }
+
+    func saveConnection(url: String, type: ConnectionType) {
+        apiClient.updateConnection(type: type, url: url)
+        keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
+    }
+
+    func rollbackConnection(to connection: SynologyConnection?) {
+        guard let connection else {
+            return
+        }
+        saveConnection(url: connection.url, type: connection.type)
+    }
+
+    func rollbackSession(to session: (sid: String, did: String?)?) {
+        guard let session else {
+            apiClient.clearSession()
+            keyChainStorage.removeSessionInfo()
+            return
+        }
+
+        apiClient.updateSession(sid: session.sid, did: session.did)
+        keyChainStorage.saveSessionInfo(sid: session.sid, did: session.did)
     }
 }
