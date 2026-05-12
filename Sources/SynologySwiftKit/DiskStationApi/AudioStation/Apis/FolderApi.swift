@@ -7,14 +7,21 @@
 
 import Foundation
 
-public final class FolderApi {
-    private let apiClient: ApiClientProviding
+// MARK: - FolderApi
 
-    public init(apiClient: ApiClientProviding) {
+/// 文件夹查询 API 客户端
+/// Folder query API client
+public final class FolderApi {
+    private let apiClient: ApiRequestSending
+
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
-    public func list(id: String?) async throws -> (total: Int, data: [Folder]) {
+    /// 查询文件夹内容列表
+    /// Query folder content list
+    /// - Parameter id: 文件夹 ID，为 nil 时查询根目录 / Folder ID, nil for root directory
+    public func list(id: String?) async throws -> SynologyPage<Folder> {
         let result: FolderListResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.FOLDER, method: "list") {
                 ("version", 3)
@@ -25,6 +32,6 @@ public final class FolderApi {
                 ("offset", 0)
             }
         )
-        return (result.folderTotal, result.items)
+        return SynologyPage(total: result.folderTotal, items: result.items)
     }
 }

@@ -12,26 +12,18 @@ import Foundation
 /// 登录结果
 /// Login result
 public struct SynologyUserLoginResult: Sendable {
-    /// 会话 ID
-    public let sid: String
+    /// 会话信息
+    public let session: SynologySession
 
-    /// 设备 ID
-    public let did: String?
-
-    /// 连接类型
-    public let connectionType: ConnectionType
-
-    /// 连接 URL
-    public let connectionUrl: String
+    /// 当前连接信息
+    public let connection: SynologyConnection
 
     /// 服务器类型
     public let serverType: ServerType
 
-    public init(sid: String, did: String?, connectionType: ConnectionType, connectionUrl: String, serverType: ServerType) {
-        self.sid = sid
-        self.did = did
-        self.connectionType = connectionType
-        self.connectionUrl = connectionUrl
+    public init(session: SynologySession, connection: SynologyConnection, serverType: ServerType) {
+        self.session = session
+        self.connection = connection
         self.serverType = serverType
     }
 }

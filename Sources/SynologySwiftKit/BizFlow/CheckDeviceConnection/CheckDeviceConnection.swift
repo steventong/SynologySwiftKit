@@ -5,26 +5,22 @@ import Foundation
 
 /// 设备连接检查类（依赖注入）
 /// Device connection checker (dependency injection)
-public class CheckDeviceConnection: CheckDeviceConnectionProviding {
+final class CheckDeviceConnection: CheckDeviceConnectionProviding {
     // MARK: - Dependencies
 
-    private let apiClient: ApiClientProviding
-    private let apiInfoApi: ApiInfoProviding
-    private let quickConnectApi: QuickConnectApi
-    private let audioStationApi: AudioStationApi
+    private let apiClient: ConnectionStateProviding & ConnectionStateUpdating
+    private let quickConnectApi: QuickConnectClient
     private let pingpong: PingPongProviding
-    private let keyChainStorage: KeyChainStorage
+    private let keyChainStorage: any SensitiveStorage
 
     // MARK: - Initialization
 
     /// 初始化连接检查器 (直接注入所有依赖)
     /// Initialize connection checker (inject all dependencies directly)
-    public init(apiClient: ApiClientProviding, apiInfoApi: ApiInfoProviding, quickConnectApi: QuickConnectApi, audioStationApi: AudioStationApi, pingpong: PingPongProviding, keyChainStorage: KeyChainStorage = KeyChainStorage()) {
+    init(apiClient: ConnectionStateProviding & ConnectionStateUpdating, quickConnectApi: QuickConnectClient, pingpong: PingPongProviding, keyChainStorage: any SensitiveStorage = StorageService()) {
         self.apiClient = apiClient
-        self.apiInfoApi = apiInfoApi
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
-        self.audioStationApi = audioStationApi
         self.keyChainStorage = keyChainStorage
     }
 
@@ -33,22 +29,25 @@ public class CheckDeviceConnection: CheckDeviceConnectionProviding {
     /// 检查当前连接状态（AsyncStream 版本）
     /// Check current connection status with AsyncStream
     /// - Returns: AsyncStream 返回连接检查进度
-    public func checkConnectionStatus() -> AsyncStream<CheckDeviceConnectionProgress> {
+    func checkConnectionStatus() -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 do {
                     guard let credentials = keyChainStorage.getCredentials() else {
                         throw SynologyError.network(message: "Connection unreachable and no saved credentials")
                     }
 
                     let server = credentials.server
-                    let isEnableHttps = credentials.isEnableHttps
-                    await self.performConnectionCheck(server: server, isHttps: isEnableHttps, continuation: continuation)
+                    let usesHTTPS = credentials.usesHTTPS
+                    await self.performConnectionCheck(server: server, usesHTTPS: usesHTTPS, continuation: continuation)
                 } catch {
                     Logger.error("CheckDeviceConnection#checkConnectionStatus, setup failed: \(error)")
                     continuation.yield(.failed(message: error.localizedDescription))
                     continuation.finish()
                 }
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
@@ -56,10 +55,13 @@ public class CheckDeviceConnection: CheckDeviceConnectionProviding {
     /// 检查当前连接状态（AsyncStream 版本）
     /// Check current connection status with AsyncStream
     /// - Returns: AsyncStream 返回连接检查进度
-    public func checkConnectionStatus(server: String, isHttps: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
+    func checkConnectionStatus(server: String, usesHTTPS: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
         AsyncStream { continuation in
-            Task {
-                await self.performConnectionCheck(server: server, isHttps: isHttps, continuation: continuation)
+            let task = Task {
+                await self.performConnectionCheck(server: server, usesHTTPS: usesHTTPS, continuation: continuation)
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
@@ -70,37 +72,49 @@ public class CheckDeviceConnection: CheckDeviceConnectionProviding {
 private extension CheckDeviceConnection {
     /// 执行连接检查的内部方法
     /// Internal method to perform connection check
-    private func performConnectionCheck(server: String, isHttps: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
+    private func performConnectionCheck(server: String, usesHTTPS: Bool, continuation: AsyncStream<CheckDeviceConnectionProgress>.Continuation) async {
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
+
         continuation.yield(.checking)
 
         do {
+            try Task.checkCancellation()
+
             // 如果连接信息存在，测试简单 Ping 检查
             if let currentConn = apiClient.connection, await pingpong.pingpong(url: currentConn.url) {
+                try Task.checkCancellation()
+
                 // Success
                 Logger.info("CheckDeviceConnection#checkConnectionStatus, checking current url: \(currentConn.url)")
-                /// cached 表示不需要再次登录用户。
-                /// cached = false 表示地址切换了，需要重新登录的。
-                continuation.yield(.success(type: currentConn.type, url: currentConn.url, cached: true))
+                let cachedConnection = SynologyConnection(type: currentConn.type, url: currentConn.url)
+                continuation.yield(.success(connection: cachedConnection, usedCachedConnection: true))
                 continuation.finish()
                 return
             }
 
             // 获取新的地址 - quickconnectid
-            let newConn = try await resolveAvailableConnection(server: server, enableHttps: isHttps)
+            let newConn = try await resolveAvailableConnection(server: server, usesHTTPS: usesHTTPS)
+            try Task.checkCancellation()
 
             // 新地址 pingpong 检查
             guard await pingpong.pingpong(url: newConn.url) else {
                 throw SynologyError.network(message: "Refreshed connection unreachable")
             }
+            try Task.checkCancellation()
 
             // 更新 ApiClient 连接状态 (Update ApiClient connection status)
             // 保存可用地址 (Save available address to Keychain)
             saveConnection(url: newConn.url, type: newConn.type)
 
             Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(newConn.url)")
-            continuation.yield(.success(type: newConn.type, url: newConn.url, cached: false))
+            continuation.yield(.success(connection: newConn, usedCachedConnection: false))
             continuation.finish()
             return
+        } catch is CancellationError {
+            continuation.finish()
         } catch {
             Logger.error("CheckDeviceConnection#checkConnectionStatus, connection check failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
@@ -110,22 +124,22 @@ private extension CheckDeviceConnection {
 
     /// 解析可用连接（封装 Ping 测试、QuickConnect 解析、AudioStation 验证等逻辑）
     /// Resolve available connection (encapsulates Ping test, QuickConnect resolution, AudioStation verification)
-    private func resolveAvailableConnection(server: String, enableHttps: Bool) async throws -> (type: ConnectionType, url: String) {
+    private func resolveAvailableConnection(server: String, usesHTTPS: Bool) async throws -> SynologyConnection {
         // 1. 检查是否为 QuickConnect ID
         if !QuickConnectUtils.isQuickConnectId(server: server) {
             // 自定义域名/IP，直接返回
             // Custom domain/IP, return directly
             // 可选：在此处做 Ping 检查以确保地址有效
             // Optional: Do ping check here to ensure address is valid
-            return (.custom_domain, server)
+            return SynologyConnection(type: .custom_domain, url: server)
         }
 
         // 2. 通过 QuickConnect 解析
         // Resolve via QuickConnect
         Logger.info("CheckDeviceConnection#resolveAvailableConnection, resolving via QuickConnect for \(server)")
         do {
-            let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: server, enableHttps: enableHttps)
-            return (connection.type, connection.url)
+            let connection = try await quickConnectApi.getDeviceConnection(quickConnectId: server, usesHTTPS: usesHTTPS)
+            return connection
         } catch {
             Logger.error("CheckDeviceConnection#resolveAvailableConnection, QuickConnect failed: \(error)")
             throw error

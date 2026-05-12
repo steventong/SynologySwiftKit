@@ -7,35 +7,38 @@
 
 import Foundation
 
-public final class ArtistApi {
-    private let apiClient: ApiClientProviding
+// MARK: - ArtistApi
 
-    public init(apiClient: ApiClientProviding) {
+/// 艺术家查询 API 客户端
+/// Artist query API client
+public final class ArtistApi {
+    private let apiClient: ApiRequestSending
+
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
-    /**
-     query artist list
-     */
+    /// 查询艺术家列表
+    /// Query artist list
     public func list(
         limit: Int = 1000, offset: Int = 0,
-        library: String = "shared", additional: String? = nil,
+        libraryScope: SynologyLibraryScope = .shared, includeFields: String? = nil,
         filter: String? = nil, keyword: String? = nil,
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> (total: Int, data: [Artist]) {
+        sort: SynologySortDescriptor? = nil
+    ) async throws -> SynologyPage<Artist> {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.ARTIST, method: "list", version: 4, httpMethod: .post) {
-            ("library", library)
+            ("library", libraryScope.rawValue)
             ("limit", limit)
             ("offset", offset)
-            ("additional", additional)
+            ("additional", includeFields)
             ("filter", filter)
             ("keyword", keyword)
             if let sort {
-                ("sort_by", sort.sort_by)
-                ("sort_direction", sort.sort_direction)
+                ("sort_by", sort.field)
+                ("sort_direction", sort.direction.rawValue)
             }
         }
         let result: ArtistListResult = try await apiClient.request(api)
-        return (result.total, result.artists)
+        return SynologyPage(total: result.total, items: result.artists)
     }
 }

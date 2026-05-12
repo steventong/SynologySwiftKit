@@ -9,86 +9,86 @@ import Foundation
 @testable import SynologySwiftKit
 
 /// 内存实现的 Mock 存储（用于测试）
-public final class MockKeyValueStorage: KeyValueStorage {
+public final class MockKeyValueStorage: KeyValueStorage, @unchecked Sendable {
     // 使用锁保护字典，模拟线程安全的存储
     private let lock = NSLock()
-    private var storage: [String: Any] = [:]
+    private var storage: [String: StoredValue] = [:]
 
     public init() {}
 
     public func string(forKey defaultName: String) -> String? {
-        lock.withLock { storage[defaultName] as? String }
-    }
-
-    public func integer(forKey defaultName: String) -> Int {
-        lock.withLock { storage[defaultName] as? Int ?? 0 }
-    }
-
-    public func bool(forKey defaultName: String) -> Bool {
-        lock.withLock { storage[defaultName] as? Bool ?? false }
-    }
-
-    public func object(forKey defaultName: String) -> Any? {
-        lock.withLock { storage[defaultName] }
-    }
-    
-    public func data(forKey defaultName: String) -> Data? {
-        lock.withLock { storage[defaultName] as? Data }
-    }
-
-    public func set(_ value: Any?, forKey defaultName: String) {
-        _ = lock.withLock {
-            if let value = value {
-                storage[defaultName] = value
-            } else {
-                storage.removeValue(forKey: defaultName)
-            }
+        lock.withLock {
+            guard case let .string(value) = storage[defaultName] else { return nil }
+            return value
         }
     }
 
-    public func set<T: Encodable>(_ value: T?, forKey defaultName: String) {
+    public func integer(forKey defaultName: String) -> Int {
+        lock.withLock {
+            guard case let .integer(value) = storage[defaultName] else { return 0 }
+            return value
+        }
+    }
+
+    public func bool(forKey defaultName: String) -> Bool {
+        lock.withLock {
+            guard case let .bool(value) = storage[defaultName] else { return false }
+            return value
+        }
+    }
+
+    public func date(forKey defaultName: String) -> Date? {
+        lock.withLock {
+            guard case let .date(value) = storage[defaultName] else { return nil }
+            return value
+        }
+    }
+    
+    public func data(forKey defaultName: String) -> Data? {
+        lock.withLock {
+            guard case let .data(value) = storage[defaultName] else { return nil }
+            return value
+        }
+    }
+
+    public func codable<T: Decodable>(forKey defaultName: String) -> T? {
+        guard let data = self.data(forKey: defaultName) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    public func setString(_ value: String?, forKey defaultName: String) {
+        set(value.map(StoredValue.string), forKey: defaultName)
+    }
+
+    public func setInteger(_ value: Int, forKey defaultName: String) {
+        set(.integer(value), forKey: defaultName)
+    }
+
+    public func setBool(_ value: Bool, forKey defaultName: String) {
+        set(.bool(value), forKey: defaultName)
+    }
+
+    public func setDate(_ value: Date?, forKey defaultName: String) {
+        set(value.map(StoredValue.date), forKey: defaultName)
+    }
+
+    public func setData(_ value: Data?, forKey defaultName: String) {
+        set(value.map(StoredValue.data), forKey: defaultName)
+    }
+
+    public func setCodable<T: Encodable>(_ value: T?, forKey defaultName: String) {
         guard let value else {
             removeObject(forKey: defaultName)
             return
         }
 
-        switch value {
-        case let raw as Data:
-            set(raw as Any?, forKey: defaultName)
+        guard let data = try? JSONEncoder().encode(value) else {
             return
-        case let raw as Date:
-            set(raw as Any?, forKey: defaultName)
-            return
-        case let raw as String:
-            set(raw as Any?, forKey: defaultName)
-            return
-        case let raw as Int:
-            set(raw as Any?, forKey: defaultName)
-            return
-        case let raw as Bool:
-            set(raw as Any?, forKey: defaultName)
-            return
-        case let raw as Double:
-            set(raw as Any?, forKey: defaultName)
-            return
-        case let raw as Float:
-            set(raw as Any?, forKey: defaultName)
-            return
-        default:
-            break
         }
 
-        guard let encoded = try? JSONEncoder().encode(value) else {
-            return
-        }
-        set(encoded as Any?, forKey: defaultName)
-    }
-
-    public func codable<T: Decodable>(forKey defaultName: String) -> T? {
-        guard let data = data(forKey: defaultName) else {
-            return nil
-        }
-        return try? JSONDecoder().decode(T.self, from: data)
+        setData(data, forKey: defaultName)
     }
 
     public func removeObject(forKey defaultName: String) {
@@ -99,4 +99,22 @@ public final class MockKeyValueStorage: KeyValueStorage {
     public func clearAll() {
         lock.withLock { storage.removeAll() }
     }
+
+    private func set(_ value: StoredValue?, forKey defaultName: String) {
+        lock.withLock {
+            if let value {
+                storage[defaultName] = value
+            } else {
+                storage.removeValue(forKey: defaultName)
+            }
+        }
+    }
+}
+
+private enum StoredValue: Sendable {
+    case string(String)
+    case integer(Int)
+    case bool(Bool)
+    case date(Date)
+    case data(Data)
 }

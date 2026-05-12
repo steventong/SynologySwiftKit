@@ -38,10 +38,10 @@ final class MockApiClient: ApiClientProviding {
     }
 
     func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T where T: Decodable {
-        return try await request(endpoint, rawResponse: false)
+        return try await requestEnvelope(endpoint)
     }
 
-    func request<T: Decodable>(_ endpoint: ApiEndpoint, rawResponse: Bool) async throws -> T {
+    func requestEnvelope<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
         requestedEndpoints.append(endpoint)
         if let requestHandler {
             let response = try requestHandler(endpoint)

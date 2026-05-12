@@ -71,17 +71,6 @@ public struct PinCriteria: Codable, Sendable {
 
     // MARK: Internal
 
-    /// 转换为字典（用于 API 请求）
-    func toDictionary() -> [String: String] {
-        var result: [String: String] = [:]
-        if let folder = folder { result["folder"] = folder }
-        if let album = album { result["album"] = album }
-        if let albumArtist = albumArtist { result["album_artist"] = albumArtist }
-        if let artist = artist { result["artist"] = artist }
-        if let composer = composer { result["composer"] = composer }
-        if let genre = genre { result["genre"] = genre }
-        return result
-    }
 }
 
 // MARK: - Pin Item
@@ -95,9 +84,23 @@ public struct PinItem: Codable, Sendable {
     public let criteria: PinCriteria
 }
 
+public struct PinRemovalResult: Sendable {
+    public let removedIDs: [String]
+    public let failures: [UnpinError]
+
+    public init(removedIDs: [String], failures: [UnpinError]) {
+        self.removedIDs = removedIDs
+        self.failures = failures
+    }
+
+    public var removedAll: Bool {
+        failures.isEmpty
+    }
+}
+
 // MARK: - API Results
 
-public struct PinListResult: Decodable, Sendable {
+struct PinListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let items: [PinItem]
@@ -116,8 +119,14 @@ struct PinOperationResult: Codable, Sendable {
     let items: [PinItem]
 }
 
+struct PinRequestItem: Encodable, Sendable {
+    let type: PinType
+    let criteria: PinCriteria
+    let name: String
+}
+
 /// Unpin 操作结果
-public struct UnpinOperationResult: Codable, Sendable {
+struct UnpinOperationResult: Codable, Sendable {
     /// 失败的项目错误列表
     public let errors: [UnpinError]
     /// 成功取消固定的 ID 列表
