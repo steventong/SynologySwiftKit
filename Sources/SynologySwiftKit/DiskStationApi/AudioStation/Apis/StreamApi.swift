@@ -9,46 +9,44 @@ import Foundation
 import OSLog
 
 public final class StreamApi {
-    private let apiClient: ApiClientProviding
+    private let urlBuilder: ApiURLBuilding
 
-    public init(apiClient: ApiClientProviding) {
-        self.apiClient = apiClient
+    init(urlBuilder: ApiURLBuilding) {
+        self.urlBuilder = urlBuilder
     }
 
-    /**
-     build song stream url
-     */
-    public func getStreamUrl(id: String, path: String, bitrate: Int, frequency: Int, fileExtension: String = ".mp3", quality: SongStreamQuality) async throws -> URL {
+    /// 构建音频播放地址
+    public func playbackURL(for source: SongPlaybackSource, quality: SongStreamQuality) async throws -> URL {
         // 如果是整轨的，直接返回mp3播放地址
-        if id.hasPrefix("music_v") || id.hasPrefix("music_p_v") {
-            Logger.info("整轨音频文件不支持stream，使用转码URL，id: \(id)")
+        if source.id.hasPrefix("music_v") || source.id.hasPrefix("music_p_v") {
+            Logger.info("整轨音频文件不支持stream，使用转码URL，id: \(source.id)")
             let api = ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", version: 2, pathSuffix: "/0.mp3", sidOnQuery: true) {
                 ("format", "mp3")
-                ("id", id)
+                ("id", source.id)
             }
-            return try await apiClient.buildUrl(api)
+            return try await urlBuilder.buildUrl(api)
         }
 
         // build parameters
-        var parameters: ApiParameters = ["id": .string(UrlUtils.urlEncode(id))]
+        var parameters: ApiParameters = ["id": .string(UrlUtils.urlEncode(source.id))]
 
         // 构建播放地址 getPlayUrl
         // 当前的音频是否需要转码
         let streamMethod = getAudioStreamForceMethod(
-            id: id, path: path, bitrate: bitrate, frequency: frequency)
+            id: source.id, path: source.path, bitrate: source.bitrate, frequency: source.frequency)
 
         if streamMethod == .STREAM {
             // must use stream
-            return try await buildStreamUrl(fileExtension: fileExtension, parameters: &parameters)
+            return try await buildStreamUrl(fileExtension: source.fileExtension, parameters: &parameters)
         } else if streamMethod == .TRANSCODE {
             // must by transcode
-            return try await buildTranscodeUrl(fileExtension: fileExtension, quality: quality, parameters: &parameters)
+            return try await buildTranscodeUrl(fileExtension: source.fileExtension, quality: quality, parameters: &parameters)
         } else if quality == .ORIGINAL {
             // user choose use original (stream)
-            return try await buildStreamUrl(fileExtension: fileExtension, parameters: &parameters)
+            return try await buildStreamUrl(fileExtension: source.fileExtension, parameters: &parameters)
         } else {
             // user choose transcode
-            return try await buildTranscodeUrl(fileExtension: fileExtension, quality: quality, parameters: &parameters)
+            return try await buildTranscodeUrl(fileExtension: source.fileExtension, quality: quality, parameters: &parameters)
         }
     }
 
@@ -115,7 +113,7 @@ public final class StreamApi {
                 pair
             }
         }
-        return try await apiClient.buildUrl(api)
+        return try await urlBuilder.buildUrl(api)
     }
 
     private func buildTranscodeUrl(fileExtension: String, quality: SongStreamQuality, parameters: inout ApiParameters) async throws -> URL {
@@ -130,6 +128,6 @@ public final class StreamApi {
                 pair
             }
         }
-        return try await apiClient.buildUrl(api)
+        return try await urlBuilder.buildUrl(api)
     }
 }

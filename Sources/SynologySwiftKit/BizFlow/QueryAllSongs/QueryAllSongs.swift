@@ -9,14 +9,14 @@ import Foundation
 
 /// 批量查询所有歌曲（依赖注入）
 /// Batch query all songs (dependency injection)
-public final class QueryAllSongs {
-    private let audioStationApi: AudioStationApi
+final class QueryAllSongs: QueryAllSongsProviding {
+    private let songsApi: SongApi
 
     /// 初始化查询器
     /// Initialize query helper
     /// - Parameter apiClient: API 客户端
-    public init(apiClient: ApiClientProviding) {
-        audioStationApi = AudioStationApi(apiClient: apiClient)
+    init(apiClient: ApiRequestSending) {
+        songsApi = SongApi(apiClient: apiClient)
     }
 
     // MARK: - Query Total Count
@@ -24,9 +24,9 @@ public final class QueryAllSongs {
     /// 查询音乐总数
     /// Query total songs count
     /// - Returns: 歌曲总数，失败返回 -1
-    public func queryTotalSongsCount() async -> Int {
+    func queryTotalSongsCount() async -> Int {
         do {
-            let songs = try await audioStationApi.song.list(limit: 1, offset: 0, additional: nil)
+            let songs = try await songsApi.list(limit: 1, offset: 0, includeFields: nil)
             return songs.total
         } catch {
             return -1
@@ -41,14 +41,17 @@ public final class QueryAllSongs {
     ///   - batchSize: 每批次查询数量
     ///   - concurrency: 并发任务数
     /// - Returns: AsyncStream 返回查询进度
-    public func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
+    func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
         AsyncStream { continuation in
-            Task {
+            let task = Task {
                 await self.performQueryAllSongs(
                     batchSize: batchSize,
                     concurrency: concurrency,
                     continuation: continuation
                 )
+            }
+            continuation.onTermination = { _ in
+                task.cancel()
             }
         }
     }
@@ -60,8 +63,18 @@ private extension QueryAllSongs {
     /// 执行查询所有歌曲
     /// Perform query all songs
     func performQueryAllSongs(batchSize: Int, concurrency: Int, continuation: AsyncStream<QueryAllSongsProgress>.Continuation) async {
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
+
         // 获取总数
         let total = await queryTotalSongsCount()
+
+        guard !Task.isCancelled else {
+            continuation.finish()
+            return
+        }
 
         if total == -1 {
             continuation.yield(.failed(error: .fetchTotalFailed))
@@ -99,6 +112,12 @@ private extension QueryAllSongs {
             var nextTaskIndex = concurrency
 
             for await result in taskGroup {
+                guard !Task.isCancelled else {
+                    taskGroup.cancelAll()
+                    continuation.finish()
+                    return
+                }
+
                 let (batchIndex, success, songs, errorMsg) = result
                 completedBatches += 1
 
@@ -137,18 +156,22 @@ private extension QueryAllSongs {
     /// 查询单批次歌曲
     /// Query single batch of songs
     func querySongBatch(batchIndex: Int, batchSize: Int, total: Int) async -> (Int, Bool, [Song], String) {
+        if Task.isCancelled {
+            return (batchIndex, false, [], CancellationError().localizedDescription)
+        }
+
         let offset = batchSize * batchIndex
 
         Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), offset: \(offset), limit: \(batchSize)")
 
         do {
-            let result = try await audioStationApi.song.list(
+            let result = try await songsApi.list(
                 limit: batchSize,
                 offset: offset
             )
 
-            Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), songs: \(result.data.count)")
-            return (batchIndex, true, result.data, "success")
+            Logger.debug("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), songs: \(result.items.count)")
+            return (batchIndex, true, result.items, "success")
         } catch {
             Logger.error("QueryAllSongs#querySongBatch, batchIndex: \(batchIndex), error: \(error)")
             return (batchIndex, false, [], error.localizedDescription)

@@ -7,17 +7,23 @@
 
 import Foundation
 
-public final class PlaylistApi {
-    private let apiClient: ApiClientProviding
+// MARK: - PlaylistApi
 
-    public init(apiClient: ApiClientProviding) {
+/// 播放列表 API 客户端
+/// Playlist API client
+///
+/// 封装 `SYNO.AudioStation.Playlist` 接口，支持列表、创建、编辑、删除播放列表。
+/// Wraps `SYNO.AudioStation.Playlist`; supports list, create, edit, and delete playlists.
+public final class PlaylistApi {
+    private let apiClient: ApiRequestSending
+
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
-    /**
-     query playlist list
-     */
-    public func list(limit: Int, offset: Int) async throws -> (total: Int, data: [Playlist]) {
+    /// 查询播放列表列表
+    /// Query playlist list
+    public func list(limit: Int, offset: Int) async throws -> SynologyPage<Playlist> {
         let result: PlaylistListResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.PLAYLIST, method: "list") {
                 ("library", "all")
@@ -25,89 +31,81 @@ public final class PlaylistApi {
                 ("offset", offset)
             }
         )
-        return (result.total, result.playlists)
+        return SynologyPage(total: result.total, items: result.playlists)
     }
 
-    /**
-     query playlist songs
-     */
-    public func getSongs(id: String, library: String,
-                         additional: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
+    /// 查询播放列表内的歌曲
+    /// Query songs inside a playlist
+    public func getSongs(id: String, libraryScope: SynologyLibraryScope,
+                         includeFields: String = "songs_song_tag,songs_song_audio,songs_song_rating,sharing_info",
                          limit: Int, offset: Int,
-                         sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Song]) {
+                         sort: SynologySortDescriptor? = nil) async throws -> SynologyPage<Song> {
         let result: PlaylistGetInfoResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "getinfo", version: 3,
                 httpMethod: .post) {
                     ("id", id)
-                    ("library", library)
-                    ("additional", additional)
+                    ("library", libraryScope.rawValue)
+                    ("additional", includeFields)
                     ("songs_limit", limit)
                     ("songs_offset", offset)
                 }
         )
         if let playlist = result.playlists.first {
-            return (playlist.songsTotal, playlist.songs)
+            return SynologyPage(total: playlist.songsTotal, items: playlist.songs)
         }
-        return (0, [])
+        return SynologyPage(total: 0, items: [])
     }
 
-    /**
-     创建播放列表
-     */
-    public func create(name: String, library: String, songs: String?) async throws -> String {
+    /// 创建普通播放列表
+    /// Create a regular playlist
+    public func create(name: String, libraryScope: SynologyLibraryScope, songIDs: [String] = []) async throws -> PlaylistReference {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.PLAYLIST, method: "create", version: 3, httpMethod: .post) {
                 ("name", name)
-                ("library", library)
-                ("songs", songs ?? "")
+                ("library", libraryScope.rawValue)
+                if !songIDs.isEmpty {
+                    ("songs", songIDs.joined(separator: ","))
+                }
             }
         )
-        return result.id
+        return PlaylistReference(id: result.id)
     }
 
-    /**
-     创建智能播放列表
-     Create smart playlist
-     - Throws: SynologyError.api(.playlistOperationFailed) when operation fails
-     */
-    public func createSmart(
-        name: String, shared: Bool, conj_rule: String, rules_json: String
-    ) async throws -> String {
+    /// 创建智能播放列表
+    /// Create a smart playlist
+    /// - Throws: `SynologyError.api` 当操作失败时 / When operation fails
+    public func createSmart(name: String, definition: SmartPlaylistDefinition) async throws -> PlaylistReference {
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "createsmart", version: 2,
                 httpMethod: .post) {
                     ("name", name)
-                    ("library", shared ? "shared" : "personal")
-                    ("conj_rule", conj_rule)
-                    ("rules_json", rules_json)
+                    ("library", definition.scope.rawValue)
+                    ("conj_rule", definition.matchRule.rawValue)
+                    ("rules_json", definition.serializedRules)
                 }
         )
-        return result.id
+        return PlaylistReference(id: result.id)
     }
 
-    /**
-     重命名播放列表
-     Rename playlist
-     - Throws: SynologyError.api(.playlistOperationFailed) when operation fails
-     */
-    public func rename(id: String, newName: String) async throws -> String {
+    /// 重命名播放列表
+    /// Rename a playlist
+    public func rename(id: String, name: String) async throws -> PlaylistReference {
         let result: PlaylistRenameResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "rename", version: 3,
                 httpMethod: .post) {
                     ("id", id)
-                    ("new_name", newName)
+                    ("new_name", name)
                 }
         )
-        return result.id
+        return PlaylistReference(id: result.id)
     }
 
-    /**
-     删除播放列表
-     */
-    public func delete(id: String) async throws -> Bool {
+    /// 删除播放列表
+    /// Delete a playlist
+    public func delete(id: String) async throws -> PlaylistDeletionResult {
         let result: PlaylistDeleteResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "delete", version: 3,
@@ -116,26 +114,24 @@ public final class PlaylistApi {
                 ("id", id)
             }
         )
-        return result.errors.isEmpty
+        return PlaylistDeletionResult(requestedID: id, failedItemIDs: result.errors)
     }
 
-    /**
-     移除丢失歌曲
-     */
-    public func removeMissing(id: String) async throws -> Bool {
+    /// 移除播放列表中丢失的歌曲
+    /// Remove missing songs from a playlist
+    public func removeMissing(id: String) async throws -> PlaylistMutationResult {
         let api = ApiEndpoint(
             api: SynologyApi.AudioStation.PLAYLIST, method: "removemissing", version: 3,
             httpMethod: .post) {
                 ("id", id)
             }
         let _: EmptyData = try await apiClient.request(api)
-        return true
+        return PlaylistMutationResult(playlistID: id)
     }
 
-    /**
-     添加歌曲到播放列表
-     */
-    public func addSongs(id: String, songs: [String]) async throws -> Bool {
+    /// 添加歌曲到播放列表（自动跳过重复项）
+    /// Add songs to a playlist (automatically skips duplicates)
+    public func addSongs(id: String, songIDs: [String]) async throws -> PlaylistMutationResult {
         let api = ApiEndpoint(
             api: SynologyApi.AudioStation.PLAYLIST, method: "updatesongs", version: 3,
             httpMethod: .post) {
@@ -143,11 +139,11 @@ public final class PlaylistApi {
                 ("limit", 0)
                 ("offset", -1)
                 ("skip_duplicate", true)
-                if !songs.isEmpty {
-                    ("songs", songs.joined(separator: ","))
+                if !songIDs.isEmpty {
+                    ("songs", songIDs.joined(separator: ","))
                 }
             }
         let _: EmptyData = try await apiClient.request(api)
-        return true
+        return PlaylistMutationResult(playlistID: id)
     }
 }

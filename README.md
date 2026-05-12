@@ -2,15 +2,7 @@
 
 Swift package for building Synology DSM and Audio Station clients in Swift.
 
-> Status: active development. The package is already usable, but API surface may still change as DSM and Audio Station coverage expands.
-
-## Highlights
-
-- Swift Concurrency-first API (`async/await`, `AsyncStream`)
-- Built-in DSM modules: `auth`, `apiInfo`, `quickConnect`, `dsmInfo`, `fileStation`
-- Audio Station modules: `album`, `artist`, `composer`, `folder`, `genre`, `info`, `lyrics`, `pin`, `playlist`, `search`, `song`, `stream`, `tagEditor`
-- Higher-level flows for login, connection check, and querying songs
-- Customizable transport and storage so integrators can adapt the package to their app architecture
+> Status: active development. Use the `develop` branch for the latest changes.
 
 ## Requirements
 
@@ -18,6 +10,8 @@ Swift package for building Synology DSM and Audio Station clients in Swift.
 - Xcode 15.4+
 - iOS 13+
 - macOS 10.15+
+- tvOS 13+
+- visionOS 1+
 
 ## Installation
 
@@ -43,11 +37,11 @@ targets: [
 ```swift
 import SynologySwiftKit
 
-let client = SynologyClient()
+let client = SynologyClientFactory.make()
 
-for await progress in await client.userLogin.login(
+for await progress in client.flows.userLogin.login(
     server: "your-quickconnect-id",
-    enableHttps: true,
+    usesHTTPS: true,
     username: "demo",
     password: "secret"
 ) {
@@ -57,7 +51,7 @@ for await progress in await client.userLogin.login(
     case .authenticating:
         print("Authenticating...")
     case let .completed(result):
-        print("Connected:", result.connectionUrl)
+        print("Connected:", result.connection.url)
     case .otpRequired:
         print("OTP required")
     case let .failed(message), let .invalidSession(message):
@@ -66,50 +60,128 @@ for await progress in await client.userLogin.login(
 }
 ```
 
-## Using Core APIs
+## Audio Station
 
 ```swift
-import SynologySwiftKit
-
-let client = SynologyClient()
-
-let albums = try await client.audioStation.album.list(limit: 20)
-let songs = try await client.audioStation.song.list(limit: 100)
-let playlists = try await client.audioStation.playlist.list(limit: 50)
+let albums = try await client.albums.list(limit: 20)
+let songs = try await client.songs.list(limit: 100, libraryScope: .shared)
+let playlists = try await client.playlists.list(limit: 50, offset: 0)
+let searchResults = try await client.search.list(keyword: "Miles")
 ```
 
-## Dependency Injection
+## Playlists
 
-`SynologyClient` accepts custom storage and transport implementations so the package can fit production apps and tests more naturally.
+```swift
+let playlist = try await client.playlists.create(
+    name: "Favorites",
+    libraryScope: .personal,
+    songIDs: ["music_1", "music_2"]
+)
+
+try await client.playlists.addSongs(
+    id: playlist.id,
+    songIDs: ["music_3"]
+)
+```
+
+## Covers And Playback
+
+```swift
+let coverURL = try await client.covers.songCoverURL(
+    songID: "music_1",
+    libraryScope: .shared
+)
+
+let playbackURL = try await client.stream.playbackURL(
+    for: SongPlaybackSource(
+        id: "music_1",
+        path: "/music/demo.mp3",
+        bitrate: 320000,
+        frequency: 44100
+    ),
+    quality: .ORIGINAL
+)
+```
+
+## Session
+
+```swift
+client.configureConnection(
+    type: .custom_domain,
+    url: "https://nas.local",
+    sid: "existing-sid",
+    did: "existing-device-id"
+)
+
+let restoredClient = SynologyClientFactory.makeWithExistingSession(
+    connectionType: .custom_domain,
+    url: "https://nas.local",
+    sid: "existing-sid"
+)
+
+if let session = client.session.current {
+    print(session.sid)
+}
+
+if let connection = client.session.connection {
+    print(connection.url)
+}
+
+client.session.clear()
+```
+
+`SynologyClient` restores persisted session state when available. `client.session.clear()` clears both in-memory and persisted session state.
+
+## Entrypoints
+
+Use one naming system only:
+
+- grouped modules: `client.auth`, `client.system`, `client.audioStation`, `client.files`, `client.session`, `client.flows`
+- direct API names: `client.quickConnect`, `client.dsmInfo`, `client.encryption`, `client.songs`, `client.albums`, `client.artists`, `client.composers`, `client.genres`, `client.folders`, `client.playlists`, `client.pins`, `client.lyrics`, `client.search`, `client.covers`, `client.stream`, `client.tagEditor`
+- task flows: `client.flows.userLogin`, `client.flows.checkDeviceConnection`, `client.flows.queryAllSongs`
+- `client.files`: File Station file operations
+
+## Request Interceptors
+
+```swift
+struct HeaderInterceptor: SynologyRequestInterceptor {
+    func adapt(_ request: URLRequest) async throws -> URLRequest {
+        var request = request
+        request.setValue("1", forHTTPHeaderField: "X-Trace")
+        return request
+    }
+}
+
+client.addInterceptor(HeaderInterceptor())
+```
+
+Use interceptors for logging, tracing, diagnostics, and host-application headers. Authentication is handled by the SDK session pipeline.
+
+## Custom Storage And HTTP Client
 
 ```swift
 import SynologySwiftKit
+import SwiftHttpClient
 
-struct MyTransport: HTTPTransporting {
-    func send(_ request: URLRequest, timeout: TimeInterval, trustedSSLDomain: String?) async throws -> (Data, URLResponse) {
-        fatalError("Provide your own transport")
-    }
+let factory: SynologyHTTPClientFactory = { timeout, trustedSSLDomain in
+    HTTPClient(timeout: timeout, trustedSSLDomain: trustedSSLDomain)
 }
 
 let client = SynologyClient(
     config: SynologyConfig(enableNetworkLogging: false),
     keyValueStorage: UserDefaultsStorage(userDefaults: .standard),
     keyChainStorage: KeyChainStorage(service: "com.example.synology"),
-    transport: MyTransport()
+    httpClientFactory: factory
 )
 ```
 
-## Session Model
+## Available Modules
 
-- `SynologyClient` restores persisted session state on initialization when available.
-- `clearSession()` clears both in-memory and persisted session state.
-- The default auth interceptor automatically attaches session credentials and clears persisted session state when DSM reports an expired session.
-
-## Stability Notes
-
-- Consume `SynologySwiftKit` from the `develop` branch if you want the latest in-progress changes.
-- Public API is still evolving while DSM and Audio Station endpoints are being added.
-- If you adopt it in production, pin the exact revision in your app and review changelog-worthy updates before bumping.
+| Area | APIs |
+| --- | --- |
+| Grouped modules | `auth`, `system`, `audioStation`, `files`, `session`, `flows` |
+| Direct API names | `quickConnect`, `dsmInfo`, `encryption`, `songs`, `albums`, `artists`, `composers`, `genres`, `folders`, `playlists`, `pins`, `lyrics`, `search`, `covers`, `stream`, `tagEditor` |
+| Task flows | `userLogin`, `checkDeviceConnection`, `queryAllSongs` |
 
 ## Development
 
@@ -117,7 +189,3 @@ let client = SynologyClient(
 swift build
 swift test
 ```
-
-## Why This Package Exists
-
-This package was extracted from the DS Music client app so DSM and Audio Station integration code can be reused outside the app itself.

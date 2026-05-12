@@ -7,33 +7,39 @@
 
 import Foundation
 
-public final class AlbumApi {
-    private let apiClient: ApiClientProviding
+// MARK: - AlbumApi
 
-    public init(apiClient: ApiClientProviding) {
+/// 专辑查询 API 客户端
+/// Album query API client
+///
+/// 封装 `SYNO.AudioStation.Album` 接口，支持分页、过滤、搜索、排序。
+/// Wraps `SYNO.AudioStation.Album`; supports pagination, filtering, search, and sorting.
+public final class AlbumApi {
+    private let apiClient: ApiRequestSending
+
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
-    /**
-     album list
-     */
+    /// 查询专辑列表
+    /// Query album list
     public func list(limit: Int = 1000, offset: Int = 0,
-                     library: String = "shared", additional: String? = nil,
+                     libraryScope: SynologyLibraryScope = .shared, includeFields: String? = nil,
                      filter: String? = nil, keyword: String? = nil,
-                     sort: (sort_by: String, sort_direction: String)? = nil) async throws -> (total: Int, data: [Album]) {
+                     sort: SynologySortDescriptor? = nil) async throws -> SynologyPage<Album> {
         let api = ApiEndpoint(api: SynologyApi.AudioStation.ALBUM, method: "list", version: 3, httpMethod: .post) {
             ("limit", limit)
             ("offset", offset)
-            ("library", library)
-            ("additional", additional)
+            ("library", libraryScope.rawValue)
+            ("additional", includeFields)
             ("filter", filter)
             ("keyword", keyword)
             if let sort {
-                ("sort_by", sort.sort_by)
-                ("sort_direction", sort.sort_direction)
+                ("sort_by", sort.field)
+                ("sort_direction", sort.direction.rawValue)
             }
         }
         let result: AlbumListResult = try await apiClient.request(api)
-        return (result.total, result.albums)
+        return SynologyPage(total: result.total, items: result.albums)
     }
 }

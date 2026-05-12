@@ -13,7 +13,7 @@ public struct Lyrics: Decodable, Sendable {
 
 /// 歌词结果（支持两种格式：字符串或嵌套对象）
 /// Lyrics result (supports both formats: string or nested object)
-public struct LyricsResult: Decodable, Sendable {
+struct LyricsResult: Decodable, Sendable {
     public let lyrics: Lyrics?
 
     private enum CodingKeys: String, CodingKey {
@@ -45,7 +45,7 @@ public struct LyricsItem: Decodable, Sendable {
     public let preview: String?
 }
 
-public struct LyricsSearchResult: Decodable, Sendable {
+struct LyricsSearchResult: Decodable, Sendable {
     public let total: Int
     public let items: [LyricsItem]
 }

@@ -7,69 +7,91 @@
 
 import Foundation
 
-public final class SongApi {
-    private let apiClient: ApiClientProviding
+// MARK: - SongApi
 
-    public init(apiClient: ApiClientProviding) {
+/// 歌曲查询 API 客户端
+/// Song query API client
+///
+/// 封装 `SYNO.AudioStation.Song` 接口，支持列表查询、单曲信息获取和评分更新。
+/// Wraps `SYNO.AudioStation.Song`; supports list query, single song info, and rating update.
+public final class SongApi {
+    private let apiClient: ApiRequestSending
+    private let urlBuilder: ApiURLBuilding?
+
+    init(apiClient: ApiRequestSending, urlBuilder: ApiURLBuilding? = nil) {
         self.apiClient = apiClient
+        self.urlBuilder = urlBuilder ?? apiClient as? ApiURLBuilding
     }
 
-    /**
-     query song list
-     */
+    /// 查询歌曲列表
+    /// Query song list
+    /// - Parameters:
+    ///   - limit: 每页数量 / Page size
+    ///   - offset: 起始偏移量 / Start offset
+    ///   - libraryScope: 媒体库范围 / Library scope
+    ///   - artist: 按艺术家过滤 / Filter by artist
+    ///   - album: 按专辑过滤 / Filter by album
+    ///   - albumArtist: 按专辑艺术家过滤 / Filter by album artist
+    ///   - composer: 按作曲家过滤 / Filter by composer
+    ///   - genre: 按流派过滤 / Filter by genre
+    ///   - minimumRating: 最低评分过滤 / Minimum rating filter
+    ///   - includeFields: 额外字段（默认包含标签/音频/评分）/ Extra fields (default: tag/audio/rating)
+    ///   - sort: 排序描述符 / Sort descriptor
     public func list(
-        limit: Int = 100, offset: Int = 0, library: String = "shared",
-        artist: String? = nil, album: String? = nil, album_artist: String? = nil,
-        composer: String? = nil, genre: String? = nil, song_rating_meq: Int? = nil,
-        additional: String? = "song_tag,song_audio,song_rating",
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> (total: Int, data: [Song]) {
+        limit: Int = 100, offset: Int = 0, libraryScope: SynologyLibraryScope = .shared,
+        artist: String? = nil, album: String? = nil, albumArtist: String? = nil,
+        composer: String? = nil, genre: String? = nil, minimumRating: Int? = nil,
+        includeFields: String? = "song_tag,song_audio,song_rating",
+        sort: SynologySortDescriptor? = nil
+    ) async throws -> SynologyPage<Song> {
         let result: SongListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post
             ) {
-                ("library", library)
+                ("library", libraryScope.rawValue)
                 ("limit", limit)
                 ("offset", offset)
                 ("artist", artist)
                 ("album", album)
-                ("album_artist", album_artist)
+                ("album_artist", albumArtist)
                 ("composer", composer)
                 ("genre", genre)
-                ("song_rating_meq", song_rating_meq)
-                ("additional", additional)
+                ("song_rating_meq", minimumRating)
+                ("additional", includeFields)
 
                 if let sort {
-                    ("sort_by", sort.sort_by)
-                    ("sort_direction", sort.sort_direction)
+                    ("sort_by", sort.field)
+                    ("sort_direction", sort.direction.rawValue)
                 }
             }
         )
-        return (result.total, result.songs)
+        return SynologyPage(total: result.total, items: result.songs)
     }
 
-    /**
-     build song fetch url
-     */
-    public func listUrl(limit: Int, offset: Int, library: String = "shared") async throws -> URL {
-        try await apiClient.buildUrl(
+    /// 构建歌曲列表获取请求的 URL（用于 WKWebView / AVPlayer 等无法注入 Header 的场景）
+    /// Build the URL for a song list request (for WKWebView/AVPlayer where headers cannot be injected)
+    public func listURL(limit: Int, offset: Int, libraryScope: SynologyLibraryScope = .shared) async throws -> URL {
+        guard let urlBuilder else {
+            throw SynologyError.network(message: "URL builder not configured")
+        }
+
+        return try await urlBuilder.buildUrl(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post,
                 sidOnQuery: true
             ) {
                 ("additional", "song_tag,song_audio,song_rating")
-                ("library", library)
+                ("library", libraryScope.rawValue)
                 ("limit", limit)
                 ("offset", offset)
             }
         )
     }
 
-    /**
-     query song info
-     查询歌曲信息
-     - Throws: SynologyError.api(.songNotFound) when song is not found
-     */
+    /// 查询单首歌曲详细信息
+    /// Query detailed info for a single song
+    /// - Parameter id: 歌曲 ID / Song ID
+    /// - Throws: `SynologyError.api` 当歌曲不存在时 / When song is not found
     public func getInfo(id: String) async throws -> Song {
         let result: SongInfo = try await apiClient.request(
             ApiEndpoint(
@@ -86,10 +108,12 @@ public final class SongApi {
         return song
     }
 
-    /**
-     update song rating, from 1 - 5
-     */
-    public func setRating(id: String, rating: Int) async throws -> Bool {
+    /// 更新歌曲评分（1 - 5 星）
+    /// Update song rating (1 - 5 stars)
+    /// - Parameters:
+    ///   - id: 歌曲 ID / Song ID
+    ///   - rating: 评分（1-5）/ Rating (1-5)
+    public func setRating(id: String, rating: Int) async throws -> SongRatingUpdate {
         let api = ApiEndpoint(
             api: SynologyApi.AudioStation.SONG, method: "setrating", version: 2,
             httpMethod: .post) {
@@ -98,6 +122,6 @@ public final class SongApi {
             }
 
         let _: EmptyData = try await apiClient.request(api)
-        return true
+        return SongRatingUpdate(songID: id, rating: rating)
     }
 }

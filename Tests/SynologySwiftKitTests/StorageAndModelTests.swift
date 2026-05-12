@@ -8,16 +8,16 @@ final class StorageAndModelTests: XCTestCase {
         let storage = UserDefaultsStorage(userDefaults: suite)
         defer { suite.removePersistentDomain(forName: suiteName) }
 
-        storage.set("value", forKey: "string")
-        storage.set(4, forKey: "int")
-        storage.set(true, forKey: "bool")
-        storage.set(Date(timeIntervalSince1970: 20), forKey: "date")
-        storage.set(makeAudioStationInfo(version: 555), forKey: "info")
+        storage.setString("value", forKey: "string")
+        storage.setInteger(4, forKey: "int")
+        storage.setBool(true, forKey: "bool")
+        storage.setDate(Date(timeIntervalSince1970: 20), forKey: "date")
+        storage.setCodable(makeAudioStationInfo(version: 555), forKey: "info")
 
         XCTAssertEqual(storage.string(forKey: "string"), "value")
         XCTAssertEqual(storage.integer(forKey: "int"), 4)
         XCTAssertEqual(storage.bool(forKey: "bool"), true)
-        XCTAssertNotNil(storage.object(forKey: "date") as? Date)
+        XCTAssertNotNil(storage.date(forKey: "date"))
         let info: AudioStationInfo? = storage.codable(forKey: "info")
         XCTAssertEqual(info?.version, 555)
 

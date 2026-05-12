@@ -126,7 +126,7 @@ public struct SongTag: Decodable, Encodable, Sendable {
     }
 }
 
-public struct SongListResult: Decodable, Sendable {
+struct SongListResult: Decodable, Sendable {
     public let offset: Int
     public let total: Int
     public let songs: [Song]
@@ -172,7 +172,33 @@ public enum SongStreamQuality: String, Sendable {
     }
 }
 
-public struct SongInfo: Decodable, Sendable {
+public struct SongPlaybackSource: Sendable {
+    public let id: String
+    public let path: String
+    public let bitrate: Int
+    public let frequency: Int
+    public let fileExtension: String
+
+    public init(id: String, path: String, bitrate: Int, frequency: Int, fileExtension: String = ".mp3") {
+        self.id = id
+        self.path = path
+        self.bitrate = bitrate
+        self.frequency = frequency
+        self.fileExtension = fileExtension
+    }
+}
+
+public struct SongRatingUpdate: Sendable {
+    public let songID: String
+    public let rating: Int
+
+    public init(songID: String, rating: Int) {
+        self.songID = songID
+        self.rating = rating
+    }
+}
+
+struct SongInfo: Decodable, Sendable {
     /**
      songs
      */

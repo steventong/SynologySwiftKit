@@ -7,21 +7,31 @@
 
 import Foundation
 
-public final class SearchApi {
-    private let apiClient: ApiClientProviding
+// MARK: - SearchApi
 
-    public init(apiClient: ApiClientProviding) {
+/// 搜索 API 客户端
+/// Search API client
+///
+/// 封装 `SYNO.AudioStation.Search` 接口，支持关键词搜索歌曲/专辑/艺术家。
+/// Wraps `SYNO.AudioStation.Search`; supports keyword search for songs, albums, and artists.
+public final class SearchApi {
+    private let apiClient: ApiRequestSending
+
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
-    /**
-     Search List
-     */
+    /// 搜索歌曲、专辑、艺术家
+    /// Search for songs, albums, and artists
+    /// - Parameters:
+    ///   - keyword: 搜索关键词 / Search keyword
+    ///   - limit: 每页数量 / Page size
+    ///   - offset: 起始偏移量 / Start offset
     public func list(
         keyword: String, limit: Int = 1000, offset: Int = 0,
-        additional: String? = nil,
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> SearchResult {
+        includeFields: String? = nil,
+        sort: SynologySortDescriptor? = nil
+    ) async throws -> AudioStationSearchResults {
         let result: SearchResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.SEARCH, method: "list", version: 1, httpMethod: .post
@@ -29,13 +39,17 @@ public final class SearchApi {
                 ("keyword", keyword)
                 ("limit", limit)
                 ("offset", offset)
-                ("additional", additional)
+                ("additional", includeFields)
                 if let sort {
-                    ("sort_by", sort.sort_by)
-                    ("sort_direction", sort.sort_direction)
+                    ("sort_by", sort.field)
+                    ("sort_direction", sort.direction.rawValue)
                 }
             }
         )
-        return result
+        return AudioStationSearchResults(
+            albums: SynologyPage(total: result.albumTotal, items: result.albums),
+            artists: SynologyPage(total: result.artistTotal, items: result.artists),
+            songs: SynologyPage(total: result.songTotal, items: result.songs)
+        )
     }
 }

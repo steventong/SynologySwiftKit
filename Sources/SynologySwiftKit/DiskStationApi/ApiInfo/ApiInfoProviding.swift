@@ -14,12 +14,16 @@ import Foundation
 ///
 /// 定义 API 信息查询和缓存的接口，支持依赖注入模式。
 /// Defines interfaces for API information query and caching, supporting dependency injection pattern.
-public protocol ApiInfoProviding {
+protocol ApiInfoProviding {
     /// 根据 API 名称获取 API 信息
     /// Get API information by API name
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode
 
-    /// 检查并更新 Synology API 信息
-    /// Check and update Synology API information
-    func checkSynologyApiInfo(cacheEnabled: Bool?, updateCache: Bool?) async throws -> Bool
+    /// 从 DSM 刷新 API 信息并更新缓存
+    /// Refresh API info from DSM and update the cache
+    func refresh() async throws
+
+    /// 优先从缓存加载 API 信息，缓存不可用时回源刷新
+    /// Load from cache first; refresh from remote if cache is unavailable or expired
+    func loadFromCacheOrRefresh() async throws
 }

@@ -7,38 +7,41 @@
 
 import Foundation
 
-public final class GenreApi {
-    private let apiClient: ApiClientProviding
+// MARK: - GenreApi
 
-    public init(apiClient: ApiClientProviding) {
+/// 流派查询 API 客户端
+/// Genre query API client
+public final class GenreApi {
+    private let apiClient: ApiRequestSending
+
+    init(apiClient: ApiRequestSending) {
         self.apiClient = apiClient
     }
 
-    /**
-     genre list
-     */
+    /// 查询流派列表
+    /// Query genre list
     public func list(
         limit: Int = 1000, offset: Int = 0,
-        library: String = "shared", additional: String? = nil,
+        libraryScope: SynologyLibraryScope = .shared, includeFields: String? = nil,
         filter: String? = nil, keyword: String? = nil,
-        sort: (sort_by: String, sort_direction: String)? = nil
-    ) async throws -> (total: Int, data: [Genre]) {
+        sort: SynologySortDescriptor? = nil
+    ) async throws -> SynologyPage<Genre> {
         let result: GenreListResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.GENRE, method: "list", version: 3, httpMethod: .post
             ) {
-                ("library", library)
+                ("library", libraryScope.rawValue)
                 ("limit", limit)
                 ("offset", offset)
-                ("additional", additional)
+                ("additional", includeFields)
                 ("filter", filter)
                 ("keyword", keyword)
                 if let sort {
-                    ("sort_by", sort.sort_by)
-                    ("sort_direction", sort.sort_direction)
+                    ("sort_by", sort.field)
+                    ("sort_direction", sort.direction.rawValue)
                 }
             }
         )
-        return (result.total, result.genres)
+        return SynologyPage(total: result.total, items: result.genres)
     }
 }

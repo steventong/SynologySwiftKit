@@ -23,15 +23,15 @@ final class UserDefaultsStorageTests: XCTestCase {
     func testRoundTripsCodableValues() {
         let value = DemoSettings(name: "demo", retryCount: 3)
 
-        storage.set(value, forKey: "settings")
+        storage.setCodable(value, forKey: "settings")
         let decoded: DemoSettings? = storage.codable(forKey: "settings")
 
         XCTAssertEqual(decoded, value)
     }
 
     func testRemovingCodableValueClearsStoredData() {
-        storage.set(DemoSettings(name: "demo", retryCount: 3), forKey: "settings")
-        storage.set(Optional<DemoSettings>.none, forKey: "settings")
+        storage.setCodable(DemoSettings(name: "demo", retryCount: 3), forKey: "settings")
+        storage.setCodable(Optional<DemoSettings>.none, forKey: "settings")
 
         let decoded: DemoSettings? = storage.codable(forKey: "settings")
         XCTAssertNil(decoded)

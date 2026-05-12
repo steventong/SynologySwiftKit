@@ -18,9 +18,9 @@ public enum CheckDeviceConnectionProgress: Sendable {
 
     /// 连接成功
     /// Connection successful
-    /// cached 表示不需要再次登录用户。
-    /// cached = false 表示地址切换了，需要重新登录的。
-    case success(type: ConnectionType, url: String, cached: Bool)
+    /// usedCachedConnection 表示不需要再次登录用户。
+    /// usedCachedConnection = false 表示地址切换了，需要重新登录。
+    case success(connection: SynologyConnection, usedCachedConnection: Bool)
 
     /// Connection failed
     case failed(message: String)

@@ -1,18 +1,80 @@
 import Foundation
+import SwiftHttpClient
 import XCTest
 @testable import SynologySwiftKit
 
-final class MockHTTPTransport: HTTPTransporting {
-    var handler: ((URLRequest, TimeInterval, String?) throws -> (Data, URLResponse))?
-    private(set) var requests: [URLRequest] = []
-
-    func send(_ request: URLRequest, timeout: TimeInterval, trustedSSLDomain: String?) async throws -> (Data, URLResponse) {
-        requests.append(request)
-        guard let handler else {
-            throw SynologyError.network(message: "No HTTP transport handler configured")
-        }
-        return try handler(request, timeout, trustedSSLDomain)
+final class HTTPClientFactorySpy: @unchecked Sendable {
+    struct Configuration: Equatable {
+        let timeout: TimeInterval
+        let trustedSSLDomain: String?
     }
+
+    var handler: ((URLRequest, Configuration) throws -> (Data, URLResponse))?
+    private let lock = NSLock()
+    private(set) var requests: [URLRequest] = []
+    private(set) var configurations: [Configuration] = []
+
+    func makeFactory() -> SynologyHTTPClientFactory {
+        { [self] timeout, trustedSSLDomain in
+            let configuration = Configuration(timeout: timeout, trustedSSLDomain: trustedSSLDomain)
+            recordConfiguration(configuration)
+
+            StubURLProtocol.handler = { [self] request in
+                recordRequest(request)
+                guard let handler else {
+                    throw SynologyError.network(message: "No HTTP transport handler configured")
+                }
+                return try handler(request, configuration)
+            }
+
+            let sessionConfiguration = URLSessionConfiguration.ephemeral
+            sessionConfiguration.protocolClasses = [StubURLProtocol.self]
+            let session = URLSession(configuration: sessionConfiguration)
+            return HTTPClient(session: session)
+        }
+    }
+
+    private func recordConfiguration(_ configuration: Configuration) {
+        lock.lock()
+        configurations.append(configuration)
+        lock.unlock()
+    }
+
+    private func recordRequest(_ request: URLRequest) {
+        lock.lock()
+        requests.append(request)
+        lock.unlock()
+    }
+}
+
+private final class StubURLProtocol: URLProtocol {
+    static var handler: ((URLRequest) throws -> (Data, URLResponse))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: SynologyError.network(message: "No HTTP transport handler configured"))
+            return
+        }
+
+        do {
+            let (data, response) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }
 
 func makeHTTPURLResponse(url: URL, statusCode: Int = 200) -> HTTPURLResponse {
@@ -21,6 +83,37 @@ func makeHTTPURLResponse(url: URL, statusCode: Int = 200) -> HTTPURLResponse {
 
 func makeSynologyEnvelope<T: Encodable>(_ data: T) throws -> Data {
     try JSONEncoder().encode(TestSynologyEnvelope(success: true, data: data))
+}
+
+func requestBodyData(_ request: URLRequest) -> Data? {
+    if let data = request.httpBody {
+        return data
+    }
+
+    guard let stream = request.httpBodyStream else {
+        return nil
+    }
+
+    stream.open()
+    defer { stream.close() }
+
+    let bufferSize = 1024
+    var data = Data()
+    let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+    defer { buffer.deallocate() }
+
+    while stream.hasBytesAvailable {
+        let read = stream.read(buffer, maxLength: bufferSize)
+        if read < 0 {
+            return nil
+        }
+        if read == 0 {
+            break
+        }
+        data.append(buffer, count: read)
+    }
+
+    return data
 }
 
 func makeJSONData(_ object: Any) throws -> Data {
@@ -122,7 +215,7 @@ func XCTAssertURL(_ url: URL, contains queryItems: [String: String], file: Stati
 
 struct TestApiInfoProvider: ApiInfoProviding {
     var nodes: [String: ApiInfoNode] = [:]
-    var checkResult = true
+    var onRefresh: (@Sendable () throws -> Void)?
 
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
         if let node = nodes[apiName] {
@@ -131,14 +224,25 @@ struct TestApiInfoProvider: ApiInfoProviding {
         return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
     }
 
-    func checkSynologyApiInfo(cacheEnabled: Bool?, updateCache: Bool?) async throws -> Bool {
-        checkResult
+    func refresh() async throws {
+        try onRefresh?()
+    }
+
+    func loadFromCacheOrRefresh() async throws {}
+}
+
+struct TestAuthProvider: AuthenticationProviding {
+    var result: Result<AuthResult, Error>
+
+    func login(username: String, password: String, otpCode: String?) async throws -> AuthResult {
+        _ = (username, password, otpCode)
+        return try result.get()
     }
 }
 
 struct TestPingPong: PingPongProviding {
     var results: [ConnectionType: String] = [:]
-    var firstResult: (type: ConnectionType, url: String)?
+    var firstResult: SynologyConnection?
     var singleURLReachable = false
 
     func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
@@ -146,7 +250,8 @@ struct TestPingPong: PingPongProviding {
     }
 
     func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
-        firstResult
+        guard let firstResult else { return nil }
+        return (firstResult.type, firstResult.url)
     }
 
     func pingpong(url: String) async -> Bool {

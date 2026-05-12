@@ -1,0 +1,98 @@
+import XCTest
+@testable import SynologySwiftKit
+
+final class StorageServiceTests: XCTestCase {
+    private var suiteName: String!
+    private var userDefaults: UserDefaults!
+    private var keychain: KeyChainStorage!
+    private var storage: StorageService!
+
+    override func setUp() {
+        super.setUp()
+        suiteName = "StorageServiceTests.\(UUID().uuidString)"
+        userDefaults = UserDefaults(suiteName: suiteName)!
+        userDefaults.removePersistentDomain(forName: suiteName)
+        keychain = KeyChainStorage(service: suiteName)
+        storage = StorageService(
+            keyValueStorage: UserDefaultsStorage(userDefaults: userDefaults),
+            keyChainStorage: keychain
+        )
+    }
+
+    override func tearDown() {
+        userDefaults.removePersistentDomain(forName: suiteName)
+        storage.removeCredentials()
+        storage.removeSessionInfo()
+        storage.removeConnectionInfo()
+        userDefaults = nil
+        keychain = nil
+        storage = nil
+        suiteName = nil
+        super.tearDown()
+    }
+
+    func testStoresRegularCodableValuesInUserDefaultsByDefault() {
+        let settings = DemoSettings(name: "demo", retryCount: 3)
+
+        storage.setValue(settings, forKey: "settings")
+
+        let decoded: DemoSettings? = storage.value(forKey: "settings")
+        XCTAssertEqual(decoded, settings)
+        XCTAssertNotNil(userDefaults.data(forKey: "settings"))
+        let keychainValue: DemoSettings? = keychain.codable(forKey: "settings")
+        XCTAssertNil(keychainValue)
+    }
+
+    func testStoresSensitiveValuesInKeychainByDefault() {
+        let token = DemoSecretToken(value: "secret-token")
+
+        storage.setValue(token, forKey: "token")
+
+        let decoded: DemoSecretToken? = storage.value(forKey: "token")
+        XCTAssertEqual(decoded, token)
+        XCTAssertNil(userDefaults.data(forKey: "token"))
+        let keychainValue: DemoSecretToken? = keychain.codable(forKey: "token")
+        XCTAssertEqual(keychainValue, token)
+    }
+
+    func testSupportsPrimitiveAndCollectionTypesThroughUnifiedApi() {
+        storage.setValue("hello", forKey: "string")
+        storage.setValue(42, forKey: "integer")
+        storage.setValue(true, forKey: "bool")
+        storage.setValue(["a", "b", "c"], forKey: "array")
+
+        let stringValue: String? = storage.value(forKey: "string")
+        let integerValue: Int? = storage.value(forKey: "integer")
+        let boolValue: Bool? = storage.value(forKey: "bool")
+        let arrayValue: [String]? = storage.value(forKey: "array")
+
+        XCTAssertEqual(stringValue, "hello")
+        XCTAssertEqual(integerValue, 42)
+        XCTAssertEqual(boolValue, true)
+        XCTAssertEqual(arrayValue, ["a", "b", "c"])
+    }
+
+    func testSensitiveStorageApiUsesUnifiedService() {
+        storage.saveCredentials(server: "demo.local", username: "user", password: "pwd", usesHTTPS: true)
+        storage.saveSessionInfo(sid: "sid-123", did: "did-456")
+        storage.saveConnectionInfo(url: "https://demo.local:5001", typeString: "lan")
+        storage.saveDeviceInfo("did-456", "phone")
+
+        XCTAssertEqual(storage.getCredentials(), SynologyCredentials(server: "demo.local", username: "user", password: "pwd", usesHTTPS: true))
+        XCTAssertEqual(storage.getSessionInfo()?.sid, "sid-123")
+        XCTAssertEqual(storage.getSessionInfo()?.did, "did-456")
+        XCTAssertEqual(storage.getConnectionInfo()?.url, "https://demo.local:5001")
+        XCTAssertEqual(storage.getConnectionInfo()?.typeString, "lan")
+        XCTAssertEqual(storage.getDeviceInfo()?.0, "did-456")
+        XCTAssertEqual(storage.getDeviceInfo()?.1, "phone")
+    }
+}
+
+private struct DemoSettings: Codable, Equatable, Sendable {
+    let name: String
+    let retryCount: Int
+}
+
+private struct DemoSecretToken: Codable, Equatable, Sendable, SensitiveStorageValue {
+    let value: String
+}
