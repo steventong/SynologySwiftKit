@@ -95,4 +95,26 @@ final class ApiClientBranchTests: XCTestCase {
             XCTFail("Unexpected error \(error)")
         }
     }
+
+    func testRequestAllowsSuccessEnvelopeWithoutDataForEmptyResponses() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory())
+        client.apiInfoProvider = TestApiInfoProvider(
+            nodes: [SynologyApi.AudioStation.SONG.name: ApiInfoNode(path: "AudioStation/song.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
+        )
+        client.updateConnection(type: .custom_domain, url: "https://nas.local")
+        client.updateSession(sid: "sid-123", did: nil)
+        transport.handler = { request, _ in
+            (
+                try makeJSONData(["success": true]),
+                makeHTTPURLResponse(url: try XCTUnwrap(request.url))
+            )
+        }
+
+        let result: EmptyData = try await client.request(
+            ApiEndpoint(api: SynologyApi.AudioStation.SONG, method: "setrating", version: 2, httpMethod: .post)
+        )
+
+        XCTAssertNotNil(result)
+    }
 }

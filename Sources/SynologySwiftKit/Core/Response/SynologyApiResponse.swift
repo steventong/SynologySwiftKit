@@ -26,8 +26,14 @@ struct SynologyResponse<T: Decodable & Sendable>: Decodable, Sendable {
     /// 获取 data，失败时抛出错误
     /// Get data or throw error if failed
     func unwrap() throws -> T {
-        if success, let data = data {
-            return data
+        if success {
+            if let data = data {
+                return data
+            }
+
+            if T.self == EmptyData.self, let empty = EmptyData() as? T {
+                return empty
+            }
         }
 
         if let error = error {
