@@ -11,7 +11,7 @@ import Foundation
 ///
 /// 职责：
 /// 1. 为运行时请求注入当前会话的 SID/DID (Query 或 Cookie)
-/// 2. 处理 105/106 等会话过期错误
+/// 2. 处理 106/107/119 等会话过期错误
 ///
 /// 说明：
 /// - 常规 API 请求的鉴权统一由该拦截器负责。
@@ -74,7 +74,7 @@ struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
         guard case let .sessionExpired(code, _) = synologyError else {
             return false
         }
-        return code == 0 || [105, 106, 107, 119].contains(code)
+        return code == 0 || [106, 107, 119].contains(code)
     }
 }
 

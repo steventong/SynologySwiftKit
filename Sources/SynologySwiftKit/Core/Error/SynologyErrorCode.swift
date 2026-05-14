@@ -30,7 +30,7 @@ public struct SynologyErrorCode: RawRepresentable, Equatable, Hashable, Sendable
     public static let methodDoesNotExist = SynologyErrorCode(rawValue: 103)
     /// 请求的版本不支持该功能 / The requested version does not support the functionality.
     public static let versionDoesNotSupport = SynologyErrorCode(rawValue: 104)
-    /// 登录会话没有权限 / The logged in session does not have permission.
+    /// 登录会话没有权限（不归类为 sessionExpired）/ The logged in session does not have permission (not classified as sessionExpired).
     public static let sessionPermissionDenied = SynologyErrorCode(rawValue: 105)
     /// 会话超时 / Session timeout.
     public static let sessionTimeout = SynologyErrorCode(rawValue: 106)
@@ -119,7 +119,7 @@ public struct SynologyErrorCode: RawRepresentable, Equatable, Hashable, Sendable
     /// Convert error code to SDK's core error type
     public func toSynologyError() -> SynologyError {
         switch self {
-        case .sessionPermissionDenied, .sessionTimeout, .sessionInterrupted, .invalidSession:
+        case .sessionTimeout, .sessionInterrupted, .invalidSession:
             return .sessionExpired(code: rawValue, message: description)
         case _ where (400...410).contains(rawValue):
             return .auth(code: rawValue, message: description)
