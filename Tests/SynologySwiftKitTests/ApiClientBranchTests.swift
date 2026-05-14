@@ -59,8 +59,8 @@ final class ApiClientBranchTests: XCTestCase {
         let endpoint = ApiEndpoint(api: SynologyApi.AudioStation.INFO, method: "getinfo", version: 6, httpMethod: .post)
         do {
             let _: AudioStationInfo = try await client.request(endpoint)
-            XCTFail("Expected session error")
-        } catch let SynologyError.sessionExpired(code, _) {
+            XCTFail("Expected API permission error")
+        } catch let SynologyError.api(code, _) {
             XCTAssertEqual(code, 105)
         } catch {
             XCTFail("Unexpected error \(error)")

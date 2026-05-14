@@ -119,7 +119,7 @@ public struct SynologyErrorCode: RawRepresentable, Equatable, Hashable, Sendable
     /// Convert error code to SDK's core error type
     public func toSynologyError() -> SynologyError {
         switch self {
-        case .sessionPermissionDenied, .sessionTimeout, .sessionInterrupted, .invalidSession:
+        case .sessionTimeout, .sessionInterrupted, .invalidSession:
             return .sessionExpired(code: rawValue, message: description)
         case _ where (400...410).contains(rawValue):
             return .auth(code: rawValue, message: description)
