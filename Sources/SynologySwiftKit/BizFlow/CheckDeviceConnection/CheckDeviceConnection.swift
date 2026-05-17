@@ -105,11 +105,7 @@ private extension CheckDeviceConnection {
             }
             try Task.checkCancellation()
 
-            // 更新 ApiClient 连接状态 (Update ApiClient connection status)
-            // 保存可用地址 (Save available address to Keychain)
-            saveConnection(url: newConn.url, type: newConn.type)
-
-            Logger.info("CheckDeviceConnection#checkConnectionStatus, connection refreshed: \(newConn.url)")
+            Logger.info("CheckDeviceConnection#checkConnectionStatus, resolved reachable connection candidate: \(newConn.url)")
             continuation.yield(.success(connection: newConn, usedCachedConnection: false))
             continuation.finish()
             return
@@ -144,14 +140,5 @@ private extension CheckDeviceConnection {
             Logger.error("CheckDeviceConnection#resolveAvailableConnection, QuickConnect failed: \(error)")
             throw error
         }
-    }
-}
-
-private extension CheckDeviceConnection {
-    private func saveConnection(url: String, type: ConnectionType) {
-        // 更新 ApiClient 连接状态 (Update ApiClient connection status)
-        apiClient.updateConnection(type: type, url: url)
-        // 保存可用地址 (Save available address to Keychain)
-        keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
     }
 }

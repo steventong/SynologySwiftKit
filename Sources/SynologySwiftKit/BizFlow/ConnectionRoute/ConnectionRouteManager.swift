@@ -75,7 +75,7 @@ final class ConnectionRouteManager: ConnectionRouteManaging {
         let previousConnection = restoreCurrentConnectionFromPersistence()
         let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
 
-        saveConnection(url: connection.url, type: connection.type)
+        apiClient.updateConnection(type: connection.type, url: connection.url)
 
         do {
             try await apiInfoApi.refresh()
@@ -92,6 +92,7 @@ final class ConnectionRouteManager: ConnectionRouteManaging {
 
             apiClient.updateSession(sid: authResult.sid, did: authResult.did)
             keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+            saveConnection(url: connection.url, type: connection.type)
             return connection
         } catch {
             rollbackConnection(to: previousConnection)

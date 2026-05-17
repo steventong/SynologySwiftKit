@@ -18,7 +18,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
     private let audioStationApi: AudioStationClient
-    private let apiClient: ConnectionStateUpdating & SessionStateUpdating
+    private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
     private let connectionChecker: CheckDeviceConnectionProviding
     private let keyChainStorage: any SensitiveStorage
 
@@ -31,7 +31,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     ///   - apiInfoApi: API 信息提供者 / API info provider
     ///   - apiClient: API 客户端 / API client
     init(apiInfoApi: ApiInfoProviding,
-         apiClient: ConnectionStateUpdating & SessionStateUpdating,
+         apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
          authApi: AuthClient,
          audioStationApi: AudioStationClient,
          connectionChecker: CheckDeviceConnectionProviding,
@@ -160,10 +160,9 @@ private extension SynologyUserLogin {
             return
         }
 
-        // 更新 ApiClient 连接状态 (Update ApiClient connection status)
+        let previousConnection = currentConnection()
+        let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
         apiClient.updateConnection(type: connection.type, url: connection.url)
-        // 保存可用地址 (Save available address to Keychain)
-        keyChainStorage.saveConnectionInfo(url: connection.url, typeString: connection.type.rawValue)
 
         // 更新 API 信息 + 认证
         // Update API info + authenticate
@@ -176,9 +175,11 @@ private extension SynologyUserLogin {
             }
             try Task.checkCancellation()
         } catch is CancellationError {
+            rollbackConnection(to: previousConnection)
             continuation.finish()
             return
         } catch {
+            rollbackConnection(to: previousConnection)
             Logger.error("SynologyUserLogin#performPasswordLogin, API info fetch failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
@@ -200,6 +201,7 @@ private extension SynologyUserLogin {
                     connection: connection,
                     serverType: serverType
                 )
+                saveConnection(url: connection.url, type: connection.type)
                 continuation.yield(.completed(result: loginResult))
                 continuation.finish()
                 return
@@ -212,6 +214,7 @@ private extension SynologyUserLogin {
             // Login succeeded, save session
             apiClient.updateSession(sid: authResult.sid, did: authResult.did)
             keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+            saveConnection(url: connection.url, type: connection.type)
 
             Logger.info("SynologyUserLogin#performPasswordLogin, result: \(authResult)")
             let loginResult = SynologyUserLoginResult(
@@ -223,21 +226,65 @@ private extension SynologyUserLogin {
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
         } catch let SynologyError.auth(code, msg) where code == 403 {
+            rollbackConnection(to: previousConnection)
+            rollbackSession(to: previousSession)
             // 需要 OTP 验证码（不算失败，需要用户输入）
             // OTP required (not a failure, user input needed)
             Logger.info("SynologyUserLogin#performPasswordLogin, OTP required, message: \(msg)")
             continuation.yield(.otpRequired)
             continuation.finish()
         } catch let SynologyError.sessionExpired(code, msg) {
+            rollbackConnection(to: previousConnection)
+            rollbackSession(to: previousSession)
             Logger.info("SynologyUserLogin#performPasswordLogin, invalidSession: \(code), \(msg)")
             continuation.yield(.invalidSession(message: "session expired"))
             continuation.finish()
         } catch is CancellationError {
+            rollbackConnection(to: previousConnection)
+            rollbackSession(to: previousSession)
             continuation.finish()
         } catch {
+            rollbackConnection(to: previousConnection)
+            rollbackSession(to: previousSession)
             Logger.error("SynologyUserLogin#performPasswordLogin, auth failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
         }
+    }
+
+    func currentConnection() -> SynologyConnection? {
+        if let connection = apiClient.connection {
+            return SynologyConnection(type: connection.type, url: connection.url)
+        }
+
+        guard let persisted = keyChainStorage.getConnectionInfo(),
+              let type = ConnectionType(rawValue: persisted.typeString)
+        else {
+            return nil
+        }
+
+        return SynologyConnection(type: type, url: persisted.url)
+    }
+
+    func saveConnection(url: String, type: ConnectionType) {
+        apiClient.updateConnection(type: type, url: url)
+        keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
+    }
+
+    func rollbackConnection(to connection: SynologyConnection?) {
+        guard let connection else {
+            return
+        }
+
+        apiClient.updateConnection(type: connection.type, url: connection.url)
+    }
+
+    func rollbackSession(to session: (sid: String, did: String?)?) {
+        guard let session else {
+            apiClient.clearSession()
+            return
+        }
+
+        apiClient.updateSession(sid: session.sid, did: session.did)
     }
 }
