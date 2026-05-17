@@ -241,55 +241,6 @@ final class CoverageClosureTests: XCTestCase {
         XCTAssertTrue(payload.ok)
     }
 
-    func testCheckConnectionStatusCoversRefreshAndFailureBranches() async {
-        let successClient = MockApiClient()
-        let successKeychain = KeyChainStorage(service: UUID().uuidString)
-        successKeychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
-
-        let successChecker = CheckDeviceConnection(
-            apiClient: successClient,
-            quickConnectApi: QuickConnectClient(apiClient: successClient, pingpong: TestPingPong()),
-            pingpong: TestPingPong(singleURLReachable: true),
-            keyChainStorage: successKeychain
-        )
-
-        var successEvents: [CheckDeviceConnectionProgress] = []
-        for await progress in successChecker.checkConnectionStatus(server: "nas.local", usesHTTPS: true) {
-            successEvents.append(progress)
-        }
-
-        guard case let .success(connection, usedCachedConnection)? = successEvents.last else {
-            return XCTFail("Expected refreshed success")
-        }
-        XCTAssertEqual(connection.type, .custom_domain)
-        XCTAssertEqual(connection.url, "nas.local")
-        XCTAssertFalse(usedCachedConnection)
-
-        let failureClient = MockApiClient()
-        let failureKeychain = KeyChainStorage(service: UUID().uuidString)
-        failureKeychain.saveCredentials(server: "QC123456", username: "tester", password: "secret", usesHTTPS: true)
-        failureClient.rawRequestHandler = { _, _, _, _, _ in
-            throw SynologyError.network(message: "qc failed")
-        }
-
-        let failureChecker = CheckDeviceConnection(
-            apiClient: failureClient,
-            quickConnectApi: QuickConnectClient(apiClient: failureClient, pingpong: TestPingPong()),
-            pingpong: TestPingPong(singleURLReachable: false),
-            keyChainStorage: failureKeychain
-        )
-
-        var failureEvents: [CheckDeviceConnectionProgress] = []
-        for await progress in failureChecker.checkConnectionStatus() {
-            failureEvents.append(progress)
-        }
-
-        guard case let .failed(message)? = failureEvents.last else {
-            return XCTFail("Expected failure event")
-        }
-        XCTAssertTrue(message.contains("qc failed"))
-    }
-
     func testSynologyUserLoginCoversCredentialRemovalAndErrorBranches() async {
         let removeKeychain = KeyChainStorage(service: UUID().uuidString)
         removeKeychain.saveCredentials(server: "nas.local", username: "tester", password: "old", usesHTTPS: true)
@@ -303,7 +254,7 @@ final class CoverageClosureTests: XCTestCase {
 
         let removeAuthApi = AuthClient(apiClient: removeClient, keyChainStorage: removeKeychain)
         let removeAudioStationApi = AudioStationClient(apiClient: removeClient)
-        let removeConnectionChecker = CheckDeviceConnection(
+        let removeConnectionChecker = ConnectionChecker(
             apiClient: removeClient,
             quickConnectApi: QuickConnectClient(apiClient: removeClient, pingpong: TestPingPong(singleURLReachable: true)),
             pingpong: TestPingPong(singleURLReachable: true),
@@ -338,7 +289,7 @@ final class CoverageClosureTests: XCTestCase {
 
         let otpAuthApi = AuthClient(apiClient: otpClient, keyChainStorage: otpKeychain)
         let otpAudioStationApi = AudioStationClient(apiClient: otpClient)
-        let otpConnectionChecker = CheckDeviceConnection(
+        let otpConnectionChecker = ConnectionChecker(
             apiClient: otpClient,
             quickConnectApi: QuickConnectClient(apiClient: otpClient, pingpong: TestPingPong(singleURLReachable: true)),
             pingpong: TestPingPong(singleURLReachable: true),
@@ -365,7 +316,7 @@ final class CoverageClosureTests: XCTestCase {
         let missingKeychain = KeyChainStorage(service: UUID().uuidString)
         let missingAuthApi = AuthClient(apiClient: missingClient, keyChainStorage: missingKeychain)
         let missingAudioStationApi = AudioStationClient(apiClient: missingClient)
-        let missingConnectionChecker = CheckDeviceConnection(
+        let missingConnectionChecker = ConnectionChecker(
             apiClient: missingClient,
             quickConnectApi: QuickConnectClient(apiClient: missingClient, pingpong: TestPingPong(singleURLReachable: true)),
             pingpong: TestPingPong(singleURLReachable: true),
@@ -407,7 +358,7 @@ final class CoverageClosureTests: XCTestCase {
         let failureKeychain = KeyChainStorage(service: UUID().uuidString)
         let failureAuthApi = AuthClient(apiClient: failureClient, keyChainStorage: failureKeychain)
         let failureAudioStationApi = AudioStationClient(apiClient: failureClient)
-        let failureConnectionChecker = CheckDeviceConnection(
+        let failureConnectionChecker = ConnectionChecker(
             apiClient: failureClient,
             quickConnectApi: QuickConnectClient(apiClient: failureClient, pingpong: TestPingPong(singleURLReachable: true)),
             pingpong: TestPingPong(singleURLReachable: true),

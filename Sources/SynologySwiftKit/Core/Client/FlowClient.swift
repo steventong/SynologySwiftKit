@@ -36,25 +36,25 @@ public final class UserLoginFlowClient {
     }
 }
 
-// MARK: - CheckDeviceConnectionFlowClient
+// MARK: - ConnectionCheckFlowClient
 
-/// 设备连接检查流程客户端（公开入口）
-/// Public entry point for the device connection check flow
+/// 连接检查流程客户端（公开入口）
+/// Public entry point for the connection check flow
 ///
-/// 对外暴露 `CheckDeviceConnectionProviding` 的功能，屏蔽内部实现细节。
-/// Exposes `CheckDeviceConnectionProviding` functionality while hiding implementation details.
-public final class CheckDeviceConnectionFlowClient {
-    private let connectionFlow: any CheckDeviceConnectionProviding
+/// 对外暴露 `ConnectionChecking` 的功能，屏蔽内部实现细节。
+/// Exposes `ConnectionChecking` functionality while hiding implementation details.
+public final class ConnectionCheckFlowClient {
+    private let connectionCheck: any ConnectionChecking
 
-    init(connectionFlow: any CheckDeviceConnectionProviding) {
-        self.connectionFlow = connectionFlow
+    init(connectionCheck: any ConnectionChecking) {
+        self.connectionCheck = connectionCheck
     }
 
     /// 使用 Keychain 中保存的服务器信息检查当前连接状态
     /// Check current connection status using server info saved in Keychain
     /// - Returns: AsyncStream 依次推送连接检查进度 / AsyncStream yielding connection check progress
-    public func check() -> AsyncStream<CheckDeviceConnectionProgress> {
-        connectionFlow.checkConnectionStatus()
+    public func check() -> AsyncStream<ConnectionCheckProgress> {
+        connectionCheck.check()
     }
 
     /// 使用指定服务器检查连接状态
@@ -63,40 +63,34 @@ public final class CheckDeviceConnectionFlowClient {
     ///   - server: QuickConnect ID 或自定义域名 / QuickConnect ID or custom domain
     ///   - usesHTTPS: 是否启用 HTTPS / Whether to use HTTPS
     /// - Returns: AsyncStream 依次推送连接检查进度 / AsyncStream yielding connection check progress
-    public func check(server: String, usesHTTPS: Bool) -> AsyncStream<CheckDeviceConnectionProgress> {
-        connectionFlow.checkConnectionStatus(server: server, usesHTTPS: usesHTTPS)
+    public func check(server: String, usesHTTPS: Bool) -> AsyncStream<ConnectionCheckProgress> {
+        connectionCheck.check(server: server, usesHTTPS: usesHTTPS)
     }
 }
 
-// MARK: - ConnectionRecoveryFlowClient
+// MARK: - ConnectionManagerFlowClient
 
-public final class ConnectionRecoveryFlowClient {
-    private let recoveryFlow: any ConnectionRecoveryProviding
+public final class ConnectionManagerFlowClient {
+    private let connectionManager: any ConnectionManaging
 
-    init(recoveryFlow: any ConnectionRecoveryProviding) {
-        self.recoveryFlow = recoveryFlow
+    init(connectionManager: any ConnectionManaging) {
+        self.connectionManager = connectionManager
     }
 
     public func recover() async -> ConnectionRecoveryDecision {
-        await recoveryFlow.recoverConnection()
-    }
-}
-
-// MARK: - ConnectionRouteFlowClient
-
-public final class ConnectionRouteFlowClient {
-    private let routeFlow: any ConnectionRouteManaging
-
-    init(routeFlow: any ConnectionRouteManaging) {
-        self.routeFlow = routeFlow
+        await connectionManager.recoverConnection()
     }
 
-    public func listCandidates() async throws -> [SynologyConnectionCandidate] {
-        try await routeFlow.listCandidates()
+    public func availableConnections() async throws -> [SynologyConnectionCandidate] {
+        try await connectionManager.listCandidates()
     }
 
-    public func switchConnection(to connection: SynologyConnection) async throws -> SynologyConnection {
-        try await routeFlow.switchConnection(to: connection)
+    public func switchToConnection(_ connection: SynologyConnection) async throws -> SynologyConnection {
+        try await connectionManager.switchConnection(to: connection)
+    }
+
+    public func refreshQuickConnectEndpoint() async -> SynologyConnection? {
+        await connectionManager.refreshQuickConnectEndpoint()
     }
 }
 
@@ -140,40 +134,34 @@ public final class QueryAllSongsFlowClient {
 /// 通过 `SynologyClient.flows` 访问所有业务流程：
 /// Access all business flows through `SynologyClient.flows`:
 /// - `userLogin`: 用户登录流程 / User login flow
-/// - `checkDeviceConnection`: 设备连接检查流程 / Device connection check flow
-/// - `connectionRecovery`: 连接恢复流程 / Connection recovery flow
+/// - `connectionCheck`: 连接检查流程 / Connection check flow
+/// - `connection`: 连接管理流程 / Connection management flow
 /// - `queryAllSongs`: 批量歌曲查询流程 / Batch song query flow
 public final class FlowClient {
     /// 用户登录流程
     /// User login flow
     public let userLogin: UserLoginFlowClient
 
-    /// 设备连接检查流程
-    /// Device connection check flow
-    public let checkDeviceConnection: CheckDeviceConnectionFlowClient
+    /// 连接检查流程
+    /// Connection check flow
+    public let connectionCheck: ConnectionCheckFlowClient
 
-    /// 连接恢复流程
-    /// Connection recovery flow
-    public let connectionRecovery: ConnectionRecoveryFlowClient
-
-    /// 连接地址枚举与切换流程
-    /// Connection route listing and switching flow
-    public let connectionRoute: ConnectionRouteFlowClient
+    /// 连接管理流程（自动恢复、候选地址查询、切换）
+    /// Connection management flow (automatic recovery, candidate listing, switching)
+    public let connection: ConnectionManagerFlowClient
 
     /// 批量歌曲查询流程
     /// Batch song query flow
     public let queryAllSongs: QueryAllSongsFlowClient
 
     init(userLogin: UserLoginFlowClient,
-         checkDeviceConnection: CheckDeviceConnectionFlowClient,
-         connectionRecovery: ConnectionRecoveryFlowClient,
-         connectionRoute: ConnectionRouteFlowClient,
+         connectionCheck: ConnectionCheckFlowClient,
+         connection: ConnectionManagerFlowClient,
          queryAllSongs: QueryAllSongsFlowClient)
     {
         self.userLogin = userLogin
-        self.checkDeviceConnection = checkDeviceConnection
-        self.connectionRecovery = connectionRecovery
-        self.connectionRoute = connectionRoute
+        self.connectionCheck = connectionCheck
+        self.connection = connection
         self.queryAllSongs = queryAllSongs
     }
 }

@@ -1,7 +1,7 @@
 import XCTest
 @testable import SynologySwiftKit
 
-final class ConnectionRecoveryFlowTests: XCTestCase {
+final class ConnectionManagerFlowTests: XCTestCase {
     func testRecoverConnectionRestoresPersistedQuickConnectEndpointAndSchedulesOptimization() async {
         let apiClient = MockApiClient()
         let keychain = KeyChainStorage(service: UUID().uuidString)
@@ -36,7 +36,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
 
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
@@ -47,7 +47,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             keyChainStorage: keychain
         )
 
-        let decision = await recovery.recoverConnection()
+        let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .connected)
         XCTAssertEqual(apiClient.connection?.type, .lan)
@@ -63,7 +63,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
         }
 
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
@@ -74,7 +74,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             keyChainStorage: keychain
         )
 
-        let decision = await recovery.recoverConnection()
+        let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .requiresRelogin)
     }
@@ -85,7 +85,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
         keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://nas.example.com", typeString: ConnectionType.custom_domain.rawValue)
 
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
@@ -96,7 +96,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             keyChainStorage: keychain
         )
 
-        let decision = await recovery.recoverConnection()
+        let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .disconnected)
     }
@@ -105,7 +105,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
         let apiClient = MockApiClient()
         let keychain = KeyChainStorage(service: UUID().uuidString)
 
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
@@ -116,7 +116,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             keyChainStorage: keychain
         )
 
-        let decision = await recovery.recoverConnection()
+        let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .disconnected)
     }
@@ -131,7 +131,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
 
         let refreshed = SynologyConnection(type: .lan, url: "https://192.168.1.20:5001")
         let pingpong = TestPingPong(firstResult: refreshed, singleURLReachable: true)
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
@@ -142,7 +142,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             keyChainStorage: keychain
         )
 
-        let connection = await recovery.optimizeQuickConnectEndpoint()
+        let connection = await manager.refreshQuickConnectEndpoint()
 
         XCTAssertEqual(connection?.type, .lan)
         XCTAssertEqual(connection?.url, "https://192.168.1.20:5001")
@@ -169,7 +169,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
 
         let refreshed = SynologyConnection(type: .lan, url: "https://192.168.1.20:5001")
         let pingpong = RecordingPingPong(firstResult: refreshed, singleURLReachable: true)
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
@@ -209,7 +209,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
 
-        let decision = await recovery.recoverConnection()
+        let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .connected)
         XCTAssertEqual(pingpong.singleURLPings.first, "https://192.168.1.10:5001")
@@ -229,7 +229,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
         apiClient.updateSession(sid: "expired-sid", did: "old-did")
 
         let pingpong = RecordingPingPong(firstResult: nil, singleURLReachable: true)
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
@@ -247,7 +247,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
 
-        let decision = await recovery.recoverConnection()
+        let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .requiresRelogin)
         XCTAssertEqual(pingpong.singleURLPings.first, "https://192.168.1.10:5001")
@@ -268,7 +268,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
 
         let refreshed = SynologyConnection(type: .lan, url: "https://192.168.1.20:5001")
         let pingpong = TestPingPong(firstResult: refreshed, singleURLReachable: true)
-        let recovery = ConnectionRecovery(
+        let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
@@ -279,7 +279,7 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
             keyChainStorage: keychain
         )
 
-        let connection = await recovery.optimizeQuickConnectEndpoint()
+        let connection = await manager.refreshQuickConnectEndpoint()
 
         XCTAssertNil(connection)
         XCTAssertEqual(apiClient.connection?.type, .lan)
@@ -290,6 +290,295 @@ final class ConnectionRecoveryFlowTests: XCTestCase {
         XCTAssertEqual(keychain.getConnectionInfo()?.typeString, ConnectionType.lan.rawValue)
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
         XCTAssertEqual(keychain.getSessionInfo()?.did, "old-did")
+    }
+
+    func testListReturnsCandidatesWithCurrentFlagAndReachability() async throws {
+        let apiClient = MockApiClient()
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+        keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
+        apiClient.rawRequestHandler = { _, _, _, _, _ in
+            try makeQuickConnectServerInfo(ip: "192.168.1.10", port: 5001)
+        }
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: nil, isPortalPort: false, sid: "sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let candidates = try await manager.listCandidates()
+
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidates.first?.url, "https://192.168.1.10:5001")
+        XCTAssertEqual(candidates.first?.type, .lan)
+        XCTAssertEqual(candidates.first?.isCurrent, true)
+        XCTAssertEqual(candidates.first?.isReachable, true)
+    }
+
+    func testListReturnsCurrentConnectionForCustomDomain() async throws {
+        let apiClient = MockApiClient()
+        apiClient.updateConnection(type: .custom_domain, url: "https://nas.example.com")
+
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: nil, isPortalPort: false, sid: "sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let candidates = try await manager.listCandidates()
+
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidates.first?.url, "https://nas.example.com")
+        XCTAssertEqual(candidates.first?.type, .custom_domain)
+        XCTAssertEqual(candidates.first?.isCurrent, true)
+        XCTAssertEqual(candidates.first?.isReachable, true)
+    }
+
+    func testListFallsBackToSavedServerForCustomDomainWithoutCurrentConnection() async throws {
+        let apiClient = MockApiClient()
+
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: nil, isPortalPort: false, sid: "sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let candidates = try await manager.listCandidates()
+
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidates.first?.url, "nas.example.com")
+        XCTAssertEqual(candidates.first?.type, .custom_domain)
+        XCTAssertEqual(candidates.first?.isCurrent, false)
+        XCTAssertEqual(candidates.first?.isReachable, true)
+    }
+
+    func testUsePersistsSelectedEndpointAndRefreshesSession() async throws {
+        let apiClient = MockApiClient()
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+        keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
+        apiClient.updateSession(sid: "old-sid", did: "old-did")
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let updated = try await manager.switchConnection(
+            to: SynologyConnection(type: .relay, url: "https://relay.quickconnect.to:443")
+        )
+
+        XCTAssertEqual(updated.type, .relay)
+        XCTAssertEqual(updated.url, "https://relay.quickconnect.to:443")
+        XCTAssertEqual(apiClient.connection?.type, .relay)
+        XCTAssertEqual(apiClient.connection?.url, "https://relay.quickconnect.to:443")
+        XCTAssertEqual(keychain.getConnectionInfo()?.typeString, ConnectionType.relay.rawValue)
+        XCTAssertEqual(apiClient.session?.sid, "new-sid")
+        XCTAssertEqual(apiClient.session?.did, "new-did")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.did, "new-did")
+    }
+
+    func testUseRejectsUnreachableSelectedEndpoint() async {
+        let apiClient = MockApiClient()
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: false),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        do {
+            _ = try await manager.switchConnection(
+                to: SynologyConnection(type: .relay, url: "https://relay.quickconnect.to:443")
+            )
+            XCTFail("Expected unreachable endpoint failure")
+        } catch let SynologyError.network(message) {
+            XCTAssertEqual(message, "Selected endpoint is unreachable")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testUseRollsBackConnectionAndSessionWhenSilentLoginFails() async {
+        let apiClient = MockApiClient()
+        apiClient.updateConnection(type: .lan, url: "https://192.168.1.10:5001")
+        apiClient.updateSession(sid: "old-sid", did: "old-did")
+
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+        keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
+        keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(onRefresh: {
+                throw SynologyError.network(message: "refresh failed")
+            }),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        do {
+            _ = try await manager.switchConnection(
+                to: SynologyConnection(type: .relay, url: "https://relay.quickconnect.to:443")
+            )
+            XCTFail("Expected switch failure")
+        } catch let SynologyError.network(message) {
+            XCTAssertEqual(message, "refresh failed")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        XCTAssertEqual(apiClient.connection?.type, .lan)
+        XCTAssertEqual(apiClient.connection?.url, "https://192.168.1.10:5001")
+        XCTAssertEqual(keychain.getConnectionInfo()?.typeString, ConnectionType.lan.rawValue)
+        XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.10:5001")
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(apiClient.session?.did, "old-did")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.did, "old-did")
+    }
+
+    func testUseClearsSessionWhenRefreshFailsWithoutPreviousSession() async {
+        let apiClient = MockApiClient()
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(onRefresh: {
+                throw SynologyError.network(message: "refresh failed")
+            }),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        do {
+            _ = try await manager.switchConnection(
+                to: SynologyConnection(type: .relay, url: "https://relay.quickconnect.to:443")
+            )
+            XCTFail("Expected switch failure")
+        } catch let SynologyError.network(message) {
+            XCTAssertEqual(message, "refresh failed")
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        XCTAssertNil(apiClient.session)
+        XCTAssertNil(keychain.getSessionInfo())
+    }
+
+    func testRefreshQuickConnectEndpointReturnsNilWithoutCredentials() async {
+        let apiClient = MockApiClient()
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let connection = await manager.refreshQuickConnectEndpoint()
+
+        XCTAssertNil(connection)
+    }
+
+    func testRefreshQuickConnectEndpointReturnsNilForCustomDomainCredentials() async {
+        let apiClient = MockApiClient()
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: true),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let connection = await manager.refreshQuickConnectEndpoint()
+
+        XCTAssertNil(connection)
+    }
+
+    func testRefreshQuickConnectEndpointReturnsNilWhenResolvedEndpointIsUnreachable() async throws {
+        let apiClient = MockApiClient()
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+        apiClient.rawRequestHandler = { _, _, _, _, _ in
+            try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
+        }
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: false),
+            audioStationApi: AudioStationClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let connection = await manager.refreshQuickConnectEndpoint()
+
+        XCTAssertNil(connection)
+        XCTAssertNil(apiClient.connection)
+        XCTAssertNil(apiClient.session)
+        XCTAssertNil(keychain.getConnectionInfo())
+        XCTAssertNil(keychain.getSessionInfo())
     }
 }
 

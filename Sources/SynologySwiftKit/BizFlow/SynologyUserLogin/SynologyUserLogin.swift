@@ -19,7 +19,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     private let authApi: AuthClient
     private let audioStationApi: AudioStationClient
     private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
-    private let connectionChecker: CheckDeviceConnectionProviding
+    private let connectionChecker: any ConnectionChecking
     private let keyChainStorage: any SensitiveStorage
 
     // MARK: - Initialization
@@ -34,7 +34,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
          apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
          authApi: AuthClient,
          audioStationApi: AudioStationClient,
-         connectionChecker: CheckDeviceConnectionProviding,
+         connectionChecker: any ConnectionChecking,
          keyChainStorage: any SensitiveStorage = StorageService()) {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
@@ -117,15 +117,15 @@ private extension SynologyUserLogin {
             keyChainStorage.removeCredentials()
         }
 
-        // 解析可用连接 (使用 CheckDeviceConnection)
-        // Resolve available connection (using CheckDeviceConnection)
+        // 解析可用连接 (使用 ConnectionChecker)
+        // Resolve available connection (using ConnectionChecker)
         let connection: SynologyConnection
         let usedCachedConnection: Bool
 
         do {
             var resolvedConnection: SynologyConnection?
             var resolvedFromCache = false
-            for await progress in connectionChecker.checkConnectionStatus(server: server, usesHTTPS: usesHTTPS) {
+            for await progress in connectionChecker.check(server: server, usesHTTPS: usesHTTPS) {
                 guard !Task.isCancelled else {
                     continuation.finish()
                     return
@@ -138,7 +138,7 @@ private extension SynologyUserLogin {
                     resolvedConnection = connection
                     resolvedFromCache = usedCachedConnection
                 case let .failed(message):
-                    Logger.warn("SynologyUserLogin#performPasswordLogin, checkConnectionStatus failed: \(message)")
+                    Logger.warn("SynologyUserLogin#performPasswordLogin, connection check failed: \(message)")
                 }
             }
 

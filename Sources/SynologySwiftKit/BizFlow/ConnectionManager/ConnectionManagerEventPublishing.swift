@@ -1,11 +1,11 @@
 import Foundation
 
-protocol ConnectionRecoveryEventPublishing {
+protocol ConnectionManagerEventPublishing {
     func publishOnlineSessionValidated(_ event: SynologyOnlineSessionValidatedEvent)
     func publishQuickConnectEndpointOptimized(_ event: SynologyQuickConnectEndpointOptimizedEvent)
 }
 
-struct NotificationCenterConnectionRecoveryEventPublisher: ConnectionRecoveryEventPublishing {
+struct NotificationCenterConnectionManagerEventPublisher: ConnectionManagerEventPublishing {
     private let notificationCenter: NotificationCenter
     private let object: AnyObject?
 

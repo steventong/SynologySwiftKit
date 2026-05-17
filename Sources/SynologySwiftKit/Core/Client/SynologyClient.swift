@@ -171,13 +171,13 @@ private struct SynologyClientContainer {
             connection: ConnectionClient(quickConnect: quickConnect, ping: ping)
         )
 
-        let checkConnection = CheckDeviceConnection(
+        let checkConnection = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: quickConnect,
             pingpong: ping,
             keyChainStorage: keyChainStorage
         )
-        let connectionRecovery = ConnectionRecovery(
+        let connectionManager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: quickConnect,
             pingpong: ping,
@@ -194,25 +194,15 @@ private struct SynologyClientContainer {
             connectionChecker: checkConnection,
             keyChainStorage: keyChainStorage
         )
-        let connectionRoute = ConnectionRouteManager(
-            apiClient: apiClient,
-            quickConnectApi: quickConnect,
-            pingpong: ping,
-            apiInfoApi: apiInfo,
-            authApi: auth,
-            keyChainStorage: keyChainStorage
-        )
         let queryAllSongs = QueryAllSongs(apiClient: apiClient)
         let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
-        let checkDeviceConnectionFlow = CheckDeviceConnectionFlowClient(connectionFlow: checkConnection)
-        let connectionRecoveryFlow = ConnectionRecoveryFlowClient(recoveryFlow: connectionRecovery)
-        let connectionRouteFlow = ConnectionRouteFlowClient(routeFlow: connectionRoute)
+        let connectionCheckFlow = ConnectionCheckFlowClient(connectionCheck: checkConnection)
+        let connectionFlow = ConnectionManagerFlowClient(connectionManager: connectionManager)
         let queryAllSongsFlow = QueryAllSongsFlowClient(queryFlow: queryAllSongs)
         self.flows = FlowClient(
             userLogin: userLoginFlow,
-            checkDeviceConnection: checkDeviceConnectionFlow,
-            connectionRecovery: connectionRecoveryFlow,
-            connectionRoute: connectionRouteFlow,
+            connectionCheck: connectionCheckFlow,
+            connection: connectionFlow,
             queryAllSongs: queryAllSongsFlow
         )
         self.session = SessionClient(
