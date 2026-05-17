@@ -45,10 +45,8 @@ struct SynologyApiError: Error, Decodable, Sendable {
     /// 将当前实例转换为统一的 SynologyError
     /// Convert to unified SynologyError
     ///
-    /// - Session 相关错误码（106/107/119）→ `.sessionExpired`
-    ///   Session-related codes (106/107/119) → `.sessionExpired`
-    /// - 权限不足错误码（105）→ `.api`
-    ///   Permission denied code (105) → `.api`
+    /// - Session 相关错误码（105/106/107/119）→ `.sessionExpired`
+    ///   Session-related codes (105/106/107/119) → `.sessionExpired`
     /// - 120-149 保留错误码 → `.api`
     ///   Reserved codes 120-149 → `.api`
     /// - 其余错误码通过 `SynologyErrorCode` 获取描述后 → `.api`

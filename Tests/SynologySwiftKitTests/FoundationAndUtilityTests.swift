@@ -83,7 +83,7 @@ final class FoundationAndUtilityTests: XCTestCase {
         do {
             _ = try SynologyResponse<String>(success: false, error: SynologyApiError(code: 105), data: nil).unwrap()
             XCTFail("Expected unwrap to throw")
-        } catch let SynologyError.api(code, _) {
+        } catch let SynologyError.sessionExpired(code, _) {
             XCTAssertEqual(code, 105)
         }
     }
@@ -138,7 +138,7 @@ final class FoundationAndUtilityTests: XCTestCase {
         let adaptedPost = try await interceptor.adapt(postRequest, for: postEndpoint)
         XCTAssertEqual(adaptedPost.value(forHTTPHeaderField: "Cookie"), "id=sid-123; did=did-123")
 
-        _ = try await interceptor.process(.failure(SynologyError.sessionExpired(code: 106, message: "expired")), for: postEndpoint)
+        _ = try await interceptor.process(.failure(SynologyError.sessionExpired(code: 105, message: "expired")), for: postEndpoint)
         XCTAssertTrue(didExpire)
     }
 
