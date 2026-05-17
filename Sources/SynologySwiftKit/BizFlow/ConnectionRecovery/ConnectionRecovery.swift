@@ -4,72 +4,125 @@ final class ConnectionRecovery: ConnectionRecoveryProviding {
     private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
     private let quickConnectApi: QuickConnectClient
     private let pingpong: PingPongProviding
-    private let apiInfoApi: (any ApiInfoProviding)?
-    private let authApi: (any AuthenticationProviding)?
+    private let sessionValidator: any ConnectionSessionValidating
+    private let apiInfoApi: any ApiInfoProviding
+    private let authApi: any AuthenticationProviding
+    private let eventPublisher: any ConnectionRecoveryEventPublishing
+    private let optimizationScheduler: any QuickConnectOptimizationScheduling
     private let keyChainStorage: any SensitiveStorage
 
     init(
         apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
         quickConnectApi: QuickConnectClient,
         pingpong: PingPongProviding,
-        apiInfoApi: (any ApiInfoProviding)? = nil,
-        authApi: (any AuthenticationProviding)? = nil,
+        audioStationApi: AudioStationClient,
+        apiInfoApi: any ApiInfoProviding,
+        authApi: any AuthenticationProviding,
+        eventPublisher: any ConnectionRecoveryEventPublishing = NotificationCenterConnectionRecoveryEventPublisher(),
+        optimizationScheduler: any QuickConnectOptimizationScheduling = QuickConnectOptimizationCoordinator(),
         keyChainStorage: any SensitiveStorage = StorageService()
     ) {
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
+        self.sessionValidator = AudioStationSessionValidator(audioStationApi: audioStationApi)
         self.apiInfoApi = apiInfoApi
         self.authApi = authApi
+        self.eventPublisher = eventPublisher
+        self.optimizationScheduler = optimizationScheduler
         self.keyChainStorage = keyChainStorage
     }
 
     func recoverConnection() async -> ConnectionRecoveryDecision {
         guard let credentials = keyChainStorage.getCredentials() else {
             Logger.info("ConnectionRecovery#recoverConnection, missing credentials")
-            return ConnectionRecoveryDecision(status: .disconnected, followUp: nil)
+            return .disconnected
         }
 
-        let serverType: ServerType = QuickConnectUtils.isQuickConnectId(server: credentials.server) ? .quickConnectId : .customDomain
+        let serverType = resolveServerType(server: credentials.server)
         let currentConnection = restoreCurrentConnectionFromPersistence()
-        let isReachable = await pingCurrentConnection(currentConnection)
 
-        switch serverType {
-        case .quickConnectId:
-            if canRefreshSessionAndConnection {
-                if await optimizeQuickConnectEndpoint() != nil {
-                    Logger.info("ConnectionRecovery#recoverConnection, refreshed QuickConnect endpoint")
-                    return ConnectionRecoveryDecision(status: .connected, followUp: nil)
-                }
-
-                if isReachable {
-                    Logger.info("ConnectionRecovery#recoverConnection, QuickConnect refresh failed, keeping reachable cached endpoint")
-                    return ConnectionRecoveryDecision(status: .connected, followUp: nil)
-                }
-
-                Logger.info("ConnectionRecovery#recoverConnection, QuickConnect refresh failed and cached endpoint unreachable")
-                return ConnectionRecoveryDecision(status: .requiresRelogin, followUp: nil)
-            }
-
-            if isReachable {
-                Logger.info("ConnectionRecovery#recoverConnection, reusing cached QuickConnect endpoint")
-                return ConnectionRecoveryDecision(status: .connected, followUp: .optimizeQuickConnectEndpoint)
-            }
-
-            Logger.info("ConnectionRecovery#recoverConnection, cached QuickConnect endpoint unreachable")
-            return ConnectionRecoveryDecision(status: .requiresRelogin, followUp: nil)
-        case .customDomain:
-            if isReachable {
-                Logger.info("ConnectionRecovery#recoverConnection, reusing cached custom domain endpoint")
-                return ConnectionRecoveryDecision(status: .connected, followUp: nil)
-            }
-
-            Logger.info("ConnectionRecovery#recoverConnection, cached custom domain endpoint unreachable")
-            return ConnectionRecoveryDecision(status: .disconnected, followUp: nil)
+        if await pingCurrentConnection(currentConnection) {
+            return await handleReachableConnection(
+                currentConnection,
+                serverType: serverType
+            )
         }
+
+        return await handleUnreachableConnection(serverType: serverType)
     }
 
     func optimizeQuickConnectEndpoint() async -> SynologyConnection? {
+        await optimizationScheduler.run { [weak self] in
+            guard let self else {
+                return nil
+            }
+            return await self.performQuickConnectOptimization()
+        }
+    }
+}
+
+private extension ConnectionRecovery {
+    func resolveServerType(server: String) -> ServerType {
+        QuickConnectUtils.isQuickConnectId(server: server) ? .quickConnectId : .customDomain
+    }
+
+    func handleReachableConnection(
+        _ currentConnection: SynologyConnection?,
+        serverType: ServerType
+    ) async -> ConnectionRecoveryDecision {
+        switch await sessionValidator.validateCurrentSession() {
+        case .valid:
+            if let currentConnection {
+                eventPublisher.publishOnlineSessionValidated(
+                    SynologyOnlineSessionValidatedEvent(
+                        connection: currentConnection,
+                        serverType: serverType
+                    )
+                )
+            }
+
+            if serverType == .quickConnectId {
+                await scheduleBackgroundQuickConnectOptimization()
+            }
+
+            Logger.info("ConnectionRecovery#recoverConnection, reachable endpoint with valid session")
+            return .connected
+        case .invalidSession:
+            Logger.info("ConnectionRecovery#recoverConnection, reachable endpoint but session invalid")
+            return .requiresRelogin
+        case .validationFailed:
+            Logger.warn("ConnectionRecovery#recoverConnection, reachable endpoint but session validation failed")
+            return .requiresRelogin
+        }
+    }
+
+    func handleUnreachableConnection(serverType: ServerType) async -> ConnectionRecoveryDecision {
+        switch serverType {
+        case .quickConnectId:
+            if await optimizeQuickConnectEndpoint() != nil {
+                Logger.info("ConnectionRecovery#recoverConnection, refreshed QuickConnect endpoint")
+                return .connected
+            }
+
+            Logger.info("ConnectionRecovery#recoverConnection, QuickConnect refresh failed")
+            return .requiresRelogin
+        case .customDomain:
+            Logger.info("ConnectionRecovery#recoverConnection, cached custom domain endpoint unreachable")
+            return .disconnected
+        }
+    }
+
+    func scheduleBackgroundQuickConnectOptimization() async {
+        await optimizationScheduler.schedule { [weak self] in
+            guard let self else {
+                return nil
+            }
+            return await self.performQuickConnectOptimization()
+        }
+    }
+
+    func performQuickConnectOptimization() async -> SynologyConnection? {
         guard let credentials = keyChainStorage.getCredentials(),
               QuickConnectUtils.isQuickConnectId(server: credentials.server)
         else {
@@ -78,6 +131,7 @@ final class ConnectionRecovery: ConnectionRecoveryProviding {
         }
 
         do {
+            let previousConnection = restoreCurrentConnectionFromPersistence()
             let connection = try await quickConnectApi.getDeviceConnection(
                 quickConnectId: credentials.server,
                 usesHTTPS: credentials.usesHTTPS
@@ -89,6 +143,12 @@ final class ConnectionRecovery: ConnectionRecoveryProviding {
             }
 
             try await refreshSessionAndSaveConnection(connection)
+            eventPublisher.publishQuickConnectEndpointOptimized(
+                SynologyQuickConnectEndpointOptimizedEvent(
+                    updatedConnection: connection,
+                    previousConnection: previousConnection
+                )
+            )
             Logger.info("ConnectionRecovery#optimizeQuickConnectEndpoint, refreshed endpoint: \(connection.url)")
             return connection
         } catch {
@@ -99,10 +159,6 @@ final class ConnectionRecovery: ConnectionRecoveryProviding {
 }
 
 private extension ConnectionRecovery {
-    var canRefreshSessionAndConnection: Bool {
-        apiInfoApi != nil && authApi != nil
-    }
-
     func restoreCurrentConnectionFromPersistence() -> SynologyConnection? {
         if let connection = apiClient.connection {
             return SynologyConnection(type: connection.type, url: connection.url)
@@ -131,10 +187,6 @@ private extension ConnectionRecovery {
     }
 
     func refreshSessionAndSaveConnection(_ connection: SynologyConnection) async throws {
-        guard let apiInfoApi, let authApi else {
-            throw SynologyError.network(message: "Missing login dependencies for connection refresh")
-        }
-
         guard let credentials = keyChainStorage.getCredentials() else {
             throw SynologyError.network(message: "Missing saved credentials")
         }

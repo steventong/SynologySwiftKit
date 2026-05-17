@@ -2,10 +2,6 @@ import Foundation
 
 // MARK: - Connection Recovery Models
 
-public enum ConnectionRecoveryFollowUp: Sendable, Equatable {
-    case optimizeQuickConnectEndpoint
-}
-
 public enum ConnectionRecoveryStatus: Sendable, Equatable {
     case connected
     case requiresRelogin
@@ -14,10 +10,12 @@ public enum ConnectionRecoveryStatus: Sendable, Equatable {
 
 public struct ConnectionRecoveryDecision: Sendable, Equatable {
     public let status: ConnectionRecoveryStatus
-    public let followUp: ConnectionRecoveryFollowUp?
 
-    public init(status: ConnectionRecoveryStatus, followUp: ConnectionRecoveryFollowUp?) {
+    public init(status: ConnectionRecoveryStatus) {
         self.status = status
-        self.followUp = followUp
     }
+
+    public static let connected = ConnectionRecoveryDecision(status: .connected)
+    public static let requiresRelogin = ConnectionRecoveryDecision(status: .requiresRelogin)
+    public static let disconnected = ConnectionRecoveryDecision(status: .disconnected)
 }

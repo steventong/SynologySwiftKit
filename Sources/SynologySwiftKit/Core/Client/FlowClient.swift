@@ -80,10 +80,6 @@ public final class ConnectionRecoveryFlowClient {
     public func recover() async -> ConnectionRecoveryDecision {
         await recoveryFlow.recoverConnection()
     }
-
-    public func optimizeQuickConnectEndpoint() async -> SynologyConnection? {
-        await recoveryFlow.optimizeQuickConnectEndpoint()
-    }
 }
 
 // MARK: - ConnectionRouteFlowClient
