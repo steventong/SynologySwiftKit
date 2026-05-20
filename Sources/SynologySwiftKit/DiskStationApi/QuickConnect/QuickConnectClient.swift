@@ -238,11 +238,11 @@ private extension QuickConnectClient {
         // 根据 quickconnectId 配置缓存的 url
         let key = KeyValueStorageKeys.SYNOLOGY_SERVER_URL(quickConnectId).keyName
         if let synologyServerUrl = keyValueStorage.string(forKey: key) {
-            Logger.info("[SynologySwiftKit][QuickConnect]cached synology server: \(synologyServerUrl)")
+            Logger.info("[QuickConnect] cached synology server: \(synologyServerUrl)")
             return synologyServerUrl
         }
 
-        Logger.info("[SynologySwiftKit][QuickConnect]default synology server: \(SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER)")
+        Logger.info("[QuickConnect] default synology server: \(SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER)")
         return SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER
     }
 
