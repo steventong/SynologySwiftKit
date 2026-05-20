@@ -2,37 +2,6 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class CoreFlowHappyPathTests: XCTestCase {
-    func testCheckConnectionStatusReturnsCachedCurrentConnection() async {
-        let apiClient = MockApiClient()
-        apiClient.connection = (.custom_domain, "https://nas.local")
-
-        let keychain = KeyChainStorage(service: UUID().uuidString)
-        keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
-
-        let checker = CheckDeviceConnection(
-            apiClient: apiClient,
-            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
-            pingpong: TestPingPong(singleURLReachable: true),
-            keyChainStorage: keychain
-        )
-
-        var events: [CheckDeviceConnectionProgress] = []
-        for await progress in checker.checkConnectionStatus() {
-            events.append(progress)
-        }
-
-        XCTAssertEqual(events.count, 2)
-        guard case .checking = events[0] else {
-            return XCTFail("Expected checking event first")
-        }
-        guard case let .success(connection, usedCachedConnection) = events[1] else {
-            return XCTFail("Expected cached success event")
-        }
-        XCTAssertEqual(connection.type, .custom_domain)
-        XCTAssertEqual(connection.url, "https://nas.local")
-        XCTAssertTrue(usedCachedConnection)
-    }
-
     func testPasswordLoginCompletesAndPersistsCredentialsAndSession() async {
         let apiClient = MockApiClient()
         apiClient.requestHandler = { endpoint in
@@ -45,7 +14,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
         let keychain = KeyChainStorage(service: UUID().uuidString)
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
         let audioStationApi = AudioStationClient(apiClient: apiClient)
-        let connectionChecker = CheckDeviceConnection(
+        let connectionChecker = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong(singleURLReachable: true)),
             pingpong: TestPingPong(singleURLReachable: true),

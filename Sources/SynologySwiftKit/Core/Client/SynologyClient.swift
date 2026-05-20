@@ -147,6 +147,10 @@ private struct SynologyClientContainer {
     ) {
         self.apiClient = apiClient
         Logger.isEnabled = config.enableNetworkLogging
+        Self.restorePersistedConnectionAndSessionIfNeeded(
+            apiClient: apiClient,
+            keyChainStorage: keyChainStorage
+        )
 
         let apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
         let ping = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
@@ -155,7 +159,8 @@ private struct SynologyClientContainer {
         let audioStationClient = AudioStationClient(apiClient: apiClient, keyValueStorage: keyValueStorage)
         self.audioStation = audioStationClient
         self.files = FileStationClient(apiClient: apiClient)
-        self.auth = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
+        let authClient = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
+        self.auth = authClient
 
         let quickConnect = QuickConnectClient(
             apiClient: apiClient,
@@ -171,45 +176,38 @@ private struct SynologyClientContainer {
             connection: ConnectionClient(quickConnect: quickConnect, ping: ping)
         )
 
-        let checkConnection = CheckDeviceConnection(
+        let checkConnection = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: quickConnect,
             pingpong: ping,
             keyChainStorage: keyChainStorage
         )
-        let connectionRecovery = ConnectionRecovery(
+        let connectionManager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: quickConnect,
             pingpong: ping,
+            audioStationApi: audioStationClient,
+            apiInfoApi: apiInfo,
+            authApi: authClient,
             keyChainStorage: keyChainStorage
         )
         let userLogin = SynologyUserLogin(
             apiInfoApi: apiInfo,
             apiClient: apiClient,
-            authApi: auth,
+            authApi: authClient,
             audioStationApi: audioStationClient,
             connectionChecker: checkConnection,
             keyChainStorage: keyChainStorage
         )
-        let connectionRoute = ConnectionRouteManager(
-            apiClient: apiClient,
-            quickConnectApi: quickConnect,
-            pingpong: ping,
-            apiInfoApi: apiInfo,
-            authApi: auth,
-            keyChainStorage: keyChainStorage
-        )
         let queryAllSongs = QueryAllSongs(apiClient: apiClient)
         let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
-        let checkDeviceConnectionFlow = CheckDeviceConnectionFlowClient(connectionFlow: checkConnection)
-        let connectionRecoveryFlow = ConnectionRecoveryFlowClient(recoveryFlow: connectionRecovery)
-        let connectionRouteFlow = ConnectionRouteFlowClient(routeFlow: connectionRoute)
+        let connectionCheckFlow = ConnectionCheckFlowClient(connectionCheck: checkConnection)
+        let connectionFlow = ConnectionManagerFlowClient(connectionManager: connectionManager)
         let queryAllSongsFlow = QueryAllSongsFlowClient(queryFlow: queryAllSongs)
         self.flows = FlowClient(
             userLogin: userLoginFlow,
-            checkDeviceConnection: checkDeviceConnectionFlow,
-            connectionRecovery: connectionRecoveryFlow,
-            connectionRoute: connectionRouteFlow,
+            connectionCheck: connectionCheckFlow,
+            connection: connectionFlow,
             queryAllSongs: queryAllSongsFlow
         )
         self.session = SessionClient(
@@ -252,6 +250,9 @@ private struct SynologyClientContainer {
             }
         )
 
+        // Warm up persisted connection/session eagerly so first API call does not
+        // race with lazy restoration from host-side storage.
+        _ = session.connection
         _ = session.current
 
         if autoRegisterAuthInterceptor {
@@ -268,6 +269,23 @@ private struct SynologyClientContainer {
 
         for interceptor in interceptors {
             apiClient.addInterceptor(interceptor)
+        }
+    }
+
+    private static func restorePersistedConnectionAndSessionIfNeeded(
+        apiClient: ApiClient,
+        keyChainStorage: any SensitiveStorage
+    ) {
+        if let persistedConnection = keyChainStorage.getConnectionInfo(),
+           let connectionType = ConnectionType(rawValue: persistedConnection.typeString)
+        {
+            apiClient.updateConnection(type: connectionType, url: persistedConnection.url)
+        }
+
+        if let persistedSession = keyChainStorage.getSessionInfo(),
+           !persistedSession.sid.isEmpty
+        {
+            apiClient.updateSession(sid: persistedSession.sid, did: persistedSession.did)
         }
     }
 }

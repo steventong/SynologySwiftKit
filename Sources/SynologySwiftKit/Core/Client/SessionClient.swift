@@ -4,7 +4,7 @@ import Foundation
 
 /// Synology 连接信息（连接类型 + 服务器地址）
 /// Synology connection info (connection type + server URL)
-public struct SynologyConnection: Sendable {
+public struct SynologyConnection: Sendable, Equatable {
     /// 连接类型（LAN / WAN / DDNS / Relay 等）
     /// Connection type (LAN / WAN / DDNS / Relay, etc.)
     public let type: ConnectionType

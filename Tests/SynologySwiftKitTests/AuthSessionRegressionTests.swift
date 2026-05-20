@@ -2,28 +2,6 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class AuthSessionRegressionTests: XCTestCase {
-    func testCheckConnectionStatusWithoutCredentialsEmitsFailure() async {
-        let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
-        let checker = CheckDeviceConnection(
-            apiClient: apiClient,
-            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: MockPingPong()),
-            pingpong: MockPingPong(),
-            keyChainStorage: keychain
-        )
-
-        var events: [CheckDeviceConnectionProgress] = []
-        for await progress in checker.checkConnectionStatus() {
-            events.append(progress)
-        }
-
-        XCTAssertEqual(events.count, 1)
-        guard case let .failed(message) = events[0] else {
-            return XCTFail("Expected a terminal failure event")
-        }
-        XCTAssertTrue(message.contains("no saved credentials"))
-    }
-
     func testSilentLoginWithExpiredCachedSessionReturnsInvalidSession() async {
         let apiClient = MockApiClient()
         apiClient.connection = (.custom_domain, "https://nas.local")
@@ -41,7 +19,7 @@ final class AuthSessionRegressionTests: XCTestCase {
 
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
         let audioStationApi = AudioStationClient(apiClient: apiClient)
-        let connectionChecker = CheckDeviceConnection(
+        let connectionChecker = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: MockPingPong(singleURLReachable: true)),
             pingpong: MockPingPong(singleURLReachable: true),
