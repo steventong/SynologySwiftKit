@@ -54,6 +54,10 @@ struct AuthInterceptor: RequestInterceptor, @unchecked Sendable {
 
     func process(_ result: Result<(Data, URLResponse), Error>, for endpoint: ApiEndpoint) async throws -> Result<(Data, URLResponse), Error> {
         if case let .failure(error) = result, isSessionExpiredError(error) {
+            let session = sessionProvider?()
+            Logger.warn(
+                "AuthInterceptor#process detected invalid session, api=\(endpoint.apiName), method=\(endpoint.method), error=\(error), \(Logger.sessionSummary(sid: session?.sid, did: session?.did))"
+            )
             onSessionExpired?()
         }
         return result

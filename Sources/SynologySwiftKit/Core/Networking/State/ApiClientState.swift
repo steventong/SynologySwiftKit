@@ -33,6 +33,18 @@ final class ApiClientState {
         lock.withLock { storedSession }
     }
 
+    var sessionSummary: String {
+        lock.withLock {
+            Logger.sessionSummary(sid: storedSession?.sid, did: storedSession?.did)
+        }
+    }
+
+    var connectionSummary: String {
+        lock.withLock {
+            Logger.connectionSummary(url: storedConnection?.url)
+        }
+    }
+
     /// API 信息提供者（线程安全读写）
     /// API info provider (thread-safe read/write)
     var apiInfoProvider: ApiInfoProviding? {

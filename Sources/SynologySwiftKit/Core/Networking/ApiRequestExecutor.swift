@@ -17,6 +17,8 @@ final class ApiRequestExecutor {
     /// 拦截器快照提供者（通过闭包延迟获取，避免强引用）
     /// Interceptor snapshot provider (lazily fetched via closure to avoid strong reference)
     private let interceptorsProvider: () -> [RequestInterceptor]
+    private let sessionSummaryProvider: () -> String
+    private let connectionSummaryProvider: () -> String
     private let responseDecoder: ApiResponseDecoder
     private let errorMapper: SynologyErrorMapper
 
@@ -30,11 +32,15 @@ final class ApiRequestExecutor {
     init(
         httpClientFactory: @escaping SynologyHTTPClientFactory,
         interceptorsProvider: @escaping () -> [RequestInterceptor],
+        sessionSummaryProvider: @escaping () -> String,
+        connectionSummaryProvider: @escaping () -> String,
         responseDecoder: ApiResponseDecoder = ApiResponseDecoder(),
         errorMapper: SynologyErrorMapper = SynologyErrorMapper()
     ) {
         self.httpClientFactory = httpClientFactory
         self.interceptorsProvider = interceptorsProvider
+        self.sessionSummaryProvider = sessionSummaryProvider
+        self.connectionSummaryProvider = connectionSummaryProvider
         self.responseDecoder = responseDecoder
         self.errorMapper = errorMapper
     }
@@ -66,7 +72,9 @@ final class ApiRequestExecutor {
     ) async throws -> Value {
         var context = RequestContext()
         let currentRequest = try await applyRequestInterceptors(request, endpoint: endpoint, context: &context)
+        let requestID = String(UUID().uuidString.prefix(8))
         let httpClient = httpClientFactory(timeout, trustedSSLDomain)
+        logRequestStart(requestID: requestID, request: currentRequest, endpoint: endpoint)
 
         do {
             let (data, response) = try await httpClient.send(currentRequest)
@@ -85,19 +93,25 @@ final class ApiRequestExecutor {
                 throw error
             }
 
+            logRequestSuccess(requestID: requestID, request: currentRequest, response: processedResponse, duration: context.duration)
             return try responseDecoder.decode(Value.self, from: processedData, response: processedResponse)
         } catch let error as SynologyError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: error, duration: context.duration)
             throw error
         } catch let urlError as URLError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)
-            throw errorMapper.map(urlError)
+            let mappedError = errorMapper.map(urlError)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: mappedError, duration: context.duration)
+            throw mappedError
         } catch {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
-            throw SynologyError.network(message: error.localizedDescription)
+            let wrappedError = SynologyError.network(message: error.localizedDescription)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: wrappedError, duration: context.duration)
+            throw wrappedError
         }
     }
 
@@ -127,5 +141,26 @@ final class ApiRequestExecutor {
             }
         }
         return current
+    }
+
+    private func logRequestStart(requestID: String, request: URLRequest, endpoint: ApiEndpoint) {
+        Logger.debug(
+            "ApiRequestExecutor#execute start, requestId=\(requestID), api=\(endpoint.apiName), method=\(endpoint.method), httpMethod=\(request.httpMethod ?? endpoint.httpMethod.rawValue), url=\(Logger.sanitizedURLString(request.url)), headers=\(Logger.sanitizedHeaders(request.allHTTPHeaderFields)), body=\(Logger.sanitizedBodyString(request.httpBody)), \(connectionSummaryProvider()), \(sessionSummaryProvider())"
+        )
+    }
+
+    private func logRequestSuccess(requestID: String, request: URLRequest, response: URLResponse, duration: TimeInterval?) {
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+        let durationMillis = Int((duration ?? 0) * 1000)
+        Logger.debug(
+            "ApiRequestExecutor#execute success, requestId=\(requestID), statusCode=\(statusCode), durationMs=\(durationMillis), url=\(Logger.sanitizedURLString(request.url)), \(connectionSummaryProvider()), \(sessionSummaryProvider())"
+        )
+    }
+
+    private func logRequestFailure(requestID: String, request: URLRequest, error: Error, duration: TimeInterval?) {
+        let durationMillis = Int((duration ?? 0) * 1000)
+        Logger.warn(
+            "ApiRequestExecutor#execute failure, requestId=\(requestID), durationMs=\(durationMillis), error=\(error), url=\(Logger.sanitizedURLString(request.url)), headers=\(Logger.sanitizedHeaders(request.allHTTPHeaderFields)), \(connectionSummaryProvider()), \(sessionSummaryProvider())"
+        )
     }
 }

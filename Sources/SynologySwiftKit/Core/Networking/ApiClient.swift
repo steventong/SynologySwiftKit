@@ -57,6 +57,12 @@ final class ApiClient: ApiClientProviding {
             httpClientFactory: httpClientFactory,
             interceptorsProvider: { [weak state] in
                 state?.interceptorsSnapshot() ?? []
+            },
+            sessionSummaryProvider: { [weak state] in
+                state?.sessionSummary ?? Logger.sessionSummary(sid: nil, did: nil)
+            },
+            connectionSummaryProvider: { [weak state] in
+                state?.connectionSummary ?? Logger.connectionSummary(url: nil)
             }
         )
     }
@@ -186,11 +192,13 @@ extension ApiClient {
             "version=\(endpoint.version)",
             "httpMethod=\(endpoint.httpMethod.rawValue)",
             "parameters=\(sanitizedParameters(endpoint.parameters))",
-            "url=\(sanitizedURLString(request.url))",
-            "body=\(sanitizedBodyString(request.httpBody))",
-            "headers=\(sanitizedHeaders(request.allHTTPHeaderFields))",
+            "url=\(Logger.sanitizedURLString(request.url))",
+            "body=\(Logger.sanitizedBodyString(request.httpBody))",
+            "headers=\(Logger.sanitizedHeaders(request.allHTTPHeaderFields))",
             "requiresAuthCookie=\(endpoint.sidOnCookie ?? endpoint.requireAuthCookie)",
             "requiresQuerySid=\(endpoint.sidOnQuery ?? endpoint.requireQuerySid)",
+            state.connectionSummary,
+            state.sessionSummary,
         ].joined(separator: ", ")
 
         if code == 105 {
@@ -210,62 +218,8 @@ extension ApiClient {
             .joined(separator: "&")
     }
 
-    private func sanitizedURLString(_ url: URL?) -> String {
-        guard let url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            return "nil"
-        }
-        components.queryItems = components.queryItems?.map {
-            URLQueryItem(name: $0.name, value: sanitizedValue($0.value ?? "", forKey: $0.name))
-        }
-        return components.url?.absoluteString ?? url.absoluteString
-    }
-
-    private func sanitizedBodyString(_ body: Data?) -> String {
-        guard let body, let bodyString = String(data: body, encoding: .utf8), !bodyString.isEmpty else {
-            return "nil"
-        }
-
-        return bodyString
-            .split(separator: "&")
-            .map { pair in
-                let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
-                let key = parts.first ?? ""
-                let value = parts.count > 1 ? parts[1] : ""
-                return "\(key)=\(sanitizedValue(value, forKey: key))"
-            }
-            .joined(separator: "&")
-    }
-
-    private func sanitizedHeaders(_ headers: [String: String]?) -> String {
-        guard let headers, !headers.isEmpty else {
-            return "[:]"
-        }
-        return headers
-            .sorted { $0.key < $1.key }
-            .map { "\($0.key)=\(sanitizedValue($0.value, forKey: $0.key))" }
-            .joined(separator: "&")
-    }
-
     private func sanitizedValue(_ value: String, forKey key: String) -> String {
-        let lowercasedKey = key.lowercased()
-        let sensitiveKeys = [
-            "sid",
-            "_sid",
-            "did",
-            "cookie",
-            "authorization",
-            "passwd",
-            "password",
-            "otp_code",
-            "token",
-            "synotoken",
-            "ciphertoken",
-        ]
-
-        if sensitiveKeys.contains(where: { lowercasedKey.contains($0) }) {
-            return "<redacted>"
-        }
-        return value
+        Logger.sanitizedValue(value, forKey: key)
     }
 }
 
