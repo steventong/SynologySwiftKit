@@ -245,6 +245,9 @@ private struct SynologyClientContainer {
             }
         )
 
+        // Warm up persisted connection/session eagerly so first API call does not
+        // race with lazy restoration from host-side storage.
+        _ = session.connection
         _ = session.current
 
         if autoRegisterAuthInterceptor {
