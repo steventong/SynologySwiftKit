@@ -1,12 +1,44 @@
 import XCTest
 @testable import SynologySwiftKit
 
+private final class LogCaptureBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var records: [SynologyLogRecord] = []
+
+    func append(_ record: SynologyLogRecord) {
+        lock.lock()
+        records.append(record)
+        lock.unlock()
+    }
+
+    func snapshot() -> [SynologyLogRecord] {
+        lock.lock()
+        defer { lock.unlock() }
+        return records
+    }
+}
+
 final class CoverageClosureTests: XCTestCase {
     func testLoggerAndJsonUtilsCoverSuccessAndFailurePaths() {
+        let capture = LogCaptureBox()
+        Logger.isEnabled = true
+        Logger.destination = .handler
+        Logger.handler = { capture.append($0) }
+
         SynologySwiftKit.Logger.info("info")
         SynologySwiftKit.Logger.debug("debug")
         SynologySwiftKit.Logger.warn("warn")
         SynologySwiftKit.Logger.error("error")
+
+        Logger.isEnabled = false
+        SynologySwiftKit.Logger.info("disabled")
+        Logger.destination = .system
+        Logger.handler = nil
+        Logger.isEnabled = true
+
+        let captured = capture.snapshot()
+        XCTAssertEqual(captured.map(\.level), [.info, .debug, .warning, .error])
+        XCTAssertEqual(captured.map(\.message), ["info", "debug", "warn", "error"])
 
         XCTAssertEqual(JsonUtils.toJson(codable: EncodableValue(value: "ok")), #"{"value":"ok"}"#)
         XCTAssertNil(JsonUtils.toJson(codable: ThrowingCodable()))

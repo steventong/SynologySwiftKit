@@ -147,6 +147,8 @@ private struct SynologyClientContainer {
     ) {
         self.apiClient = apiClient
         Logger.isEnabled = config.enableNetworkLogging
+        Logger.destination = config.logDestination
+        Logger.handler = config.logHandler
         Self.restorePersistedConnectionAndSessionIfNeeded(
             apiClient: apiClient,
             keyChainStorage: keyChainStorage

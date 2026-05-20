@@ -1,50 +1,152 @@
 import Foundation
-import OSLog
+import os
+
+public enum SynologyLogLevel: Sendable {
+    case debug
+    case info
+    case warning
+    case error
+}
+
+public enum SynologyLogDestination: Sendable {
+    case system
+    case handler
+    case systemAndHandler
+}
+
+public struct SynologyLogRecord: Sendable {
+    public let level: SynologyLogLevel
+    public let message: String
+    public let file: String
+    public let line: Int
+    public let timestamp: Date
+
+    public init(level: SynologyLogLevel, message: String, file: String, line: Int, timestamp: Date = Date()) {
+        self.level = level
+        self.message = message
+        self.file = file
+        self.line = line
+        self.timestamp = timestamp
+    }
+}
+
+public typealias SynologyLogHandler = @Sendable (SynologyLogRecord) -> Void
 
 // MARK: - Logger
 
 /// SynologySwiftKit 轻量日志工具
 /// Lightweight logger for SynologySwiftKit
 ///
-/// 基于 `OSLog` 实现，通过 `isEnabled` 开关控制日志输出（默认开启）。
-/// Backed by `OSLog`, controlled by the `isEnabled` switch (enabled by default).
+/// 默认输出到 Apple Unified Logging，也支持通过 handler 注入给宿主 App。
+/// Outputs to Apple Unified Logging by default and can optionally forward logs to a host app handler.
 public final class Logger {
-    private static let osLog = OSLog(subsystem: "me.itwl.SynologySwiftKit", category: "SynologySwiftKit")
+    private struct Configuration {
+        var isEnabled = true
+        var destination: SynologyLogDestination = .system
+        var handler: SynologyLogHandler?
+    }
+
+    private static let lock = NSLock()
+    private static let subsystem = "me.itwl.SynologySwiftKit"
+    private static let category = "SynologySwiftKit"
+    private static let osLogger = os.Logger(subsystem: subsystem, category: category)
     private static let kitTag = "[SynologySwiftKit]"
-    public static var isEnabled = true
+    private static var configuration = Configuration()
+
+    public static var isEnabled: Bool {
+        get {
+            lock.withLock { configuration.isEnabled }
+        }
+        set {
+            lock.withLock { configuration.isEnabled = newValue }
+        }
+    }
+
+    public static var destination: SynologyLogDestination {
+        get {
+            lock.withLock { configuration.destination }
+        }
+        set {
+            lock.withLock { configuration.destination = newValue }
+        }
+    }
+
+    public static var handler: SynologyLogHandler? {
+        get {
+            lock.withLock { configuration.handler }
+        }
+        set {
+            lock.withLock { configuration.handler = newValue }
+        }
+    }
 
     private init() {}
 
     /// 输出 Info 级别日志
     /// Log at Info level
     public static func info(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
-        log(message, type: .info, filePath: filePath, fileNumber: fileNumber)
+        log(message, level: .info, filePath: filePath, fileNumber: fileNumber)
     }
 
     /// 输出 Debug 级别日志
     /// Log at Debug level
     public static func debug(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
-        log(message, type: .debug, filePath: filePath, fileNumber: fileNumber)
+        log(message, level: .debug, filePath: filePath, fileNumber: fileNumber)
     }
 
     /// 输出 Warning 级别日志
     /// Log at Warning level
     public static func warn(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
-        log(message, type: .error, filePath: filePath, fileNumber: fileNumber)
+        log(message, level: .warning, filePath: filePath, fileNumber: fileNumber)
     }
 
     /// 输出 Error 级别日志
     /// Log at Error level
     public static func error(_ message: String, filePath: String = #fileID, fileNumber: Int = #line) {
-        log(message, type: .fault, filePath: filePath, fileNumber: fileNumber)
+        log(message, level: .error, filePath: filePath, fileNumber: fileNumber)
     }
 
     /// 内部日志输出实现
     /// Internal log output implementation
-    private static func log(_ message: String, type: OSLogType, filePath: String, fileNumber: Int) {
-        guard isEnabled else { return }
+    private static func log(_ message: String, level: SynologyLogLevel, filePath: String, fileNumber: Int) {
+        let currentConfiguration = lock.withLock { configuration }
+        guard currentConfiguration.isEnabled else { return }
+
         let swiftFileName = (filePath as NSString).lastPathComponent
-        os_log("%{public}@ [%{public}@:%{public}d] %{public}@", log: osLog, type: type, kitTag, swiftFileName, fileNumber, message)
+        let record = SynologyLogRecord(
+            level: level,
+            message: message,
+            file: swiftFileName,
+            line: fileNumber
+        )
+
+        switch currentConfiguration.destination {
+        case .system:
+            writeToSystem(record)
+        case .handler:
+            currentConfiguration.handler?(record)
+        case .systemAndHandler:
+            writeToSystem(record)
+            currentConfiguration.handler?(record)
+        }
+    }
+
+    private static func writeToSystem(_ record: SynologyLogRecord) {
+        let formattedMessage = "\(kitTag) [\(record.file):\(record.line)] \(record.message)"
+        osLogger.log(level: osLogLevel(for: record.level), "\(formattedMessage)")
+    }
+
+    private static func osLogLevel(for level: SynologyLogLevel) -> OSLogType {
+        switch level {
+        case .debug:
+            return .debug
+        case .info:
+            return .info
+        case .warning:
+            return .error
+        case .error:
+            return .fault
+        }
     }
 }
 
@@ -123,5 +225,13 @@ extension Logger {
             return "<redacted>"
         }
         return value
+    }
+}
+
+private extension NSLock {
+    func withLock<T>(_ operation: () -> T) -> T {
+        lock()
+        defer { unlock() }
+        return operation()
     }
 }
