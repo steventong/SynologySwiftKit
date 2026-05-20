@@ -147,7 +147,7 @@ private struct SynologyClientContainer {
     ) {
         self.apiClient = apiClient
         Logger.isEnabled = config.enableNetworkLogging
-        restorePersistedConnectionAndSessionIfNeeded(
+        Self.restorePersistedConnectionAndSessionIfNeeded(
             apiClient: apiClient,
             keyChainStorage: keyChainStorage
         )
@@ -159,7 +159,8 @@ private struct SynologyClientContainer {
         let audioStationClient = AudioStationClient(apiClient: apiClient, keyValueStorage: keyValueStorage)
         self.audioStation = audioStationClient
         self.files = FileStationClient(apiClient: apiClient)
-        self.auth = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
+        let authClient = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
+        self.auth = authClient
 
         let quickConnect = QuickConnectClient(
             apiClient: apiClient,
@@ -187,13 +188,13 @@ private struct SynologyClientContainer {
             pingpong: ping,
             audioStationApi: audioStationClient,
             apiInfoApi: apiInfo,
-            authApi: auth,
+            authApi: authClient,
             keyChainStorage: keyChainStorage
         )
         let userLogin = SynologyUserLogin(
             apiInfoApi: apiInfo,
             apiClient: apiClient,
-            authApi: auth,
+            authApi: authClient,
             audioStationApi: audioStationClient,
             connectionChecker: checkConnection,
             keyChainStorage: keyChainStorage
@@ -271,7 +272,7 @@ private struct SynologyClientContainer {
         }
     }
 
-    private func restorePersistedConnectionAndSessionIfNeeded(
+    private static func restorePersistedConnectionAndSessionIfNeeded(
         apiClient: ApiClient,
         keyChainStorage: any SensitiveStorage
     ) {
