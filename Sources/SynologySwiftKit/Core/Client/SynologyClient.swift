@@ -147,6 +147,10 @@ private struct SynologyClientContainer {
     ) {
         self.apiClient = apiClient
         Logger.isEnabled = config.enableNetworkLogging
+        restorePersistedConnectionAndSessionIfNeeded(
+            apiClient: apiClient,
+            keyChainStorage: keyChainStorage
+        )
 
         let apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
         let ping = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
@@ -245,6 +249,9 @@ private struct SynologyClientContainer {
             }
         )
 
+        // Warm up persisted connection/session eagerly so first API call does not
+        // race with lazy restoration from host-side storage.
+        _ = session.connection
         _ = session.current
 
         if autoRegisterAuthInterceptor {
@@ -261,6 +268,23 @@ private struct SynologyClientContainer {
 
         for interceptor in interceptors {
             apiClient.addInterceptor(interceptor)
+        }
+    }
+
+    private func restorePersistedConnectionAndSessionIfNeeded(
+        apiClient: ApiClient,
+        keyChainStorage: any SensitiveStorage
+    ) {
+        if let persistedConnection = keyChainStorage.getConnectionInfo(),
+           let connectionType = ConnectionType(rawValue: persistedConnection.typeString)
+        {
+            apiClient.updateConnection(type: connectionType, url: persistedConnection.url)
+        }
+
+        if let persistedSession = keyChainStorage.getSessionInfo(),
+           !persistedSession.sid.isEmpty
+        {
+            apiClient.updateSession(sid: persistedSession.sid, did: persistedSession.did)
         }
     }
 }
