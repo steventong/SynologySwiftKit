@@ -17,7 +17,13 @@ import Foundation
 /// let audioStation = AudioStationClient(apiClient: client.apiClient)
 /// let page = try await audioStation.pins.list()
 /// let items = page.items
-/// let songs = try await audioStation.songs.list(limit: 100, offset: 0)
+/// let recentAlbums = try await audioStation.albums.list(
+///     limit: 50,
+///     offset: 0,
+///     libraryScope: .shared,
+///     includeFields: "avg_rating",
+///     sort: SynologySortDescriptor(field: "time", direction: .descending)
+/// )
 /// ```
 public final class AudioStationClient {
 
