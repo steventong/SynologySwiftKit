@@ -80,6 +80,44 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(folderResult.total, 1)
     }
 
+    func testAlbumApiListCanMatchRecentlyAddedAlbumEndpointContract() async throws {
+        let apiClient = MockApiClient()
+        apiClient.requestHandler = { endpoint in
+            XCTAssertEqual(endpoint.apiName, SynologyApi.AudioStation.ALBUM.name)
+            XCTAssertEqual(endpoint.method, "list")
+            XCTAssertEqual(endpoint.version, 3)
+            XCTAssertEqual(endpoint.httpMethod, .post)
+            XCTAssertEqual(endpoint.parameters["limit"]?.stringValue, "50")
+            XCTAssertEqual(endpoint.parameters["offset"]?.stringValue, "0")
+            XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "shared")
+            XCTAssertEqual(endpoint.parameters["sort_by"]?.stringValue, "time")
+            XCTAssertEqual(endpoint.parameters["sort_direction"]?.stringValue, "desc")
+            XCTAssertEqual(endpoint.parameters["additional"]?.stringValue, "avg_rating")
+
+            return AlbumListResult(offset: 0, total: 1, albums: [
+                Album(
+                    name: "Recent Album",
+                    artist: "Artist",
+                    albumArtist: "Album Artist",
+                    displayArtist: "Display",
+                    year: 2025,
+                    additional: AlbumAdditional(avgRating: AlbumAvgRating(rating: 4))
+                )
+            ])
+        }
+
+        let result = try await AlbumApi(apiClient: apiClient).list(
+            limit: 50,
+            offset: 0,
+            libraryScope: .shared,
+            includeFields: "avg_rating",
+            sort: SynologySortDescriptor(field: "time", direction: .descending)
+        )
+        XCTAssertEqual(result.total, 1)
+        XCTAssertEqual(result.items.first?.name, "Recent Album")
+        XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+    }
+
     func testLyricsApiSupportsGetAndSearch() async throws {
         let apiClient = MockApiClient()
         let lyricsResult = try JSONDecoder().decode(LyricsResult.self, from: makeJSONData(["lyrics": "hello world"]))
