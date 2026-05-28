@@ -16,11 +16,8 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Keychain 服务名称前缀
     /// Keychain service name prefix
     private let service: String
-
-    private let key_credentials = "synology_credentials"
-    private let key_session = "synology_session_info"
-    private let key_connection = "synology_connection_info"
-    private let key_device = "synology_device_info"
+    
+    private let unifiedAccount = "synology_secure_store"
 
     /// 初始化 Keychain 存储
     /// Initialize Keychain storage
@@ -40,20 +37,24 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     ///   - usesHTTPS: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
     public func saveCredentials(server: String, username: String, password: String, usesHTTPS: Bool) {
         let credentials = SynologyCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
-        setCodable(credentials, forKey: key_credentials)
+        updateSecureStore {
+            $0.credentials = credentials
+        }
     }
 
     /// 从 Keychain 读取已保存的凭据
     /// Read saved credentials from Keychain
     /// - Returns: 凭据对象，如果不存在则返回 nil
     public func getCredentials() -> SynologyCredentials? {
-        codable(forKey: key_credentials)
+        secureStore().credentials
     }
 
     /// 从 Keychain 删除凭据
     /// Remove credentials from Keychain
     public func removeCredentials() {
-        delete(account: key_credentials)
+        updateSecureStore {
+            $0.credentials = nil
+        }
     }
 
     // MARK: - Session Info
@@ -62,13 +63,15 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Save session info
     public func saveSessionInfo(sid: String, did: String?) {
         let sessionInfo = SynologySessionInfo(sid: sid, did: did)
-        setCodable(sessionInfo, forKey: key_session)
+        updateSecureStore {
+            $0.sessionInfo = sessionInfo
+        }
     }
 
     /// 获取 Session 信息
     /// Get session info
     public func getSessionInfo() -> (sid: String, did: String?)? {
-        guard let sessionInfo: SynologySessionInfo = codable(forKey: key_session) else {
+        guard let sessionInfo = secureStore().sessionInfo else {
             return nil
         }
         return (sessionInfo.sid, sessionInfo.did)
@@ -77,7 +80,9 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 移除 Session 信息
     /// Remove session info
     public func removeSessionInfo() {
-        delete(account: key_session)
+        updateSecureStore {
+            $0.sessionInfo = nil
+        }
     }
 
     // MARK: - Device ID (Persistent)
@@ -86,13 +91,15 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Save Device ID (Persistent, not cleared on logout)
     public func saveDeviceInfo(_ did: String, _ name: String) {
         let data = SynologyDeviceInfo(did: did, name: name)
-        setCodable(data, forKey: key_device)
+        updateSecureStore {
+            $0.deviceInfo = data
+        }
     }
 
     /// 获取设备 ID
     /// Get Device ID
     public func getDeviceInfo() -> (String, String)? {
-        guard let data: SynologyDeviceInfo = codable(forKey: key_device) else {
+        guard let data = secureStore().deviceInfo else {
             return nil
         }
         return (data.did, data.name)
@@ -104,13 +111,15 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Save connection URL info
     public func saveConnectionInfo(url: String, typeString: String) {
         let data = SynologyConnectionInfo(url: url, typeString: typeString)
-        setCodable(data, forKey: key_connection)
+        updateSecureStore {
+            $0.connectionInfo = data
+        }
     }
 
     /// 获取连接地址信息
     /// Get connection URL info
     public func getConnectionInfo() -> (url: String, typeString: String)? {
-        guard let data: SynologyConnectionInfo = codable(forKey: key_connection) else {
+        guard let data = secureStore().connectionInfo else {
             return nil
         }
         return (data.url, data.typeString)
@@ -119,7 +128,9 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 移除连接地址信息
     /// Remove connection URL info
     public func removeConnectionInfo() {
-        delete(account: key_connection)
+        updateSecureStore {
+            $0.connectionInfo = nil
+        }
     }
 }
 
@@ -138,6 +149,21 @@ extension KeyChainStorage {
 
     func removeValue(forKey key: String) {
         delete(account: key)
+    }
+
+    private func secureStore() -> SecureStorePayload {
+        read(account: unifiedAccount) ?? SecureStorePayload()
+    }
+
+    private func updateSecureStore(_ mutate: (inout SecureStorePayload) -> Void) {
+        var store = secureStore()
+        mutate(&store)
+
+        if store.hasContent {
+            save(account: unifiedAccount, data: store)
+        } else {
+            delete(account: unifiedAccount)
+        }
     }
 
     // MARK: - API Info Cache (Optional, maybe keep in UserDefaults for performance?)
@@ -215,5 +241,16 @@ extension KeyChainStorage {
             kSecAttrAccount as String: account,
         ]
         SecItemDelete(query as CFDictionary)
+    }
+}
+
+private struct SecureStorePayload: Codable {
+    var credentials: SynologyCredentials?
+    var sessionInfo: SynologySessionInfo?
+    var connectionInfo: SynologyConnectionInfo?
+    var deviceInfo: SynologyDeviceInfo?
+
+    var hasContent: Bool {
+        credentials != nil || sessionInfo != nil || connectionInfo != nil || deviceInfo != nil
     }
 }

@@ -86,6 +86,25 @@ final class StorageServiceTests: XCTestCase {
         XCTAssertEqual(storage.getDeviceInfo()?.0, "did-456")
         XCTAssertEqual(storage.getDeviceInfo()?.1, "phone")
     }
+
+    func testSensitiveStoragePersistsInSingleUnifiedKeychainAccount() {
+        keychain.saveCredentials(server: "demo.local", username: "user", password: "pwd", usesHTTPS: true)
+        keychain.saveSessionInfo(sid: "sid-123", did: "did-456")
+        keychain.saveConnectionInfo(url: "https://demo.local:5001", typeString: "lan")
+        keychain.saveDeviceInfo("did-456", "phone")
+
+        let payload: UnifiedKeychainPayload? = keychain.codable(forKey: "synology_secure_store")
+        XCTAssertEqual(payload?.credentials?.username, "user")
+        XCTAssertEqual(payload?.sessionInfo?.sid, "sid-123")
+        XCTAssertEqual(payload?.connectionInfo?.url, "https://demo.local:5001")
+        XCTAssertEqual(payload?.deviceInfo?.did, "did-456")
+
+        let legacyCredentials: SynologyCredentials? = keychain.codable(forKey: "synology_credentials")
+        let legacySession: SynologySessionInfo? = keychain.codable(forKey: "synology_session_info")
+        XCTAssertNil(legacyCredentials)
+        XCTAssertNil(legacySession)
+    }
+
 }
 
 private struct DemoSettings: Codable, Equatable, Sendable {
@@ -95,4 +114,11 @@ private struct DemoSettings: Codable, Equatable, Sendable {
 
 private struct DemoSecretToken: Codable, Equatable, Sendable, SensitiveStorageValue {
     let value: String
+}
+
+private struct UnifiedKeychainPayload: Codable {
+    let credentials: SynologyCredentials?
+    let sessionInfo: SynologySessionInfo?
+    let connectionInfo: SynologyConnectionInfo?
+    let deviceInfo: SynologyDeviceInfo?
 }
