@@ -28,11 +28,18 @@ public final class UserLoginFlowClient {
         loginFlow.login(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword)
     }
 
-    /// 使用 Keychain 中保存的凭据进行静默恢复登录
-    /// Resume login silently using credentials saved in Keychain
+    /// 使用 Keychain 中保存的凭据进行静默恢复登录（slice + fallback 到全量）
+    /// Resume login silently using credentials saved in Keychain (slice with full-login fallback)
     /// - Returns: AsyncStream 依次推送登录进度 / AsyncStream yielding login progress
     public func resume() -> AsyncStream<SynologyUserLoginProgress> {
         loginFlow.login()
+    }
+
+    /// 使用 Keychain 中保存的凭据强制执行全量登录（用于已知缓存 SID 失效的恢复路径）
+    /// Force full password re-login using credentials saved in Keychain
+    /// - Returns: AsyncStream 依次推送登录进度 / AsyncStream yielding login progress
+    public func relogin() -> AsyncStream<SynologyUserLoginProgress> {
+        loginFlow.relogin()
     }
 }
 
