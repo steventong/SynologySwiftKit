@@ -19,6 +19,13 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     
     private let unifiedAccount = "synology_secure_store"
 
+    /// 串行化所有 Keychain 访问：并发 SecItem* 调用会在 legacy keychain 层死锁，
+    /// 且 updateSecureStore 的读-改-写必须原子执行，否则并发更新会互相覆盖
+    /// Serializes all Keychain access: concurrent SecItem* calls can deadlock in the
+    /// legacy keychain layer, and updateSecureStore's read-modify-write must be atomic
+    /// or concurrent updates overwrite each other
+    private let lock = NSRecursiveLock()
+
     /// 初始化 Keychain 存储
     /// Initialize Keychain storage
     /// - Parameter service: 服务标识符 / Service identifier
@@ -156,6 +163,9 @@ extension KeyChainStorage {
     }
 
     private func updateSecureStore(_ mutate: (inout SecureStorePayload) -> Void) {
+        lock.lock()
+        defer { lock.unlock() }
+
         var store = secureStore()
         mutate(&store)
 
@@ -187,6 +197,9 @@ extension KeyChainStorage {
     /// Save raw Data to Keychain (delete existing value first)
     /// - Note: 使用 `kSecAttrAccessibleAfterFirstUnlock` 确保后台访问可用 / Uses `kSecAttrAccessibleAfterFirstUnlock` for background access
     private func save(account: String, rawData: Data) {
+        lock.lock()
+        defer { lock.unlock() }
+
         // delete data
         delete(account: account)
 
@@ -215,6 +228,9 @@ extension KeyChainStorage {
     /// 从 Keychain 读取原始 Data
     /// Read raw Data from Keychain
     private func readRaw(account: String) -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -235,6 +251,9 @@ extension KeyChainStorage {
     /// 从 Keychain 删除指定条目
     /// Delete a specific item from Keychain
     private func delete(account: String) {
+        lock.lock()
+        defer { lock.unlock() }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

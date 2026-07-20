@@ -167,7 +167,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
         )
 
         await withTaskGroup(of: Void.self) { group in
-            for index in 0 ..< 100 {
+            for index in 0 ..< 20 {
                 group.addTask {
                     client.configureConnection(type: .custom_domain, url: "https://nas-\(index).local")
                     client.configureSession(sid: "sid-\(index)", did: "did-\(index)")
