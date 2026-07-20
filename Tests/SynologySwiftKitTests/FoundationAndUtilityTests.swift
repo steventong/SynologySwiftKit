@@ -88,6 +88,23 @@ final class FoundationAndUtilityTests: XCTestCase {
         }
     }
 
+    func testSynologyApiErrorDecodesBothErrorsShapes() throws {
+        // 常规错误：errors 为子错误码数组 / Regular error: errors is an array of sub-codes
+        let arrayForm = Data(#"{"success":false,"error":{"code":1002,"errors":[1006]}}"#.utf8)
+        let arrayResponse = try JSONDecoder().decode(SynologyResponse<EmptyData>.self, from: arrayForm)
+        XCTAssertEqual(arrayResponse.error?.code, 1002)
+        XCTAssertEqual(arrayResponse.error?.errors, [1006])
+
+        // 2FA 错误：errors 为字典 {token, types} / 2FA error: errors is a dictionary {token, types}
+        let dictForm = Data(#"{"success":false,"error":{"code":403,"errors":{"token":"jwt","types":[{"type":"otp"}]}}}"#.utf8)
+        let dictResponse = try JSONDecoder().decode(SynologyResponse<EmptyData>.self, from: dictForm)
+        XCTAssertEqual(dictResponse.error?.code, 403)
+        XCTAssertEqual(dictResponse.error?.errors, [])
+        guard case .auth(403, _)? = dictResponse.error?.toSynologyError() else {
+            return XCTFail("Expected auth error for code 403")
+        }
+    }
+
     func testApiEndpointAndParametersBuilder() {
         let endpoint = ApiEndpoint(api: SynologyApi.AudioStation.SONG, method: "list", version: 3, httpMethod: .post) {
             ("limit", 10)
