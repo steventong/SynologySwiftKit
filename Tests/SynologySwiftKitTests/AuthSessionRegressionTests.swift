@@ -2,13 +2,16 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class AuthSessionRegressionTests: XCTestCase {
-    func testSilentLoginWithExpiredCachedSessionReturnsInvalidSession() async {
+    func testSilentLoginWithExpiredCachedSessionFallsBackToFullLogin() async {
         let apiClient = MockApiClient()
         apiClient.connection = (.custom_domain, "https://nas.local")
         apiClient.session = ("expired-sid", nil)
         apiClient.requestHandler = { endpoint in
             if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
                 throw SynologyError.sessionExpired(code: 105, message: "expired")
+            }
+            if endpoint.apiName == SynologyApi.Core.AUTH.name {
+                return AuthResult(did: nil, isPortalPort: false, sid: "new-sid", synotoken: nil)
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
@@ -47,10 +50,18 @@ final class AuthSessionRegressionTests: XCTestCase {
         guard case .authenticating = events[1] else {
             return XCTFail("Expected authenticating progress second")
         }
-        guard case let .invalidSession(message) = events[2] else {
-            return XCTFail("Expected invalidSession instead of completed")
+        guard case let .completed(result) = events[2] else {
+            return XCTFail("Expected completed after falling back to full login")
         }
-        XCTAssertEqual(message, "session expired")
+        XCTAssertEqual(result.session.sid, "new-sid")
+
+        // slice 校验确实发生过（缓存 SID 被验证并判定失效）
+        // slice validation did happen (cached SID was checked and found invalid)
+        XCTAssertTrue(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.AudioStation.INFO.name })
+        // 全量登录成功后会话被刷新
+        // session refreshed after successful full login
+        XCTAssertEqual(apiClient.session?.sid, "new-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
     }
 
     func testLogoutClearsLocalSessionState() async throws {
