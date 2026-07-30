@@ -191,7 +191,12 @@ final class AudioStationThinApiTests: XCTestCase {
             }
         }
 
-        let result = try await LyricsApi(apiClient: apiClient).save("New lyrics", forPath: path)
+        let coverPath = "/music/Artist/folder.jpg"
+        let result = try await LyricsApi(apiClient: apiClient).save(
+            "New lyrics",
+            forPath: path,
+            artwork: .imageFromFolder(path: coverPath)
+        )
 
         XCTAssertEqual(result.lyrics, "New lyrics")
         XCTAssertEqual(apiClient.requestedEndpoints.count, 2)
@@ -229,9 +234,69 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(request.track, String(file.track))
         XCTAssertEqual(request.disc, String(file.disc))
         XCTAssertEqual(request.year, String(file.year))
-        XCTAssertEqual(request.coverType, "original_image")
-        XCTAssertEqual(request.coverPath, "")
+        XCTAssertEqual(request.coverType, "image_from_folder")
+        XCTAssertEqual(request.coverPath, coverPath)
         XCTAssertEqual(request.codePage, "SYNO_NO_CODE_PAGE_CONVERT")
+    }
+
+    func testTagEditorApiSavesFolderArtworkWithoutOverwritingLyricsOrTags() async throws {
+        let songPath = "/music/Artist/Song.flac"
+        let coverPath = "/music/Artist/folder.jpg"
+        let file = TagEditorData(
+            album: "Album",
+            albumArtist: "Album Artist",
+            artist: "Artist",
+            comment: "Comment",
+            composer: "Composer",
+            disc: 1,
+            genre: "Pop",
+            path: songPath,
+            title: "Song",
+            track: 2,
+            year: 2026
+        )
+        let apiClient = MockApiClient()
+        apiClient.requestHandler = { endpoint in
+            switch endpoint.parameters["action"]?.stringValue {
+            case "load":
+                return TagEditorResult(
+                    success: true,
+                    readFailCount: 0,
+                    lyrics: "Existing lyrics",
+                    files: [file]
+                )
+            case "apply":
+                return TagEditorResult(
+                    success: true,
+                    readFailCount: 0,
+                    lyrics: "Existing lyrics",
+                    files: [file]
+                )
+            default:
+                throw SynologyError.network(message: "Unexpected action")
+            }
+        }
+
+        _ = try await TagEditorApi(apiClient: apiClient).saveArtwork(
+            .imageFromFolder(path: coverPath),
+            forPath: songPath
+        )
+
+        let applyData = try XCTUnwrap(apiClient.requestedEndpoints.last?.parameters["data"]?.stringValue)
+        let requests = try JSONDecoder().decode([TagEditorRequest].self, from: Data(applyData.utf8))
+        let request = try XCTUnwrap(requests.first)
+        XCTAssertEqual(request.lyrics, "Existing lyrics")
+        XCTAssertEqual(request.title, file.title)
+        XCTAssertEqual(request.artist, file.artist)
+        XCTAssertEqual(request.album, file.album)
+        XCTAssertEqual(request.albumArtist, file.albumArtist)
+        XCTAssertEqual(request.comment, file.comment)
+        XCTAssertEqual(request.coverType, "image_from_folder")
+        XCTAssertEqual(request.coverPath, coverPath)
+        XCTAssertEqual(
+            TagEditorArtwork.imageFromFolder(path: coverPath),
+            TagEditorArtwork(type: "image_from_folder", path: coverPath)
+        )
     }
 
     func testLyricsApiDoesNotApplyWhenOriginalTagsCannotBeLoaded() async {

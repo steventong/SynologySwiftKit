@@ -30,10 +30,10 @@ public struct TagEditorDocument: Sendable {
 
 /// 封面图片引用
 /// Artwork reference
-public struct TagEditorArtwork: Sendable {
-    /// 图片类型（如 "cover"）/ Image type (e.g. "cover")
+public struct TagEditorArtwork: Equatable, Sendable {
+    /// Audio Station 封面类型 / Audio Station artwork type
     public let type: String
-    /// 图片文件路径 / Image file path
+    /// NAS 上的图片文件路径 / Image file path on the NAS
     public let path: String
 
     public init(type: String, path: String) {
@@ -44,6 +44,13 @@ public struct TagEditorArtwork: Sendable {
     /// 保留文件中的原始封面
     /// Keep the original artwork embedded in the file
     public static let originalImage = TagEditorArtwork(type: "original_image", path: "")
+
+    /// 使用歌曲目录或 NAS 其他目录中的图片作为封面
+    /// Use an image from the song folder or another NAS folder as artwork
+    /// - Parameter path: NAS 上的图片绝对路径 / Absolute image path on the NAS
+    public static func imageFromFolder(path: String) -> TagEditorArtwork {
+        TagEditorArtwork(type: "image_from_folder", path: path)
+    }
 }
 
 // MARK: - TagEditorUpdate

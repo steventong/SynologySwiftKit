@@ -62,12 +62,34 @@ public final class TagEditorApi {
         )
     }
 
-    /// 仅更新指定文件的歌词，并保留其余标签和封面
-    /// Update only the lyrics for a file while preserving its other tags and artwork
-    func saveLyrics(_ lyrics: String, forPath path: String) async throws -> TagEditorDocument {
+    /// 更新指定文件的封面，并保留歌词和其他标签
+    /// Update artwork for a file while preserving its lyrics and other tags
+    /// - Parameters:
+    ///   - artwork: 要设置的封面来源 / Artwork source to set
+    ///   - path: Audio Station 中的歌曲绝对路径 / Absolute song path in Audio Station
+    /// - Returns: 标签编辑器的保存结果 / Tag editor save result
+    public func saveArtwork(_ artwork: TagEditorArtwork, forPath path: String) async throws -> TagEditorDocument {
+        try await saveContent(forPath: path, lyrics: nil, artwork: artwork)
+    }
+
+    /// 更新指定文件的歌词，并可同时更新封面
+    /// Update lyrics for a file and optionally update its artwork
+    func saveLyrics(
+        _ lyrics: String,
+        forPath path: String,
+        artwork: TagEditorArtwork
+    ) async throws -> TagEditorDocument {
+        try await saveContent(forPath: path, lyrics: lyrics, artwork: artwork)
+    }
+
+    private func saveContent(
+        forPath path: String,
+        lyrics: String?,
+        artwork: TagEditorArtwork
+    ) async throws -> TagEditorDocument {
         let document = try await load(path: path)
         guard document.readFailedFileCount == 0, let file = document.files.first else {
-            throw SynologyError.api(code: -1, message: "failed to load tags before saving lyrics")
+            throw SynologyError.api(code: -1, message: "failed to load tags before saving content")
         }
 
         return try await apply(update: TagEditorUpdate(
@@ -79,11 +101,11 @@ public final class TagEditorApi {
             composer: file.composer,
             genre: file.genre,
             comment: file.comment,
-            lyrics: lyrics,
+            lyrics: lyrics ?? document.lyrics ?? "",
             track: file.track,
             disc: file.disc,
             year: file.year,
-            artwork: .originalImage
+            artwork: artwork
         ))
     }
 }
