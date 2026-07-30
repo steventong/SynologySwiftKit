@@ -33,7 +33,7 @@ public struct TagEditorDocument: Sendable {
 public struct TagEditorArtwork: Equatable, Sendable {
     /// Audio Station 封面类型 / Audio Station artwork type
     public let type: String
-    /// NAS 上的图片文件路径 / Image file path on the NAS
+    /// NAS 图片路径或远程图片 URL / NAS image path or remote image URL
     public let path: String
 
     public init(type: String, path: String) {
@@ -50,6 +50,13 @@ public struct TagEditorArtwork: Equatable, Sendable {
     /// - Parameter path: NAS 上的图片绝对路径 / Absolute image path on the NAS
     public static func imageFromFolder(path: String) -> TagEditorArtwork {
         TagEditorArtwork(type: "image_from_folder", path: path)
+    }
+
+    /// 使用远程 HTTP(S) 图片作为封面，由 Audio Station 下载图片
+    /// Use a remote HTTP(S) image as artwork and let Audio Station download it
+    /// - Parameter url: 远程图片 URL / Remote image URL
+    public static func imageFromURL(url: URL) -> TagEditorArtwork {
+        TagEditorArtwork(type: "image_from_URL", path: url.absoluteString)
     }
 }
 

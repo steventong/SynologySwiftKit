@@ -191,11 +191,11 @@ final class AudioStationThinApiTests: XCTestCase {
             }
         }
 
-        let coverPath = "/music/Artist/folder.jpg"
+        let coverURL = try XCTUnwrap(URL(string: "http://dsdsda.com/dasdasd"))
         let result = try await LyricsApi(apiClient: apiClient).save(
             "New lyrics",
             forPath: path,
-            artwork: .imageFromFolder(path: coverPath)
+            artwork: .imageFromURL(url: coverURL)
         )
 
         XCTAssertEqual(result.lyrics, "New lyrics")
@@ -234,9 +234,13 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(request.track, String(file.track))
         XCTAssertEqual(request.disc, String(file.disc))
         XCTAssertEqual(request.year, String(file.year))
-        XCTAssertEqual(request.coverType, "image_from_folder")
-        XCTAssertEqual(request.coverPath, coverPath)
+        XCTAssertEqual(request.coverType, "image_from_URL")
+        XCTAssertEqual(request.coverPath, coverURL.absoluteString)
         XCTAssertEqual(request.codePage, "SYNO_NO_CODE_PAGE_CONVERT")
+        XCTAssertEqual(
+            TagEditorArtwork.imageFromURL(url: coverURL),
+            TagEditorArtwork(type: "image_from_URL", path: coverURL.absoluteString)
+        )
     }
 
     func testTagEditorApiSavesFolderArtworkWithoutOverwritingLyricsOrTags() async throws {
