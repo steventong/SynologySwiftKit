@@ -224,7 +224,7 @@ final class AudioStationThinApiTests: XCTestCase {
 
         let api = PinApi(apiClient: apiClient)
         let list = try await api.list()
-        let item = try await api.pinFolder(folderId: "folder_1", name: "Music")
+        let item = try await api.pinFolder(folderId: "folder_1", name: "Music").item
         let unpin = try await api.unpin(ids: ["pin_1"])
         let album = try await api.pinAlbum(album: "Album", albumArtist: "Artist")
         let artist = try await api.pinArtist(artist: "Artist")
@@ -232,16 +232,16 @@ final class AudioStationThinApiTests: XCTestCase {
         let genre = try await api.pinGenre(genre: "Genre")
 
         XCTAssertEqual(list.total, 1)
-        XCTAssertEqual(item.id, "pin_1")
+        XCTAssertEqual(item?.id, "pin_1")
         XCTAssertEqual(unpin.removedIDs, ["pin_1"])
         XCTAssertTrue(unpin.removedAll)
-        XCTAssertEqual(album.type, .folder)
-        XCTAssertEqual(artist.id, "pin_1")
-        XCTAssertEqual(composer.id, "pin_1")
-        XCTAssertEqual(genre.id, "pin_1")
+        XCTAssertEqual(album.item?.type, .folder)
+        XCTAssertEqual(artist.item?.id, "pin_1")
+        XCTAssertEqual(composer.item?.id, "pin_1")
+        XCTAssertEqual(genre.item?.id, "pin_1")
     }
 
-    func testPinApiMapsAlreadyPinnedToIdempotentError() async {
+    func testPinApiReturnsAlreadyExistsAsIdempotentSuccess() async throws {
         let apiClient = MockApiClient()
         apiClient.mockResponse = SynologyResponse<PinOperationResult>(
             success: false,
@@ -249,14 +249,13 @@ final class AudioStationThinApiTests: XCTestCase {
             data: nil
         )
 
-        do {
-            _ = try await PinApi(apiClient: apiClient).pin(type: .folder, name: "Music", criteria: .folder("folder_1"))
-            XCTFail("Expected already pinned error")
-        } catch let SynologyError.api(code, message) {
-            XCTAssertEqual(code, 0)
-            XCTAssertEqual(message, "pin already exists")
-        } catch {
-            XCTFail("Unexpected error \(error)")
+        let result = try await PinApi(apiClient: apiClient).pin(
+            type: .folder,
+            name: "Music",
+            criteria: .folder("folder_1")
+        )
+        guard case .alreadyExists = result else {
+            return XCTFail("Expected alreadyExists result")
         }
     }
 }

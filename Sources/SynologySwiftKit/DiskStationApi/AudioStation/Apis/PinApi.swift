@@ -32,8 +32,7 @@ public final class PinApi {
 
     /// 固定项目（通用方法）
     /// Pin an item
-    /// - Throws: SynologyError.api(.idempotentSuccess) when item already pinned
-    public func pin(type: PinType, name: String, criteria: PinCriteria) async throws -> PinItem {
+    public func pin(type: PinType, name: String, criteria: PinCriteria) async throws -> PinCreationResult {
         let itemsString = try ApiParameterValue.jsonEncoded([PinRequestItem(type: type, criteria: criteria, name: name)]).stringValue
 
         let api = ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "pin", httpMethod: .post) {
@@ -45,13 +44,13 @@ public final class PinApi {
             guard let result = response.data, let pinItem = result.items.first else {
                 throw SynologyError.api(code: -1, message: "pin failed")
             }
-            return pinItem
+            return .created(pinItem)
         }
 
         if let error = response.error {
             // Pin API: 1002 + 1006 means "already pinned", treat as idempotent success.
             if error.code == 1002, error.errors.contains(1006) {
-                throw SynologyError.api(code: 0, message: "pin already exists")
+                return .alreadyExists
             }
             throw error.toSynologyError()
         }
@@ -78,27 +77,27 @@ public final class PinApi {
 
 extension PinApi {
     /// 固定文件夹
-    public func pinFolder(folderId: String, name: String) async throws -> PinItem {
+    public func pinFolder(folderId: String, name: String) async throws -> PinCreationResult {
         try await pin(type: .folder, name: name, criteria: .folder(folderId))
     }
 
     /// 固定专辑
-    public func pinAlbum(album: String, albumArtist: String = "") async throws -> PinItem {
+    public func pinAlbum(album: String, albumArtist: String = "") async throws -> PinCreationResult {
         try await pin(type: .album, name: album, criteria: .album(album, albumArtist: albumArtist))
     }
 
     /// 固定艺术家
-    public func pinArtist(artist: String) async throws -> PinItem {
+    public func pinArtist(artist: String) async throws -> PinCreationResult {
         try await pin(type: .artist, name: artist, criteria: .artist(artist))
     }
 
     /// 固定作曲家
-    public func pinComposer(composer: String) async throws -> PinItem {
+    public func pinComposer(composer: String) async throws -> PinCreationResult {
         try await pin(type: .composer, name: composer, criteria: .composer(composer))
     }
 
     /// 固定流派
-    public func pinGenre(genre: String) async throws -> PinItem {
+    public func pinGenre(genre: String) async throws -> PinCreationResult {
         try await pin(type: .genre, name: genre, criteria: .genre(genre))
     }
 }

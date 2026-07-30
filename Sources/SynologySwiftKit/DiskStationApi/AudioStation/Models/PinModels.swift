@@ -84,6 +84,21 @@ public struct PinItem: Codable, Sendable {
     public let criteria: PinCriteria
 }
 
+/// 固定操作结果。
+///
+/// 重复固定表示目标状态已经满足，是正常的幂等结果而不是错误。
+public enum PinCreationResult: Sendable {
+    case created(PinItem)
+    case alreadyExists
+
+    public var item: PinItem? {
+        guard case let .created(item) = self else {
+            return nil
+        }
+        return item
+    }
+}
+
 public struct PinRemovalResult: Sendable {
     public let removedIDs: [String]
     public let failures: [UnpinError]
