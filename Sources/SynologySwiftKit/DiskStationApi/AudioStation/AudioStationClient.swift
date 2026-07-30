@@ -70,7 +70,10 @@ public final class AudioStationClient {
     public lazy var covers = CoverApi(urlBuilder: apiClient)
 
     /// 流媒体 API
-    public lazy var stream = StreamApi(urlBuilder: apiClient)
+    public lazy var stream = StreamApi(
+        urlBuilder: apiClient,
+        transcodeCapabilityProvider: info
+    )
 
     /// 信息 API
     public lazy var info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)

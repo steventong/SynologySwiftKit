@@ -31,7 +31,7 @@ final class StorageAndModelTests: XCTestCase {
         XCTAssertEqual(song.rating?.rating, 5)
         XCTAssertEqual(song.tag?.album, "Album")
         XCTAssertEqual(SongStreamQuality.HIGH.format, "mp3")
-        XCTAssertEqual(SongStreamQuality.MEDIUM.bitrate, 256000)
+        XCTAssertEqual(SongStreamQuality.MEDIUM.bitrate, 192000)
         XCTAssertNil(SongStreamQuality.ORIGINAL.bitrate)
 
         let playlist = makePlaylist(song: song)

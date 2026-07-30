@@ -163,7 +163,7 @@ public enum SongStreamQuality: String, Sendable {
         case .HIGH:
             320000
         case .MEDIUM:
-            256000
+            192000
         case .LOW:
             128000
         case .ORIGINAL:
