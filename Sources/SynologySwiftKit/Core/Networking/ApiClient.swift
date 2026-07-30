@@ -15,18 +15,11 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - internal State
 
-    private let state = ApiClientState()
+    private let state: ApiClientState
     private let executor: ApiRequestExecutor
     private let envelopeDecoder = SynologyEnvelopeDecoder()
-
-    private lazy var endpointResolver = ApiEndpointResolver(
-        apiInfoProvider: { [weak state] in state?.apiInfoProvider }
-    )
-
-    private lazy var requestFactory = ApiRequestFactory(
-        connectionProvider: { [weak state] in state?.connection },
-        sessionProvider: { [weak state] in state?.session }
-    )
+    private let endpointResolver: ApiEndpointResolver
+    private let requestFactory: ApiRequestFactory
 
     /// API 信息提供者（延迟设置以解决循环依赖）
     /// API info provider (lazy set to resolve circular dependency)
@@ -53,6 +46,15 @@ final class ApiClient: ApiClientProviding {
     /// Initialize API client
     /// - Parameter httpClientFactory: HTTP client factory
     init(httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory) {
+        let state = ApiClientState()
+        self.state = state
+        endpointResolver = ApiEndpointResolver(
+            apiInfoProvider: { [weak state] in state?.apiInfoProvider }
+        )
+        requestFactory = ApiRequestFactory(
+            connectionProvider: { [weak state] in state?.connection },
+            sessionProvider: { [weak state] in state?.session }
+        )
         executor = ApiRequestExecutor(
             httpClientFactory: httpClientFactory,
             interceptorsProvider: { [weak state] in

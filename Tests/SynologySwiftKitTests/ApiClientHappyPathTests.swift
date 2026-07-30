@@ -97,4 +97,46 @@ final class ApiClientHappyPathTests: XCTestCase {
         XCTAssertEqual(url.absoluteString.contains("//webapi"), false)
         XCTAssertEqual(url.path, "/dsm/webapi/AudioStation/cover.cgi")
     }
+
+    func testConcurrentFirstBuildUrlAccessIsSafe() async throws {
+        let client = ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
+        client.apiInfoProvider = TestApiInfoProvider(
+            nodes: [
+                SynologyApi.AudioStation.COVER.name: ApiInfoNode(
+                    path: "AudioStation/cover.cgi",
+                    minVersion: 1,
+                    maxVersion: 3,
+                    requestFormat: nil
+                ),
+            ]
+        )
+        client.updateConnection(type: .custom_domain, url: "https://nas.local")
+        client.updateSession(sid: "sid-concurrent", did: nil)
+
+        let urls = try await withThrowingTaskGroup(of: URL.self) { group in
+            for index in 0 ..< 128 {
+                group.addTask {
+                    try await client.buildUrl(
+                        ApiEndpoint(
+                            api: SynologyApi.AudioStation.COVER,
+                            method: "getsongcover",
+                            version: 1
+                        ) {
+                            ("id", "music_\(index)")
+                        }
+                    )
+                }
+            }
+
+            var results: [URL] = []
+            for try await url in group {
+                results.append(url)
+            }
+            return results
+        }
+
+        XCTAssertEqual(urls.count, 128)
+        XCTAssertTrue(urls.allSatisfy { $0.host == "nas.local" })
+        XCTAssertTrue(urls.allSatisfy { $0.path == "/webapi/AudioStation/cover.cgi" })
+    }
 }
