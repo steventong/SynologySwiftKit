@@ -154,6 +154,108 @@ final class AudioStationThinApiTests: XCTestCase {
         }
     }
 
+    func testLyricsApiSavesLyricsWithoutOverwritingExistingTags() async throws {
+        let path = #"/music/Artist/"Quoted" \ Song.flac"#
+        let file = TagEditorData(
+            album: "Album",
+            albumArtist: "Album Artist",
+            artist: "Artist",
+            comment: "Keep this comment",
+            composer: "Composer",
+            disc: 2,
+            genre: "Pop",
+            path: path,
+            title: "Track",
+            track: 3,
+            year: 2026
+        )
+        let apiClient = MockApiClient()
+        apiClient.requestHandler = { endpoint in
+            switch endpoint.parameters["action"]?.stringValue {
+            case "load":
+                return TagEditorResult(
+                    success: true,
+                    readFailCount: 0,
+                    lyrics: "Old lyrics",
+                    files: [file]
+                )
+            case "apply":
+                return TagEditorResult(
+                    success: true,
+                    readFailCount: 0,
+                    lyrics: "New lyrics",
+                    files: [file]
+                )
+            default:
+                throw SynologyError.network(message: "Unexpected action")
+            }
+        }
+
+        let result = try await LyricsApi(apiClient: apiClient).save("New lyrics", forPath: path)
+
+        XCTAssertEqual(result.lyrics, "New lyrics")
+        XCTAssertEqual(apiClient.requestedEndpoints.count, 2)
+
+        let loadAudioInfos = try XCTUnwrap(apiClient.requestedEndpoints[0].parameters["audioInfos"]?.stringValue)
+        let loadJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(loadAudioInfos.utf8)) as? [[String: String]]
+        )
+        XCTAssertEqual(loadJSON, [["path": path]])
+
+        let applyData = try XCTUnwrap(apiClient.requestedEndpoints[1].parameters["data"]?.stringValue)
+        let requests = try JSONDecoder().decode([TagEditorRequest].self, from: Data(applyData.utf8))
+        let request = try XCTUnwrap(requests.first)
+        let audioInfo = try XCTUnwrap(request.audioInfos.first)
+        XCTAssertEqual(request.audioInfos.count, 1)
+        XCTAssertEqual(audioInfo.path, file.path)
+        XCTAssertEqual(audioInfo.title, file.title)
+        XCTAssertEqual(audioInfo.artist, file.artist)
+        XCTAssertEqual(audioInfo.album, file.album)
+        XCTAssertEqual(audioInfo.albumArtist, file.albumArtist)
+        XCTAssertEqual(audioInfo.comment, file.comment)
+        XCTAssertEqual(audioInfo.composer, file.composer)
+        XCTAssertEqual(audioInfo.genre, file.genre)
+        XCTAssertEqual(audioInfo.track, file.track)
+        XCTAssertEqual(audioInfo.disc, file.disc)
+        XCTAssertEqual(audioInfo.year, file.year)
+        XCTAssertEqual(request.lyrics, "New lyrics")
+        XCTAssertEqual(request.title, file.title)
+        XCTAssertEqual(request.artist, file.artist)
+        XCTAssertEqual(request.album, file.album)
+        XCTAssertEqual(request.albumArtist, file.albumArtist)
+        XCTAssertEqual(request.comment, file.comment)
+        XCTAssertEqual(request.composer, file.composer)
+        XCTAssertEqual(request.genre, file.genre)
+        XCTAssertEqual(request.track, String(file.track))
+        XCTAssertEqual(request.disc, String(file.disc))
+        XCTAssertEqual(request.year, String(file.year))
+        XCTAssertEqual(request.coverType, "original_image")
+        XCTAssertEqual(request.coverPath, "")
+        XCTAssertEqual(request.codePage, "SYNO_NO_CODE_PAGE_CONVERT")
+    }
+
+    func testLyricsApiDoesNotApplyWhenOriginalTagsCannotBeLoaded() async {
+        let apiClient = MockApiClient()
+        apiClient.mockResponse = TagEditorResult(
+            success: true,
+            readFailCount: 1,
+            lyrics: nil,
+            files: []
+        )
+
+        do {
+            _ = try await LyricsApi(apiClient: apiClient).save("Lyrics", forPath: "/music/file.mp3")
+            XCTFail("Expected missing original tags to throw")
+        } catch let SynologyError.api(code, _) {
+            XCTAssertEqual(code, -1)
+        } catch {
+            XCTFail("Unexpected error \(error)")
+        }
+
+        XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        XCTAssertEqual(apiClient.requestedEndpoints.first?.parameters["action"]?.stringValue, "load")
+    }
+
     func testTagEditorApiLoadAndApply() async throws {
         let apiClient = MockApiClient()
         apiClient.requestHandler = { endpoint in

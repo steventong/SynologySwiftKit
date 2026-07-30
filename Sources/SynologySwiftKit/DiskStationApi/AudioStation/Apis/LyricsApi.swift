@@ -12,8 +12,8 @@ import Foundation
 /// 歌词 API 客户端
 /// Lyrics API client
 ///
-/// 封装 `SYNO.AudioStation.Lyrics` 和 `SYNO.AudioStation.Lyrics.Search` 接口。
-/// Wraps `SYNO.AudioStation.Lyrics` and `SYNO.AudioStation.Lyrics.Search`.
+/// 封装歌词读取、搜索与写入能力。
+/// Wraps lyrics retrieval, search, and persistence.
 public final class LyricsApi {
     private let apiClient: ApiRequestSending
 
@@ -35,6 +35,24 @@ public final class LyricsApi {
             throw SynologyError.api(code: 404, message: "lyrics not found")
         }
         return lyrics.lyrics
+    }
+
+    /// 保存歌曲歌词
+    /// Save lyrics for a song
+    ///
+    /// Audio Station 的标签编辑端点要求提交完整标签。本方法会先读取原始标签，
+    /// 再仅替换歌词字段，避免覆盖标题、艺人、专辑、注释或封面。
+    /// Audio Station's tag editor requires the complete tag payload. This method
+    /// first loads the current tags and then replaces only the lyrics field.
+    ///
+    /// 传入空字符串可清除歌词。
+    /// Pass an empty string to remove the lyrics.
+    /// - Parameters:
+    ///   - lyrics: 要保存的歌词文本 / Lyrics text to save
+    ///   - path: Audio Station 中的歌曲绝对路径 / Absolute song path in Audio Station
+    /// - Returns: 标签编辑器的保存结果 / Tag editor save result
+    public func save(_ lyrics: String, forPath path: String) async throws -> TagEditorDocument {
+        try await TagEditorApi(apiClient: apiClient).saveLyrics(lyrics, forPath: path)
     }
 
     /// 搜索歌词

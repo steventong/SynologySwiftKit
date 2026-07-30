@@ -40,6 +40,10 @@ public struct TagEditorArtwork: Sendable {
         self.type = type
         self.path = path
     }
+
+    /// 保留文件中的原始封面
+    /// Keep the original artwork embedded in the file
+    public static let originalImage = TagEditorArtwork(type: "original_image", path: "")
 }
 
 // MARK: - TagEditorUpdate
@@ -62,7 +66,7 @@ public struct TagEditorUpdate: Sendable {
     public let year: Int?
     /// 封面图片（可选）/ Artwork (optional)
     public let artwork: TagEditorArtwork?
-    /// 字符编码（默认 utf-8）/ Character encoding (default: utf-8)
+    /// 字符编码（默认不转换）/ Character encoding (no conversion by default)
     public let codePage: String
 
     public init(
@@ -79,7 +83,7 @@ public struct TagEditorUpdate: Sendable {
         disc: Int? = nil,
         year: Int? = nil,
         artwork: TagEditorArtwork? = nil,
-        codePage: String = "utf-8"
+        codePage: String = "SYNO_NO_CODE_PAGE_CONVERT"
     ) {
         self.files = files
         self.title = title
@@ -151,7 +155,7 @@ struct TagEditorRequest: Codable, Sendable {
     init(update: TagEditorUpdate) {
         audioInfos = update.files
         lyrics = update.lyrics
-        coverType = update.artwork?.type ?? ""
+        coverType = update.artwork?.type ?? TagEditorArtwork.originalImage.type
         coverPath = update.artwork?.path ?? ""
         title = update.title
         artist = update.artist
@@ -165,6 +169,10 @@ struct TagEditorRequest: Codable, Sendable {
         composer = update.composer
         codePage = update.codePage
     }
+}
+
+struct TagEditorFileReference: Encodable, Sendable {
+    let path: String
 }
 
 // MARK: - TagEditorData

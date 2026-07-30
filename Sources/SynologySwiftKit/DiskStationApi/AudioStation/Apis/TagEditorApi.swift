@@ -20,10 +20,13 @@ public final class TagEditorApi {
     /// Load tag information
     /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
     public func load(path: String) async throws -> TagEditorDocument {
+        let audioInfos = try ApiParameterValue.jsonEncoded([
+            TagEditorFileReference(path: path)
+        ])
         let api = ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
             ("action", "load")
             ("requestFrom", "")
-            ("audioInfos", "[{\"path\":\"\(path)\"}]")
+            ("audioInfos", audioInfos)
         }
         let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
@@ -40,10 +43,13 @@ public final class TagEditorApi {
     /// Apply tag changes
     /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
     public func apply(update: TagEditorUpdate) async throws -> TagEditorDocument {
+        let data = try ApiParameterValue.jsonEncoded([
+            TagEditorRequest(update: update)
+        ])
         let api = ApiEndpoint(api: SynologyApi.AudioStation.TAG_EDITOR_UI, fullPath: Self.TAG_EDITOR_URL, httpMethod: .post) {
             ("action", "apply")
             ("requestFrom", "")
-            ("data", JsonUtils.toJson(codable: [TagEditorRequest(update: update)]) ?? "")
+            ("data", data)
         }
         let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
@@ -54,5 +60,30 @@ public final class TagEditorApi {
             files: result.files,
             readFailedFileCount: result.readFailCount
         )
+    }
+
+    /// 仅更新指定文件的歌词，并保留其余标签和封面
+    /// Update only the lyrics for a file while preserving its other tags and artwork
+    func saveLyrics(_ lyrics: String, forPath path: String) async throws -> TagEditorDocument {
+        let document = try await load(path: path)
+        guard document.readFailedFileCount == 0, let file = document.files.first else {
+            throw SynologyError.api(code: -1, message: "failed to load tags before saving lyrics")
+        }
+
+        return try await apply(update: TagEditorUpdate(
+            files: [file],
+            title: file.title,
+            artist: file.artist,
+            album: file.album,
+            albumArtist: file.albumArtist,
+            composer: file.composer,
+            genre: file.genre,
+            comment: file.comment,
+            lyrics: lyrics,
+            track: file.track,
+            disc: file.disc,
+            year: file.year,
+            artwork: .originalImage
+        ))
     }
 }
