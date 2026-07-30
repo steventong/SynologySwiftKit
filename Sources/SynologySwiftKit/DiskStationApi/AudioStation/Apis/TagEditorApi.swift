@@ -72,20 +72,16 @@ public final class TagEditorApi {
         try await saveContent(forPath: path, lyrics: nil, artwork: artwork)
     }
 
-    /// 更新指定文件的歌词，并可同时更新封面
-    /// Update lyrics for a file and optionally update its artwork
-    func saveLyrics(
-        _ lyrics: String,
-        forPath path: String,
-        artwork: TagEditorArtwork
-    ) async throws -> TagEditorDocument {
-        try await saveContent(forPath: path, lyrics: lyrics, artwork: artwork)
+    /// 更新指定文件的歌词，不修改封面
+    /// Update lyrics for a file without modifying its artwork
+    func saveLyrics(_ lyrics: String, forPath path: String) async throws -> TagEditorDocument {
+        try await saveContent(forPath: path, lyrics: lyrics, artwork: nil)
     }
 
     private func saveContent(
         forPath path: String,
         lyrics: String?,
-        artwork: TagEditorArtwork
+        artwork: TagEditorArtwork?
     ) async throws -> TagEditorDocument {
         let document = try await load(path: path)
         guard document.readFailedFileCount == 0, let file = document.files.first else {

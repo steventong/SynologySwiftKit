@@ -41,27 +41,19 @@ public final class LyricsApi {
     /// Save lyrics for a song
     ///
     /// Audio Station 的标签编辑端点要求提交完整标签。本方法会先读取原始标签，
-    /// 再仅替换歌词字段，避免覆盖标题、艺人、专辑或注释。
+    /// 再仅替换歌词字段；封面字段保持未设置，不会修改歌曲封面。
     /// Audio Station's tag editor requires the complete tag payload. This method
-    /// first loads the current tags and then replaces only the lyrics field.
+    /// first loads the current tags and then replaces only the lyrics field,
+    /// leaving artwork unchanged.
     ///
     /// 传入空字符串可清除歌词。
     /// Pass an empty string to remove the lyrics.
     /// - Parameters:
     ///   - lyrics: 要保存的歌词文本 / Lyrics text to save
     ///   - path: Audio Station 中的歌曲绝对路径 / Absolute song path in Audio Station
-    ///   - artwork: 要保留或设置的封面来源 / Artwork source to keep or set
     /// - Returns: 标签编辑器的保存结果 / Tag editor save result
-    public func save(
-        _ lyrics: String,
-        forPath path: String,
-        artwork: TagEditorArtwork = .originalImage
-    ) async throws -> TagEditorDocument {
-        try await TagEditorApi(apiClient: apiClient).saveLyrics(
-            lyrics,
-            forPath: path,
-            artwork: artwork
-        )
+    public func save(_ lyrics: String, forPath path: String) async throws -> TagEditorDocument {
+        try await TagEditorApi(apiClient: apiClient).saveLyrics(lyrics, forPath: path)
     }
 
     /// 搜索歌词

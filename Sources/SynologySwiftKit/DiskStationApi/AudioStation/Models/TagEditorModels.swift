@@ -169,7 +169,7 @@ struct TagEditorRequest: Codable, Sendable {
     init(update: TagEditorUpdate) {
         audioInfos = update.files
         lyrics = update.lyrics
-        coverType = update.artwork?.type ?? TagEditorArtwork.originalImage.type
+        coverType = update.artwork?.type ?? ""
         coverPath = update.artwork?.path ?? ""
         title = update.title
         artist = update.artist

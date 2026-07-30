@@ -191,12 +191,7 @@ final class AudioStationThinApiTests: XCTestCase {
             }
         }
 
-        let coverURL = try XCTUnwrap(URL(string: "http://dsdsda.com/dasdasd"))
-        let result = try await LyricsApi(apiClient: apiClient).save(
-            "New lyrics",
-            forPath: path,
-            artwork: .imageFromURL(url: coverURL)
-        )
+        let result = try await LyricsApi(apiClient: apiClient).save("New lyrics", forPath: path)
 
         XCTAssertEqual(result.lyrics, "New lyrics")
         XCTAssertEqual(apiClient.requestedEndpoints.count, 2)
@@ -234,18 +229,14 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(request.track, String(file.track))
         XCTAssertEqual(request.disc, String(file.disc))
         XCTAssertEqual(request.year, String(file.year))
-        XCTAssertEqual(request.coverType, "image_from_URL")
-        XCTAssertEqual(request.coverPath, coverURL.absoluteString)
+        XCTAssertEqual(request.coverType, "")
+        XCTAssertEqual(request.coverPath, "")
         XCTAssertEqual(request.codePage, "SYNO_NO_CODE_PAGE_CONVERT")
-        XCTAssertEqual(
-            TagEditorArtwork.imageFromURL(url: coverURL),
-            TagEditorArtwork(type: "image_from_URL", path: coverURL.absoluteString)
-        )
     }
 
-    func testTagEditorApiSavesFolderArtworkWithoutOverwritingLyricsOrTags() async throws {
+    func testTagEditorApiSavesRemoteArtworkWithoutOverwritingLyricsOrTags() async throws {
         let songPath = "/music/Artist/Song.flac"
-        let coverPath = "/music/Artist/folder.jpg"
+        let coverURL = try XCTUnwrap(URL(string: "https://example.com/cover.jpg"))
         let file = TagEditorData(
             album: "Album",
             albumArtist: "Album Artist",
@@ -282,7 +273,7 @@ final class AudioStationThinApiTests: XCTestCase {
         }
 
         _ = try await TagEditorApi(apiClient: apiClient).saveArtwork(
-            .imageFromFolder(path: coverPath),
+            .imageFromURL(url: coverURL),
             forPath: songPath
         )
 
@@ -295,11 +286,11 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(request.album, file.album)
         XCTAssertEqual(request.albumArtist, file.albumArtist)
         XCTAssertEqual(request.comment, file.comment)
-        XCTAssertEqual(request.coverType, "image_from_folder")
-        XCTAssertEqual(request.coverPath, coverPath)
+        XCTAssertEqual(request.coverType, "image_from_URL")
+        XCTAssertEqual(request.coverPath, coverURL.absoluteString)
         XCTAssertEqual(
-            TagEditorArtwork.imageFromFolder(path: coverPath),
-            TagEditorArtwork(type: "image_from_folder", path: coverPath)
+            TagEditorArtwork.imageFromURL(url: coverURL),
+            TagEditorArtwork(type: "image_from_URL", path: coverURL.absoluteString)
         )
     }
 
