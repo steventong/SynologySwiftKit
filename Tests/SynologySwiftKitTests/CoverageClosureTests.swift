@@ -199,6 +199,10 @@ final class CoverageClosureTests: XCTestCase {
             XCTAssertEqual(endpoint.parameters["passwd"]?.stringValue, "secret")
             XCTAssertEqual(endpoint.parameters["enable_device_token"]?.stringValue, "yes")
             XCTAssertEqual(endpoint.parameters["otp_code"]?.stringValue, "123456")
+            XCTAssertNotNil(Int(endpoint.parameters["client_time"]?.stringValue ?? ""))
+            XCTAssertNil(endpoint.parameters["enable_syno_token"])
+            XCTAssertNil(endpoint.parameters["device_id"])
+            XCTAssertNil(endpoint.parameters["device_name"])
             return AuthResult(did: "device-1", isPortalPort: false, sid: "sid-1", synotoken: nil)
         }
 
@@ -206,6 +210,19 @@ final class CoverageClosureTests: XCTestCase {
         let result = try await api.login(username: "tester", password: "secret", otpCode: "123456")
         XCTAssertEqual(result.sid, "sid-1")
         XCTAssertEqual(keychain.getDeviceInfo()?.0, "device-1")
+
+        let trustedDeviceClient = MockApiClient()
+        trustedDeviceClient.requestHandler = { endpoint in
+            XCTAssertNil(endpoint.parameters["otp_code"])
+            XCTAssertNil(endpoint.parameters["enable_device_token"])
+            XCTAssertEqual(endpoint.parameters["device_id"]?.stringValue, "device-1")
+            XCTAssertEqual(endpoint.parameters["device_name"]?.stringValue, "Apple Device - DS Music")
+            return AuthResult(did: nil, isPortalPort: false, sid: "sid-2", synotoken: nil)
+        }
+        _ = try await AuthClient(
+            apiClient: trustedDeviceClient,
+            keyChainStorage: keychain
+        ).login(username: "tester", password: "secret", otpCode: "  ")
 
         let sessionExpiredClient = MockApiClient()
         sessionExpiredClient.mockError = SynologyError.sessionExpired(code: 403, message: "otp")

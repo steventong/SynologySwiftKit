@@ -40,25 +40,33 @@ public final class AuthClient {
     ///   - `SynologyError.auth`: 登录失败 / Login failed
     ///   - `SynologyError.authError`: API 错误码映射 / API error code mapping
     public func login(username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
-        let deviceIdAndName = keyChainStorage.getDeviceInfo() ?? ("", UUID().uuidString)
+        let deviceInfo = keyChainStorage.getDeviceInfo()
+        let normalizedOTPCode = otpCode?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .nilIfEmpty
+        let deviceName = deviceInfo?.1 ?? "Apple Device - DS Music"
 
         do {
             let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post, timeout: 10) {
                 ("account", username)
                 ("passwd", password)
                 ("format", "cookie")
-                ("otp_code", otpCode ?? "")
-                ("enable_syno_token", "no")
-                ("enable_device_token", otpCode != nil ? "yes" : "no")
-                ("device_id", deviceIdAndName.0)
-                ("device_name", deviceIdAndName.1)
                 ("session", "AudioStation")
+                ("client_time", String(Int(Date().timeIntervalSince1970)))
+                if let normalizedOTPCode {
+                    ("otp_code", normalizedOTPCode)
+                    ("enable_device_token", "yes")
+                }
+                if let deviceInfo, !deviceInfo.0.isEmpty {
+                    ("device_id", deviceInfo.0)
+                    ("device_name", deviceInfo.1)
+                }
             }
             let authResult: AuthResult = try await apiClient.request(api)
 
             // save device id and name
             if let did = authResult.did, !did.isEmpty {
-                keyChainStorage.saveDeviceInfo(did, deviceIdAndName.1)
+                keyChainStorage.saveDeviceInfo(did, deviceName)
             }
 
             return handleAuthResult(authResult: authResult)
@@ -86,6 +94,12 @@ public final class AuthClient {
     /// Read saved login credentials
     public func getCredentials() -> SynologyCredentials? {
         keyChainStorage.getCredentials()
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
     }
 }
 
