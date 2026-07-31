@@ -3,8 +3,10 @@
 "DENIED_PERMISSION" = "权限被拒绝";
 "AUTHENTICATION_CODE_REQUIRED" = "需要输入二步验证码";
 "AUTHENTICATION_CODE_FAILED" = "二步验证码校验失败";
+"PORTAL_PORT_INVALID" = "不允许通过此门户端口登录";
 "ENFORCE_AUTHENTICATION_WITH_CODE" = "已启用并强制二步验证";
 "BLOCKED_IP_SOURCE" = "来源 IP 已被封锁";
 "EXPIRED_PASSWORD_CANNOT_CHANGE" = "密码已过期且不可修改";
 "EXPIRED_PASSWORD" = "密码已过期";
 "PASSWORD_MUST_BE_CHANGED" = "必须先修改密码后才能登录";
+"ACCOUNT_LOCKED" = "账号已被锁定";

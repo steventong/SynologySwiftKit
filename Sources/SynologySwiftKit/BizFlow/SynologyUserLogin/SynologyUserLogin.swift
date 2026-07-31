@@ -272,12 +272,12 @@ private extension SynologyUserLogin {
 
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
-        } catch let SynologyError.auth(code, msg) where code == 403 {
+        } catch let SynologyError.auth(code, msg) where code == 403 || code == 404 {
             rollbackConnection(to: previousConnection)
             rollbackSession(to: previousSession)
-            // 需要 OTP 验证码（不算失败，需要用户输入）
-            // OTP required (not a failure, user input needed)
-            Logger.info("SynologyUserLogin#performPasswordLogin, OTP required, message: \(msg)")
+            // 需要或需重新输入 OTP 验证码（不算终止失败，需要用户输入）
+            // OTP required or invalid (not a terminal failure; prompt the user again)
+            Logger.info("SynologyUserLogin#performPasswordLogin, OTP input required, code=\(code), message: \(msg)")
             continuation.yield(.otpRequired)
             continuation.finish()
         } catch let SynologyError.sessionExpired(code, msg) {

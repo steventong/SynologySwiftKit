@@ -243,7 +243,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
         apiClient.requestHandler = { endpoint in
             if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                throw SynologyError.sessionExpired(code: 105, message: "expired")
+                throw SynologyError.sessionExpired(code: 106, message: "expired")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }

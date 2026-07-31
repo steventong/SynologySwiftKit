@@ -3,8 +3,10 @@
 "DENIED_PERMISSION" = "權限被拒絕";
 "AUTHENTICATION_CODE_REQUIRED" = "需要輸入二步驟驗證碼";
 "AUTHENTICATION_CODE_FAILED" = "二步驟驗證碼校驗失敗";
+"PORTAL_PORT_INVALID" = "不允許透過此入口網站連接埠登入";
 "ENFORCE_AUTHENTICATION_WITH_CODE" = "已啟用並強制二步驟驗證";
 "BLOCKED_IP_SOURCE" = "來源 IP 已被封鎖";
 "EXPIRED_PASSWORD_CANNOT_CHANGE" = "密碼已過期且不可修改";
 "EXPIRED_PASSWORD" = "密碼已過期";
 "PASSWORD_MUST_BE_CHANGED" = "必須先修改密碼後才能登入";
+"ACCOUNT_LOCKED" = "帳號已被鎖定";

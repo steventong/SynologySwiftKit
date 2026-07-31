@@ -362,6 +362,26 @@ final class CoverageClosureTests: XCTestCase {
         }
         XCTAssertNil(otpKeychain.getCredentials())
 
+        otpClient.requestHandler = { endpoint in
+            if endpoint.apiName == SynologyApi.Core.AUTH.name {
+                throw SynologyError.auth(code: 404, message: "otp invalid")
+            }
+            throw SynologyError.network(message: "Unexpected endpoint")
+        }
+        var invalidOTPEvents: [SynologyUserLoginProgress] = []
+        for await progress in otpLogin.login(
+            server: "nas.local",
+            usesHTTPS: true,
+            username: "tester",
+            password: "secret",
+            otpCode: "000000"
+        ) {
+            invalidOTPEvents.append(progress)
+        }
+        guard case .otpRequired? = invalidOTPEvents.last else {
+            return XCTFail("Expected otpRequired after invalid OTP")
+        }
+
         let missingClient = MockApiClient()
         let missingKeychain = KeyChainStorage(service: UUID().uuidString)
         let missingAuthApi = AuthClient(apiClient: missingClient, keyChainStorage: missingKeychain)

@@ -8,7 +8,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.session = ("expired-sid", nil)
         apiClient.requestHandler = { endpoint in
             if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                throw SynologyError.sessionExpired(code: 105, message: "expired")
+                throw SynologyError.sessionExpired(code: 106, message: "expired")
             }
             if endpoint.apiName == SynologyApi.Core.AUTH.name {
                 return AuthResult(did: nil, isPortalPort: false, sid: "new-sid", synotoken: nil)
