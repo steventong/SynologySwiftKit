@@ -16,6 +16,13 @@ final class QuickConnectClientHappyPathTests: XCTestCase {
 
         transport.handler = { request, _ in
             let url = try XCTUnwrap(request.url)
+            let body = try XCTUnwrap(requestBodyData(request))
+            let parameters = try XCTUnwrap(
+                JSONSerialization.jsonObject(with: body) as? [String: Any]
+            )
+            XCTAssertEqual(parameters["id"] as? String, "audio_https")
+            XCTAssertNil(parameters["stop_when_success"])
+            XCTAssertNil(parameters["stop_when_error"])
             if url.host == SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER {
                 return (
                     try makeJSONData([
@@ -172,8 +179,14 @@ final class QuickConnectClientHappyPathTests: XCTestCase {
             let url = try XCTUnwrap(request.url)
 
             if url.path == "/Serv.php" {
-                let body = String(data: try XCTUnwrap(requestBodyData(request)), encoding: .utf8) ?? ""
-                if body.contains("\"command\":\"request_tunnel\"") {
+                let body = try XCTUnwrap(requestBodyData(request))
+                let parameters = try XCTUnwrap(
+                    JSONSerialization.jsonObject(with: body) as? [String: Any]
+                )
+                XCTAssertEqual(parameters["id"] as? String, "audio_https")
+                if parameters["command"] as? String == "request_tunnel" {
+                    XCTAssertNotNil(parameters["location"] as? String)
+                    XCTAssertTrue((parameters["platform"] as? String)?.isEmpty == false)
                     return (
                         try makeJSONData([
                             "command": "request_tunnel",
@@ -192,6 +205,8 @@ final class QuickConnectClientHappyPathTests: XCTestCase {
                     )
                 }
 
+                XCTAssertNil(parameters["location"])
+                XCTAssertNil(parameters["platform"])
                 return (
                     try makeJSONData([
                         "command": "get_server_info",

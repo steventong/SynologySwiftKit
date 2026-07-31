@@ -293,9 +293,43 @@ private extension QuickConnectClient {
             throw SynologyError.network(message: "Invalid QuickConnect URL")
         }
 
-        let requestParams = SynoGetServerInfoRequest(id: usesHTTPS ? .dsm_https : .dsm, command: command, serverID: quickConnectId)
-        let result: ServerInfo = try await apiClient.request(url: url, httpMethod: .post, headers: ["Content-Type": "application/json"], body: try JSONEncoder().encode(requestParams), timeout: timeout)
+        let requestParams = SynoGetServerInfoRequest(
+            id: usesHTTPS ? .audio_https : .audio_http,
+            command: command,
+            serverID: quickConnectId,
+            location: command == .request_tunnel ? quickConnectLocation : nil,
+            platform: command == .request_tunnel ? quickConnectPlatform : nil
+        )
+        let result: ServerInfo = try await apiClient.request(
+            url: url,
+            httpMethod: .post,
+            headers: ["Content-Type": "text/plain; charset=utf-8"],
+            body: try JSONEncoder().encode(requestParams),
+            timeout: timeout
+        )
         return result
+    }
+
+    var quickConnectLocation: String {
+        Locale.current.regionCode?.lowercased() ?? ""
+    }
+
+    var quickConnectPlatform: String {
+        #if os(iOS)
+        let platform = "iOS"
+        #elseif os(macOS)
+        let platform = "macOS"
+        #elseif os(watchOS)
+        let platform = "watchOS"
+        #elseif os(tvOS)
+        let platform = "tvOS"
+        #elseif os(visionOS)
+        let platform = "visionOS"
+        #else
+        let platform = "Apple"
+        #endif
+
+        return "\(platform) \(ProcessInfo.processInfo.operatingSystemVersionString)"
     }
 }
 
