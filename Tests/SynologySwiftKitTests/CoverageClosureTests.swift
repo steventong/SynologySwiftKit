@@ -343,6 +343,7 @@ final class CoverageClosureTests: XCTestCase {
         guard case .otpRequired? = otpEvents.last else {
             return XCTFail("Expected otpRequired")
         }
+        XCTAssertNil(otpKeychain.getCredentials())
 
         let missingClient = MockApiClient()
         let missingKeychain = KeyChainStorage(service: UUID().uuidString)
@@ -413,6 +414,50 @@ final class CoverageClosureTests: XCTestCase {
             return XCTFail("Expected failed event")
         }
         XCTAssertTrue(message.contains("api info failed"))
+        XCTAssertNil(failureKeychain.getCredentials())
+
+        let preservedKeychain = KeyChainStorage(service: UUID().uuidString)
+        preservedKeychain.saveCredentials(
+            server: "old-nas.local",
+            username: "old-user",
+            password: "old-password",
+            usesHTTPS: true
+        )
+        let preservedClient = MockApiClient()
+        let preservedLogin = SynologyUserLogin(
+            apiInfoApi: FailingApiInfoProvider(),
+            apiClient: preservedClient,
+            authApi: AuthClient(apiClient: preservedClient, keyChainStorage: preservedKeychain),
+            audioStationApi: AudioStationClient(apiClient: preservedClient),
+            connectionChecker: ConnectionChecker(
+                apiClient: preservedClient,
+                quickConnectApi: QuickConnectClient(
+                    apiClient: preservedClient,
+                    pingpong: TestPingPong(singleURLReachable: true)
+                ),
+                pingpong: TestPingPong(singleURLReachable: true),
+                keyChainStorage: preservedKeychain
+            ),
+            keyChainStorage: preservedKeychain
+        )
+
+        for await _ in preservedLogin.login(
+            server: "new-nas.local",
+            usesHTTPS: true,
+            username: "new-user",
+            password: "wrong-password",
+            shouldSavePassword: false
+        ) {}
+
+        XCTAssertEqual(
+            preservedKeychain.getCredentials(),
+            SynologyCredentials(
+                server: "old-nas.local",
+                username: "old-user",
+                password: "old-password",
+                usesHTTPS: true
+            )
+        )
     }
 }
 

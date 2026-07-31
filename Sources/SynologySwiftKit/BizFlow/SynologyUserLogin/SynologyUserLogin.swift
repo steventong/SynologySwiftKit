@@ -152,14 +152,6 @@ private extension SynologyUserLogin {
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // 根据用户选择保存或清除凭据
-        // save or remove credentials based on user choice
-        if shouldSavePassword {
-            keyChainStorage.saveCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
-        } else {
-            keyChainStorage.removeCredentials()
-        }
-
         // 解析可用连接 (使用 ConnectionChecker)
         // Resolve available connection (using ConnectionChecker)
         let connection: SynologyConnection
@@ -263,6 +255,13 @@ private extension SynologyUserLogin {
             apiClient.updateSession(sid: authResult.sid, did: authResult.did)
             keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
             saveConnection(url: connection.url, type: connection.type)
+            commitCredentials(
+                server: server,
+                usesHTTPS: usesHTTPS,
+                username: username,
+                password: password,
+                shouldSavePassword: shouldSavePassword
+            )
 
             Logger.info("SynologyUserLogin#performPasswordLogin, full login success, didExists=\(authResult.did != nil)")
             let loginResult = SynologyUserLoginResult(
@@ -371,6 +370,25 @@ private extension SynologyUserLogin {
     func saveConnection(url: String, type: ConnectionType) {
         apiClient.updateConnection(type: type, url: url)
         keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
+    }
+
+    func commitCredentials(
+        server: String,
+        usesHTTPS: Bool,
+        username: String,
+        password: String,
+        shouldSavePassword: Bool
+    ) {
+        if shouldSavePassword {
+            keyChainStorage.saveCredentials(
+                server: server,
+                username: username,
+                password: password,
+                usesHTTPS: usesHTTPS
+            )
+        } else {
+            keyChainStorage.removeCredentials()
+        }
     }
 
     func rollbackConnection(to connection: SynologyConnection?) {
