@@ -239,5 +239,15 @@ final class QuickConnectClientHappyPathTests: XCTestCase {
 
         XCTAssertEqual(connection.type, .lan)
         XCTAssertEqual(connection.url, "https://192.168.0.5:5001/music")
+        let commands = try transport.requests
+            .filter { $0.url?.path == "/Serv.php" }
+            .map { request -> String in
+                let body = try XCTUnwrap(requestBodyData(request))
+                let parameters = try XCTUnwrap(
+                    JSONSerialization.jsonObject(with: body) as? [String: Any]
+                )
+                return try XCTUnwrap(parameters["command"] as? String)
+            }
+        XCTAssertEqual(commands, ["get_server_info"])
     }
 }
