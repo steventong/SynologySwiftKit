@@ -92,7 +92,7 @@ private extension ConnectionChecker {
         do {
             try Task.checkCancellation()
 
-            if let cachedConnection = await reachableCachedConnection() {
+            if let cachedConnection = await reachableCachedConnection(for: request) {
                 Logger.info("ConnectionChecker#check, using reachable cached url: \(cachedConnection.url)")
                 finish(continuation, with: .success(connection: cachedConnection, usedCachedConnection: true))
                 return
@@ -120,14 +120,24 @@ private extension ConnectionChecker {
         }
     }
 
-    func reachableCachedConnection() async -> SynologyConnection? {
-        guard let currentConn = apiClient.connection,
+    func reachableCachedConnection(for request: ConnectionCheckRequest) async -> SynologyConnection? {
+        guard let credentials = keyChainStorage.getCredentials(),
+              normalizedServer(credentials.server) == normalizedServer(request.server),
+              credentials.usesHTTPS == request.usesHTTPS,
+              let currentConn = apiClient.connection,
               await pingpong.pingpong(url: currentConn.url)
         else {
             return nil
         }
 
         return SynologyConnection(type: currentConn.type, url: currentConn.url)
+    }
+
+    func normalizedServer(_ server: String) -> String {
+        server
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased()
     }
 
     /// 解析可用连接（封装 Ping 测试、QuickConnect 解析、AudioStation 验证等逻辑）

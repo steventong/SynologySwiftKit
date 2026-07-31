@@ -105,6 +105,40 @@ final class ConnectionCheckFlowTests: XCTestCase {
         XCTAssertFalse(usedCachedConnection)
     }
 
+    func testCheckDoesNotReuseReachableConnectionFromAnotherServer() async {
+        let apiClient = MockApiClient()
+        apiClient.connection = (.custom_domain, "https://old-nas.local")
+
+        let keychain = KeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(
+            server: "old-nas.local",
+            username: "tester",
+            password: "secret",
+            usesHTTPS: true
+        )
+        let checker = ConnectionChecker(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: URLReachabilityPingPong(reachability: [
+                "https://old-nas.local": true,
+                "new-nas.local": true,
+            ]),
+            keyChainStorage: keychain
+        )
+
+        var events: [ConnectionCheckProgress] = []
+        for await progress in checker.check(server: "new-nas.local", usesHTTPS: true) {
+            events.append(progress)
+        }
+
+        XCTAssertEqual(events.count, 2)
+        guard case let .success(connection, usedCachedConnection) = events[1] else {
+            return XCTFail("Expected refreshed success")
+        }
+        XCTAssertEqual(connection.url, "new-nas.local")
+        XCTAssertFalse(usedCachedConnection)
+    }
+
     func testCheckFailsWhenQuickConnectResolutionFails() async {
         let apiClient = MockApiClient()
         apiClient.rawRequestHandler = { _, _, _, _, _ in
