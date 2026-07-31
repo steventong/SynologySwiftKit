@@ -603,11 +603,11 @@ private final class RecordingPingPong: PingPongProviding, @unchecked Sendable {
         self.singleURLReachable = singleURLReachable
     }
 
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+    func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
         [:]
     }
 
-    func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+    func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
         queue.sync {
             storedDidRunBestConnectionSelection = true
         }
@@ -618,7 +618,7 @@ private final class RecordingPingPong: PingPongProviding, @unchecked Sendable {
         return (firstResult.type, firstResult.url)
     }
 
-    func pingpong(url: String) async -> Bool {
+    func pingpong(url: String) async throws -> Bool {
         queue.sync {
             storedSingleURLPings.append(url)
         }

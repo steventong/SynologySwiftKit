@@ -60,7 +60,7 @@ final class ApiRequestExecutor {
     ///   - request: 已构建的 URLRequest / Built URLRequest
     ///   - endpoint: 原始端点（传递给拦截器）/ Original endpoint (passed to interceptors)
     ///   - timeout: 超时时间（秒）/ Timeout in seconds
-    ///   - trustedSSLDomain: 可信 SSL 域名（用于自签名证书）/ Trusted SSL domain (for self-signed certs)
+    ///   - serverTrustPolicy: HTTPS 服务器证书信任策略 / HTTPS server certificate trust policy
     /// - Returns: 解码后的结果 / Decoded result
     /// - Throws: `SynologyError` 各类业务或网络错误 / Various business or network errors
     func execute<Value: Decodable>(
@@ -68,12 +68,12 @@ final class ApiRequestExecutor {
         request: URLRequest,
         endpoint: ApiEndpoint,
         timeout: TimeInterval,
-        trustedSSLDomain: String?
+        serverTrustPolicy: ServerTrustPolicy
     ) async throws -> Value {
         var context = RequestContext()
         let currentRequest = try await applyRequestInterceptors(request, endpoint: endpoint, context: &context)
         let requestID = String(UUID().uuidString.prefix(8))
-        let httpClient = httpClientFactory(timeout, trustedSSLDomain)
+        let httpClient = httpClientFactory(timeout, serverTrustPolicy)
         logRequestStart(requestID: requestID, request: currentRequest, endpoint: endpoint)
 
         do {
@@ -100,6 +100,18 @@ final class ApiRequestExecutor {
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
             logRequestFailure(requestID: requestID, request: currentRequest, error: error, duration: context.duration)
             throw error
+        } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
+            context.duration = Date().timeIntervalSince(context.startTime)
+            let mappedError = SynologyError.serverCertificateUntrusted(
+                SynologyServerCertificate(
+                    host: certificate.host,
+                    subject: certificate.subject,
+                    sha256Fingerprint: certificate.sha256Fingerprint
+                )
+            )
+            _ = try await applyResponseInterceptors(.failure(mappedError), endpoint: endpoint, context: &context)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: mappedError, duration: context.duration)
+            throw mappedError
         } catch let urlError as URLError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)

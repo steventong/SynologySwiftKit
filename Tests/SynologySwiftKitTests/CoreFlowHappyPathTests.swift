@@ -31,8 +31,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
 
         var events: [SynologyUserLoginProgress] = []
         for await progress in login.login(
-            server: "nas.local",
-            usesHTTPS: true,
+            server: "https://nas.local",
             username: "tester",
             password: "secret",
             shouldSavePassword: true

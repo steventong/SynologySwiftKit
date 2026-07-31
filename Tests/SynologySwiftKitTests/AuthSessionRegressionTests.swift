@@ -97,15 +97,15 @@ private struct MockPingPong: PingPongProviding {
         self.singleURLReachable = singleURLReachable
     }
 
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+    func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
         [:]
     }
 
-    func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+    func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
         nil
     }
 
-    func pingpong(url: String) async -> Bool {
+    func pingpong(url: String) async throws -> Bool {
         singleURLReachable
     }
 }

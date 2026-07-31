@@ -2,6 +2,32 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class ApiClientHappyPathTests: XCTestCase {
+    func testApprovedCertificateFingerprintIsAppliedToHTTPSRequests() async throws {
+        let transport = HTTPClientFactorySpy()
+        let storage = MockKeyValueStorage()
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: storage
+        )
+        let certificate = SynologyServerCertificate(
+            host: "nas.local",
+            subject: "DSM",
+            sha256Fingerprint: "AA:BB"
+        )
+        client.approveServerCertificate(certificate)
+
+        transport.handler = { request, configuration in
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: "AA:BB")
+            )
+            return (Data("{}".utf8), makeHTTPURLResponse(url: try XCTUnwrap(request.url)))
+        }
+
+        let _: EmptyData = try await client.request(url: URL(string: "https://nas.local/ping")!)
+        XCTAssertEqual(client.approvedServerCertificateFingerprint(forHost: "NAS.LOCAL"), "AA:BB")
+    }
+
     func testRequestBuildsAuthenticatedPostAndDecodesEnvelope() async throws {
         let transport = HTTPClientFactorySpy()
         let client = ApiClient(httpClientFactory: transport.makeFactory())
@@ -13,7 +39,10 @@ final class ApiClientHappyPathTests: XCTestCase {
         client.addInterceptor(AuthInterceptor(sessionProvider: { client.session }))
 
         transport.handler = { request, configuration in
-            XCTAssertEqual(configuration.trustedSSLDomain, "nas.local")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: nil)
+            )
             XCTAssertEqual(request.url?.absoluteString, "https://nas.local/webapi/AudioStation/song.cgi")
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Cookie"), "id=sid-123; did=did-123")

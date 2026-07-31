@@ -60,7 +60,7 @@ final class ApiClientBranchTests: XCTestCase {
         do {
             let _: AudioStationInfo = try await client.request(endpoint)
             XCTFail("Expected session error")
-        } catch let SynologyError.sessionExpired(code, _) {
+        } catch let SynologyError.api(code, _) {
             XCTAssertEqual(code, 105)
         } catch {
             XCTFail("Unexpected error \(error)")

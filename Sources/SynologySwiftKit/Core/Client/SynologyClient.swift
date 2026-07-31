@@ -59,7 +59,10 @@ public final class SynologyClient {
             config: config,
             keyValueStorage: keyValueStorage,
             keyChainStorage: keyChainStorage,
-            apiClient: ApiClient(httpClientFactory: httpClientFactory),
+            apiClient: ApiClient(
+                httpClientFactory: httpClientFactory,
+                keyValueStorage: keyValueStorage
+            ),
             autoRegisterAuthInterceptor: autoRegisterAuthInterceptor
         )
     }
@@ -105,6 +108,18 @@ public final class SynologyClient {
     public func configureConnection(type: ConnectionType, url: String, sid: String, did: String? = nil) {
         configureConnection(type: type, url: url)
         configureSession(sid: sid, did: did)
+    }
+
+    /// 允许当前服务器证书，并在后续请求中校验同一 SHA-256 指纹。
+    /// Approve the current server certificate and require the same SHA-256 fingerprint later.
+    public func approveServerCertificate(_ certificate: SynologyServerCertificate) {
+        apiClient.approveServerCertificate(certificate)
+    }
+
+    /// 返回某个 host 已获用户批准的证书指纹，供宿主的媒体请求复用。
+    /// Return the approved certificate fingerprint for host-app media requests.
+    public func approvedServerCertificateFingerprint(forHost host: String) -> String? {
+        apiClient.approvedServerCertificateFingerprint(forHost: host)
     }
 
     // MARK: - Direct API Entry Points

@@ -46,11 +46,11 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
 
     /// 通过密码登录（AsyncStream 版本）
     /// Login with password (AsyncStream version)
-    func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+    func login(server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = Task {
-                Logger.info("SynologyUserLogin#login(password), entry, server=\(server), usesHTTPS=\(usesHTTPS), hasOtp=\(otpCode != nil)")
-                await self.performPasswordLogin(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, attemptSliceLogin: false, continuation: continuation)
+                Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
+                await self.performPasswordLogin(server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, attemptSliceLogin: false, continuation: continuation)
             }
             continuation.onTermination = { _ in
                 task.cancel()
@@ -139,7 +139,7 @@ private extension SynologyUserLogin {
     ///    - 成功 → 直接返回 .completed（缓存 SID 可用，无需 round-trip 到 Auth）
     ///    - 失败 → 仅记录日志后 fall through 到全量登录（不再抛 .invalidSession）
     /// 4. 调用 authApi.login(...) 拿到新 SID
-    func performPasswordLogin(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, attemptSliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+    func performPasswordLogin(server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, attemptSliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         guard !Task.isCancelled else {
             continuation.finish()
             return
@@ -160,7 +160,12 @@ private extension SynologyUserLogin {
         do {
             var resolvedConnection: SynologyConnection?
             var resolvedFromCache = false
-            for await progress in connectionChecker.check(server: server, usesHTTPS: usesHTTPS) {
+            let progressStream = if let usesHTTPS {
+                connectionChecker.check(server: server, usesHTTPS: usesHTTPS)
+            } else {
+                connectionChecker.check(server: server)
+            }
+            for await progress in progressStream {
                 guard !Task.isCancelled else {
                     continuation.finish()
                     return
@@ -172,6 +177,10 @@ private extension SynologyUserLogin {
                 case let .success(connection, usedCachedConnection):
                     resolvedConnection = connection
                     resolvedFromCache = usedCachedConnection
+                case let .serverCertificateUntrusted(certificate):
+                    continuation.yield(.serverCertificateUntrusted(certificate))
+                    continuation.finish()
+                    return
                 case let .failed(message):
                     Logger.warn("SynologyUserLogin#performPasswordLogin, connection check failed: \(message)")
                 }
@@ -209,6 +218,11 @@ private extension SynologyUserLogin {
                 try await apiInfoApi.refresh()
             }
             try Task.checkCancellation()
+        } catch let SynologyError.serverCertificateUntrusted(certificate) {
+            rollbackConnection(to: previousConnection)
+            continuation.yield(.serverCertificateUntrusted(certificate))
+            continuation.finish()
+            return
         } catch is CancellationError {
             rollbackConnection(to: previousConnection)
             continuation.finish()
@@ -257,7 +271,7 @@ private extension SynologyUserLogin {
             saveConnection(url: connection.url, type: connection.type)
             commitCredentials(
                 server: server,
-                usesHTTPS: usesHTTPS,
+                usesHTTPS: connection.url.lowercased().hasPrefix("https://"),
                 username: username,
                 password: password,
                 shouldSavePassword: shouldSavePassword
@@ -271,6 +285,11 @@ private extension SynologyUserLogin {
             )
 
             continuation.yield(.completed(result: loginResult))
+            continuation.finish()
+        } catch let SynologyError.serverCertificateUntrusted(certificate) {
+            rollbackConnection(to: previousConnection)
+            rollbackSession(to: previousSession)
+            continuation.yield(.serverCertificateUntrusted(certificate))
             continuation.finish()
         } catch let SynologyError.auth(code, msg) where code == 403 || code == 404 {
             rollbackConnection(to: previousConnection)

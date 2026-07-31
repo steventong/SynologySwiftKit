@@ -22,6 +22,9 @@ public enum ConnectionCheckProgress: Sendable {
     /// usedCachedConnection = false 表示地址切换了，需要重新登录。
     case success(connection: SynologyConnection, usedCachedConnection: Bool)
 
+    /// HTTPS certificate requires explicit user approval.
+    case serverCertificateUntrusted(SynologyServerCertificate)
+
     /// Connection failed
     case failed(message: String)
 }

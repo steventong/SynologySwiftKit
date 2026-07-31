@@ -84,7 +84,7 @@ final class ConnectionManager: ConnectionManaging {
         return await withTaskGroup(of: SynologyConnectionCandidate.self) { group in
             for connection in connections {
                 group.addTask {
-                    let isReachable = await self.pingpong.pingpong(url: connection.url)
+                    let isReachable = (try? await self.pingpong.pingpong(url: connection.url)) ?? false
                     let identity = "\(connection.type.rawValue)|\(connection.url)"
                     return SynologyConnectionCandidate(
                         url: connection.url,
@@ -105,7 +105,7 @@ final class ConnectionManager: ConnectionManaging {
     }
 
     func switchConnection(to connection: SynologyConnection) async throws -> SynologyConnection {
-        guard await pingpong.pingpong(url: connection.url) else {
+        guard try await pingpong.pingpong(url: connection.url) else {
             throw SynologyError.network(message: "Selected endpoint is unreachable")
         }
 
@@ -225,7 +225,7 @@ private extension ConnectionManager {
         guard let connection else {
             return false
         }
-        return await pingpong.pingpong(url: connection.url)
+        return (try? await pingpong.pingpong(url: connection.url)) ?? false
     }
 
     func saveConnection(url: String, type: ConnectionType) {

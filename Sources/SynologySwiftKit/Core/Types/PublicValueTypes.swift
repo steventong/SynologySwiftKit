@@ -36,6 +36,22 @@ public enum SynologySortDirection: String, Sendable {
     case descending = "desc"
 }
 
+// MARK: - SynologyServerCertificate
+
+/// HTTPS 服务器提供的叶子证书信息。
+/// Leaf certificate information presented by an HTTPS server.
+public struct SynologyServerCertificate: Codable, Equatable, Sendable {
+    public let host: String
+    public let subject: String
+    public let sha256Fingerprint: String
+
+    public init(host: String, subject: String, sha256Fingerprint: String) {
+        self.host = host
+        self.subject = subject
+        self.sha256Fingerprint = sha256Fingerprint
+    }
+}
+
 // MARK: - SynologySortDescriptor
 
 /// 排序描述符（字段 + 方向）

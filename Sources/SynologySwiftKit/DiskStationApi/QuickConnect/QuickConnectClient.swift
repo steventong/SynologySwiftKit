@@ -43,7 +43,7 @@ public final class QuickConnectClient {
 
         // 先测试服务端已返回的候选，仅在全部不可达时请求新 tunnel。
         // Test advertised candidates first; request a new tunnel only when all are unreachable.
-        let resolvedConnection = await resolveBestReachableConnection(
+        let resolvedConnection = try await resolveBestReachableConnection(
             connections: connections.connectionMap,
             pingPongPaths: connections.pingPongPaths,
             synologyServer: serverInfo.synologyServer,
@@ -94,7 +94,7 @@ private extension QuickConnectClient {
         )
 
         if !connections.connectionMap.keys.contains(.relay),
-           let relay = await requestForRelayConnection(
+           let relay = try await requestForRelayConnection(
                connections: connections.connectionMap,
                synologyServer: serverInfo.synologyServer,
                quickConnectId: quickConnectId,
@@ -170,8 +170,8 @@ private extension QuickConnectClient {
 
     /// 从已公布的候选中查找最优连接，失败后才申请并验证新 relay。
     /// Find the best advertised connection, then request and validate a new relay as fallback.
-    private func resolveBestReachableConnection(connections: [ConnectionType: [String]], pingPongPaths: [String: String], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async -> (type: ConnectionType, url: String)? {
-        if let reachable = await pingpong.pingpongFirst(
+    private func resolveBestReachableConnection(connections: [ConnectionType: [String]], pingPongPaths: [String: String], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async throws -> (type: ConnectionType, url: String)? {
+        if let reachable = try await pingpong.pingpongFirst(
             connections: connections,
             pingPongPaths: pingPongPaths
         ) {
@@ -179,7 +179,7 @@ private extension QuickConnectClient {
             return reachable
         }
 
-        guard let relay = await requestForRelayConnection(
+        guard let relay = try await requestForRelayConnection(
             connections: connections,
             synologyServer: synologyServer,
             quickConnectId: quickConnectId,
@@ -190,7 +190,7 @@ private extension QuickConnectClient {
             return nil
         }
 
-        guard await pingpong.pingpong(url: relay.url) else {
+        guard try await pingpong.pingpong(url: relay.url) else {
             Logger.warn("QuickConnectClient.resolveBestReachableConnection: relay endpoint unreachable: \(relay.url)")
             return nil
         }
@@ -242,7 +242,7 @@ private extension QuickConnectClient {
         quickConnectId: String,
         usesHTTPS: Bool,
         skipWhenRelayPresent: Bool = true
-    ) async -> (type: ConnectionType, url: String)? {
+    ) async throws -> (type: ConnectionType, url: String)? {
         // 如果已有 relay 地址则不需要 requestTunnel
         // Skip if relay addresses already exist
         if skipWhenRelayPresent, connections.keys.contains(.relay) {
@@ -251,16 +251,17 @@ private extension QuickConnectClient {
 
         Logger.debug("relay connection is not present, send request_tunnel request, synologyServer = \(synologyServer)")
 
-        do {
-            let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, usesHTTPS: usesHTTPS, command: .request_tunnel)
+        let serverInfo = try await invokeSynologyServiceApi(
+            synologyServer: synologyServer,
+            quickConnectId: quickConnectId,
+            usesHTTPS: usesHTTPS,
+            command: .request_tunnel
+        )
 
-            let tunnelConnections = parseConnectionUrls(serverInfo: serverInfo, usesHTTPS: usesHTTPS, isRequestTunnel: true)
-            if let relay = tunnelConnections.connectionMap[.relay]?.first {
-                Logger.debug("parse relay connection: \(relay)")
-                return (.relay, relay)
-            }
-        } catch {
-            Logger.debug("parse relay connection error: \(error)")
+        let tunnelConnections = parseConnectionUrls(serverInfo: serverInfo, usesHTTPS: usesHTTPS, isRequestTunnel: true)
+        if let relay = tunnelConnections.connectionMap[.relay]?.first {
+            Logger.debug("parse relay connection: \(relay)")
+            return (.relay, relay)
         }
 
         return nil

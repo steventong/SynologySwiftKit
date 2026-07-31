@@ -124,7 +124,10 @@ final class AdvancedCoverageTests: XCTestCase {
 
         client.updateConnection(type: .custom_domain, url: "https://nas.local")
         transport.handler = { request, configuration in
-            XCTAssertEqual(configuration.trustedSSLDomain, "nas.local")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: nil)
+            )
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertURL(try XCTUnwrap(request.url), contains: [
                 "api": SynologyApi.AudioStation.SEARCH.name,
@@ -161,7 +164,7 @@ final class AdvancedCoverageTests: XCTestCase {
         client.addInterceptor(interceptor)
 
         transport.handler = { request, configuration in
-            XCTAssertNil(configuration.trustedSSLDomain)
+            XCTAssertEqual(configuration.serverTrustPolicy, .system)
             XCTAssertEqual(request.value(forHTTPHeaderField: "Cookie"), "id=sid-1; did=did-1")
                 return (
                     try makeSynologyEnvelope(makeAudioStationInfo()),

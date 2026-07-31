@@ -20,6 +20,7 @@ final class ApiClient: ApiClientProviding {
     private let envelopeDecoder = SynologyEnvelopeDecoder()
     private let endpointResolver: ApiEndpointResolver
     private let requestFactory: ApiRequestFactory
+    private let certificateTrustStore: ServerCertificateTrustStore
 
     /// API 信息提供者（延迟设置以解决循环依赖）
     /// API info provider (lazy set to resolve circular dependency)
@@ -45,9 +46,14 @@ final class ApiClient: ApiClientProviding {
     /// 初始化 API 客户端
     /// Initialize API client
     /// - Parameter httpClientFactory: HTTP client factory
-    init(httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory) {
+    init(
+        httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory,
+        keyValueStorage: KeyValueStorage = StorageService()
+    ) {
         let state = ApiClientState()
+        let certificateTrustStore = ServerCertificateTrustStore(storage: keyValueStorage)
         self.state = state
+        self.certificateTrustStore = certificateTrustStore
         endpointResolver = ApiEndpointResolver(
             apiInfoProvider: { [weak state] in state?.apiInfoProvider }
         )
@@ -115,7 +121,7 @@ final class ApiClient: ApiClientProviding {
             request: request,
             endpoint: rawEndpoint,
             timeout: timeout,
-            trustedSSLDomain: nil
+            serverTrustPolicy: serverTrustPolicy(for: url)
         )
     }
 }
@@ -138,6 +144,14 @@ extension ApiClient {
     /// Clear session
     func clearSession() {
         state.clearSession()
+    }
+
+    func approveServerCertificate(_ certificate: SynologyServerCertificate) {
+        certificateTrustStore.approve(certificate)
+    }
+
+    func approvedServerCertificateFingerprint(forHost host: String) -> String? {
+        certificateTrustStore.approvedFingerprint(forHost: host)
     }
 }
 
@@ -162,7 +176,7 @@ extension ApiClient {
             request: request,
             endpoint: endpoint,
             timeout: endpoint.timeout,
-            trustedSSLDomain: requestFactory.trustedSSLDomainForCurrentConnection()
+            serverTrustPolicy: serverTrustPolicy(for: request.url)
         )
         return (value, request)
     }
@@ -175,6 +189,16 @@ extension ApiClient {
 
     private var rawEndpoint: ApiEndpoint {
         ApiEndpoint(api: SynologyApi.Core.INFO, method: "")
+    }
+
+    private func serverTrustPolicy(for url: URL?) -> ServerTrustPolicy {
+        guard url?.scheme?.lowercased() == "https", let host = url?.host else {
+            return .system
+        }
+        return .userApprovedCertificate(
+            host: host,
+            sha256Fingerprint: certificateTrustStore.approvedFingerprint(forHost: host)
+        )
     }
 
     private func logApiErrorResponse<T>(

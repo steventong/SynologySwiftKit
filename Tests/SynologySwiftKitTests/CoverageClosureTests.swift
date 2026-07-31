@@ -319,7 +319,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var removeEvents: [SynologyUserLoginProgress] = []
-        for await progress in removeLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret", shouldSavePassword: false) {
+        for await progress in removeLogin.login(server: "https://nas.local", username: "tester", password: "secret", shouldSavePassword: false) {
             removeEvents.append(progress)
         }
         guard case .completed = removeEvents.last else {
@@ -354,7 +354,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var otpEvents: [SynologyUserLoginProgress] = []
-        for await progress in otpLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
+        for await progress in otpLogin.login(server: "https://nas.local", username: "tester", password: "secret") {
             otpEvents.append(progress)
         }
         guard case .otpRequired? = otpEvents.last else {
@@ -370,8 +370,7 @@ final class CoverageClosureTests: XCTestCase {
         }
         var invalidOTPEvents: [SynologyUserLoginProgress] = []
         for await progress in otpLogin.login(
-            server: "nas.local",
-            usesHTTPS: true,
+            server: "https://nas.local",
             username: "tester",
             password: "secret",
             otpCode: "000000"
@@ -444,7 +443,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var failureEvents: [SynologyUserLoginProgress] = []
-        for await progress in failureLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
+        for await progress in failureLogin.login(server: "https://nas.local", username: "tester", password: "secret") {
             failureEvents.append(progress)
         }
         guard case let .failed(message)? = failureEvents.last else {
@@ -479,8 +478,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         for await _ in preservedLogin.login(
-            server: "new-nas.local",
-            usesHTTPS: true,
+            server: "https://new-nas.local",
             username: "new-user",
             password: "wrong-password",
             shouldSavePassword: false

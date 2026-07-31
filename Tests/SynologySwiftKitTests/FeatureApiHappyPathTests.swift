@@ -248,7 +248,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
         )
 
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "track1", path: "/music/file.m4a", bitrate: 400_000, frequency: 44_100, fileExtension: ".aac"), quality: .HIGH)
-        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track2", path: "/music/file.dsf", bitrate: 1000, frequency: 44_100), quality: .HIGH)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track2", path: "/music/file.dsf", bitrate: 1000, frequency: 44_100, fileExtension: ".dsf"), quality: .HIGH)
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "track3", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .ORIGINAL)
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "track4", path: "/music/file.flac", bitrate: 500_000, frequency: 44_100), quality: .LOW)
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "music_p_v_1", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .LOW)

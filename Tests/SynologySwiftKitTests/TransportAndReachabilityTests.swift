@@ -2,7 +2,7 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class TransportAndReachabilityTests: XCTestCase {
-    func testPingPongSingleAndAggregatedReachability() async {
+    func testPingPongSingleAndAggregatedReachability() async throws {
         let apiClient = MockApiClient()
         apiClient.rawRequestHandler = { url, _, _, _, _ in
             if url.absoluteString.contains("bad-host") {
@@ -13,13 +13,13 @@ final class TransportAndReachabilityTests: XCTestCase {
 
         let pingpong = PingPong(apiClient: apiClient, timeout: 1)
 
-        let singleSuccess = await pingpong.pingpong(url: "https://ok-host")
-        let singleFail = await pingpong.pingpong(url: "https://bad-host")
-        let results = await pingpong.pingpong(connections: [
+        let singleSuccess = try await pingpong.pingpong(url: "https://ok-host")
+        let singleFail = try await pingpong.pingpong(url: "https://bad-host")
+        let results = try await pingpong.pingpong(connections: [
             .wan: ["https://bad-host", "https://ok-host"],
             .lan: ["https://ok-host"],
         ])
-        let best = await pingpong.pingpongFirst(connections: [
+        let best = try await pingpong.pingpongFirst(connections: [
             .relay: ["https://ok-host"],
             .lan: ["https://ok-host"],
         ])

@@ -18,14 +18,13 @@ public final class UserLoginFlowClient {
     /// Perform full login with username and password
     /// - Parameters:
     ///   - server: QuickConnect ID 或自定义域名 / QuickConnect ID or custom domain
-    ///   - usesHTTPS: 是否启用 HTTPS / Whether to use HTTPS
     ///   - username: 用户名 / Username
     ///   - password: 密码 / Password
     ///   - otpCode: 可选的 OTP 验证码 / Optional OTP code
     ///   - shouldSavePassword: 是否持久化保存密码（默认为 true）/ Whether to persist password (default: true)
     /// - Returns: AsyncStream 依次推送登录进度 / AsyncStream yielding login progress
-    public func login(server: String, usesHTTPS: Bool, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
-        loginFlow.login(server: server, usesHTTPS: usesHTTPS, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword)
+    public func login(server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+        loginFlow.login(server: server, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword)
     }
 
     /// 使用 Keychain 中保存的凭据进行静默恢复登录（slice + fallback 到全量）
@@ -62,6 +61,12 @@ public final class ConnectionCheckFlowClient {
     /// - Returns: AsyncStream 依次推送连接检查进度 / AsyncStream yielding connection check progress
     public func check() -> AsyncStream<ConnectionCheckProgress> {
         connectionCheck.check()
+    }
+
+    /// 自动识别协议并优先使用 HTTPS。
+    /// Automatically resolve the protocol with HTTPS preferred.
+    public func check(server: String) -> AsyncStream<ConnectionCheckProgress> {
+        connectionCheck.check(server: server)
     }
 
     /// 使用指定服务器检查连接状态
