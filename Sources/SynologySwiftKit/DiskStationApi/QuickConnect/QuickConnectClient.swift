@@ -183,7 +183,20 @@ private extension QuickConnectClient {
             // Task 2: Request tunnel for relay connection (only if no relay address present)
             group.addTask {
                 Logger.debug("QuickConnectClient.raceForBestConnection: starting requestTunnel task")
-                return await self.requestForRelayConnection(connections: connections, synologyServer: synologyServer, quickConnectId: quickConnectId, usesHTTPS: usesHTTPS)
+                guard let relay = await self.requestForRelayConnection(
+                    connections: connections,
+                    synologyServer: synologyServer,
+                    quickConnectId: quickConnectId,
+                    usesHTTPS: usesHTTPS
+                ) else {
+                    return nil
+                }
+
+                guard await self.pingpong.pingpong(url: relay.url) else {
+                    Logger.debug("QuickConnectClient.raceForBestConnection: relay endpoint unreachable: \(relay.url)")
+                    return nil
+                }
+                return relay
             }
 
             // 竞速收集结果，取优先级最高的

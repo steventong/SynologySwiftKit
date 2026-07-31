@@ -189,11 +189,6 @@ private extension ConnectionManager {
                 usesHTTPS: credentials.usesHTTPS
             )
 
-            guard await pingpong.pingpong(url: connection.url) else {
-                Logger.warn("ConnectionManager#refreshQuickConnectEndpoint, resolved endpoint unreachable: \(connection.url)")
-                return nil
-            }
-
             try await refreshSessionAndSaveConnection(connection)
             eventPublisher.publishQuickConnectEndpointOptimized(
                 SynologyQuickConnectEndpointOptimizedEvent(

@@ -130,7 +130,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         }
 
         let refreshed = SynologyConnection(type: .lan, url: "https://192.168.1.20:5001")
-        let pingpong = TestPingPong(firstResult: refreshed, singleURLReachable: true)
+        let pingpong = RecordingPingPong(firstResult: refreshed, singleURLReachable: true)
         let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
@@ -154,6 +154,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(keychain.getConnectionInfo()?.typeString, ConnectionType.lan.rawValue)
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
         XCTAssertEqual(keychain.getSessionInfo()?.did, "new-did")
+        XCTAssertTrue(pingpong.singleURLPings.isEmpty)
     }
 
     func testRecoverConnectionKeepsReachableQuickConnectEndpointAndSkipsSynchronousOptimization() async throws {

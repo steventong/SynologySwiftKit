@@ -98,13 +98,14 @@ private extension ConnectionChecker {
                 return
             }
 
+            let isQuickConnect = QuickConnectUtils.isQuickConnectId(server: request.server)
             let newConn = try await resolveAvailableConnection(
                 server: request.server,
                 usesHTTPS: request.usesHTTPS
             )
             try Task.checkCancellation()
 
-            guard await pingpong.pingpong(url: newConn.url) else {
+            if !isQuickConnect, !(await pingpong.pingpong(url: newConn.url)) {
                 throw SynologyError.network(message: "Refreshed connection unreachable")
             }
             try Task.checkCancellation()

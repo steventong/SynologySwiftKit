@@ -251,6 +251,9 @@ struct TestPingPong: PingPongProviding {
 
     func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
         guard let firstResult else { return nil }
+        guard connections[firstResult.type]?.contains(firstResult.url) == true else {
+            return nil
+        }
         return (firstResult.type, firstResult.url)
     }
 

@@ -10,7 +10,13 @@ final class AdvancedCoverageTests: XCTestCase {
 
         let quickConnectApi = QuickConnectClient(
             apiClient: apiClient,
-            pingpong: TestPingPong(firstResult: nil),
+            pingpong: TestPingPong(
+                firstResult: SynologyConnection(
+                    type: .relay,
+                    url: "https://relay.quickconnect.to:443"
+                ),
+                singleURLReachable: true
+            ),
             timeout: 2,
             keyValueStorage: storage
         )
