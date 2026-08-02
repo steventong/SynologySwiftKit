@@ -121,12 +121,30 @@ final class AudioStationThinApiTests: XCTestCase {
     func testLyricsApiSupportsGetAndSearch() async throws {
         let apiClient = MockApiClient()
         let lyricsResult = try JSONDecoder().decode(LyricsResult.self, from: makeJSONData(["lyrics": "hello world"]))
+        let searchResult = try JSONDecoder().decode(
+            LyricsSearchResult.self,
+            from: makeJSONData([
+                "total": 1,
+                "lyrics": [[
+                    "id": "candidate_1",
+                    "title": "Song",
+                    "artist": "Artist",
+                    "partial_lyrics": "Preview",
+                    "plugin": "LRCLIB",
+                    "additional": ["full_lyrics": "[00:01.00]Hello world"],
+                ]],
+            ])
+        )
         apiClient.requestHandler = { endpoint in
             switch endpoint.apiName {
             case SynologyApi.AudioStation.LYRICS.name:
                 return lyricsResult
             case SynologyApi.AudioStation.LYRICS_SEARCH.name:
-                return LyricsSearchResult(total: 1, items: [LyricsItem(id: "1", title: "Song", artist: "Artist", preview: "Preview")])
+                XCTAssertEqual(endpoint.version, 2)
+                XCTAssertEqual(endpoint.parameters["limit"]?.stringValue, "10")
+                XCTAssertEqual(endpoint.parameters["offset"]?.stringValue, "0")
+                XCTAssertEqual(endpoint.parameters["additional"]?.stringValue, "full_lyrics")
+                return searchResult
             default:
                 throw SynologyError.network(message: "Unexpected endpoint")
             }
@@ -138,6 +156,8 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(lyrics, "hello world")
         XCTAssertEqual(search.total, 1)
         XCTAssertEqual(search.items.first?.preview, "Preview")
+        XCTAssertEqual(search.items.first?.plugin, "LRCLIB")
+        XCTAssertEqual(search.items.first?.fullLyrics, "[00:01.00]Hello world")
     }
 
     func testLyricsApiThrowsWhenLyricsMissing() async {

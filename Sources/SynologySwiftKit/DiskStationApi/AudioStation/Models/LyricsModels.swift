@@ -43,9 +43,39 @@ public struct LyricsItem: Decodable, Sendable {
     public let title: String
     public let artist: String
     public let preview: String?
+    public let plugin: String?
+    public let fullLyrics: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case artist
+        case preview = "partial_lyrics"
+        case plugin
+        case additional
+    }
+
+    private enum AdditionalCodingKeys: String, CodingKey {
+        case fullLyrics = "full_lyrics"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        artist = try container.decode(String.self, forKey: .artist)
+        preview = try container.decodeIfPresent(String.self, forKey: .preview)
+        plugin = try container.decodeIfPresent(String.self, forKey: .plugin)
+
+        let additional = try container.nestedContainer(
+            keyedBy: AdditionalCodingKeys.self,
+            forKey: .additional
+        )
+        fullLyrics = try additional.decode(String.self, forKey: .fullLyrics)
+    }
 }
 
 struct LyricsSearchResult: Decodable, Sendable {
     public let total: Int
-    public let items: [LyricsItem]
+    public let lyrics: [LyricsItem]
 }

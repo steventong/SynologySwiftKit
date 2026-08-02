@@ -64,14 +64,15 @@ public final class LyricsApi {
     ///   - limit: 返回数量限制 / Result limit
     ///   - offset: 起始偏移量 / Start offset
     public func search(title: String, artist: String, limit: Int = 10, offset: Int = 0) async throws -> SynologyPage<LyricsItem> {
-        let api = ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 1) {
+        let api = ApiEndpoint(api: SynologyApi.AudioStation.LYRICS_SEARCH, method: "searchlyrics", version: 2) {
             ("title", title)
             ("artist", artist)
             ("limit", limit)
+            ("offset", offset)
             ("additional", "full_lyrics")
         }
 
         let result: LyricsSearchResult = try await apiClient.request(api)
-        return SynologyPage(total: result.total, items: result.items)
+        return SynologyPage(total: result.total, items: result.lyrics)
     }
 }
