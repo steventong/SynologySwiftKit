@@ -142,7 +142,7 @@ final class AudioStationThinApiTests: XCTestCase {
             case SynologyApi.AudioStation.LYRICS_SEARCH.name:
                 XCTAssertEqual(endpoint.version, 2)
                 XCTAssertEqual(endpoint.parameters["limit"]?.stringValue, "10")
-                XCTAssertEqual(endpoint.parameters["offset"]?.stringValue, "0")
+                XCTAssertNil(endpoint.parameters["offset"])
                 XCTAssertEqual(endpoint.parameters["additional"]?.stringValue, "full_lyrics")
                 return searchResult
             default:
