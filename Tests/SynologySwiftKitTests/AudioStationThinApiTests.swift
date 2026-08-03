@@ -47,11 +47,13 @@ final class AudioStationThinApiTests: XCTestCase {
                     songs: [makeSong()]
                 )
             case SynologyApi.AudioStation.FOLDER.name:
+                XCTAssertEqual(endpoint.parameters["limit"]?.stringValue, "25")
+                XCTAssertEqual(endpoint.parameters["offset"]?.stringValue, "50")
                 return FolderListResult(
                     id: "root",
                     items: [Folder(id: "folder_1", path: "/music", isPersonal: false, title: "Music", type: "folder", additional: nil)],
-                    offset: 0,
-                    total: 1,
+                    offset: 50,
+                    total: 3,
                     folderTotal: 1
                 )
             default:
@@ -69,7 +71,7 @@ final class AudioStationThinApiTests: XCTestCase {
         let composerResult = try await ComposerApi(apiClient: apiClient).list(limit: 10, offset: 0)
         let genreResult = try await GenreApi(apiClient: apiClient).list(limit: 10, offset: 0)
         let searchResult = try await SearchApi(apiClient: apiClient).list(keyword: "track")
-        let folderResult = try await FolderApi(apiClient: apiClient).list(id: nil)
+        let folderResult = try await FolderApi(apiClient: apiClient).list(id: nil, limit: 25, offset: 50)
 
         XCTAssertEqual(albumResult.total, 1)
         XCTAssertEqual(albumResult.items.first?.additional?.avgRating?.rating, 5)
@@ -77,7 +79,7 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(composerResult.items.first?.name, "Composer")
         XCTAssertEqual(genreResult.items.first?.name, "Genre")
         XCTAssertEqual(searchResult.songs.total, 1)
-        XCTAssertEqual(folderResult.total, 1)
+        XCTAssertEqual(folderResult.total, 3)
     }
 
     func testAlbumApiListCanMatchRecentlyAddedAlbumEndpointContract() async throws {

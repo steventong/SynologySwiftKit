@@ -20,18 +20,25 @@ public final class FolderApi {
 
     /// 查询文件夹内容列表
     /// Query folder content list
-    /// - Parameter id: 文件夹 ID，为 nil 时查询根目录 / Folder ID, nil for root directory
-    public func list(id: String?) async throws -> SynologyPage<Folder> {
+    /// - Parameters:
+    ///   - id: 文件夹 ID，为 nil 时查询根目录 / Folder ID, nil for root directory
+    ///   - limit: 每页数量 / Page size
+    ///   - offset: 起始偏移量 / Start offset
+    public func list(
+        id: String?,
+        limit: Int = 200,
+        offset: Int = 0
+    ) async throws -> SynologyPage<Folder> {
         let result: FolderListResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.FOLDER, method: "list") {
                 ("version", 3)
                 ("id", id ?? "")
                 ("library", "all")
                 ("additional", "song_tag,song_audio,song_rating")
-                ("limit", 5000)
-                ("offset", 0)
+                ("limit", limit)
+                ("offset", offset)
             }
         )
-        return SynologyPage(total: result.folderTotal, items: result.items)
+        return SynologyPage(total: result.total, items: result.items)
     }
 }
