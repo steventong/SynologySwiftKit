@@ -38,6 +38,7 @@ final class AudioStationThinApiTests: XCTestCase {
             case SynologyApi.AudioStation.GENRE.name:
                 return GenreListResult(offset: 0, total: 1, genres: [Genre(name: "Genre")])
             case SynologyApi.AudioStation.SEARCH.name:
+                XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "personal")
                 return SearchResult(
                     albumTotal: 1,
                     albums: [Album(name: "Album", artist: "Artist", albumArtist: "Album Artist", displayArtist: "Display", year: 2024, additional: nil)],
@@ -70,7 +71,10 @@ final class AudioStationThinApiTests: XCTestCase {
         let artistResult = try await ArtistApi(apiClient: apiClient).list(limit: 10, offset: 0)
         let composerResult = try await ComposerApi(apiClient: apiClient).list(limit: 10, offset: 0)
         let genreResult = try await GenreApi(apiClient: apiClient).list(limit: 10, offset: 0)
-        let searchResult = try await SearchApi(apiClient: apiClient).list(keyword: "track")
+        let searchResult = try await SearchApi(apiClient: apiClient).list(
+            keyword: "track",
+            libraryScope: .personal
+        )
         let folderResult = try await FolderApi(apiClient: apiClient).list(id: nil, limit: 25, offset: 50)
 
         XCTAssertEqual(albumResult.total, 1)
