@@ -2,6 +2,40 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class ApiClientHappyPathTests: XCTestCase {
+    func testMediaRequestReturnsDataWithApprovedCertificatePolicy() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
+        client.approveServerCertificate(
+            SynologyServerCertificate(
+                host: "nas.local",
+                subject: "DSM",
+                sha256Fingerprint: "AA:BB"
+            )
+        )
+        let expected = Data([0x89, 0x50, 0x4E, 0x47])
+
+        transport.handler = { request, configuration in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: "AA:BB")
+            )
+            return (
+                expected,
+                makeHTTPURLResponse(url: try XCTUnwrap(request.url))
+            )
+        }
+
+        let data = try await client.fetchMediaData(
+            url: URL(string: "https://nas.local/cover.jpg?_sid=secret")!
+        )
+
+        XCTAssertEqual(data, expected)
+    }
+
     func testMediaRequestDownloadsFileWithApprovedCertificatePolicy() async throws {
         let transport = HTTPClientFactorySpy()
         let client = ApiClient(

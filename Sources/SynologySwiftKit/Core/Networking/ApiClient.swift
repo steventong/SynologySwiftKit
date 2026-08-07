@@ -137,6 +137,19 @@ final class ApiClient: ApiClientProviding {
             serverTrustPolicy: serverTrustPolicy(for: url)
         )
     }
+
+    /// Fetch a small media resource while applying the current DSM trust policy.
+    func fetchMediaData(url: URL, timeout: TimeInterval = 30) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPMethod.get.rawValue
+        let (data, _) = try await executor.executeRaw(
+            request: request,
+            endpoint: rawEndpoint,
+            timeout: timeout,
+            serverTrustPolicy: serverTrustPolicy(for: url)
+        )
+        return data
+    }
 }
 
 extension ApiClient {

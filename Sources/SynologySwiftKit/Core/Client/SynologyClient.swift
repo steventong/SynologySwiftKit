@@ -128,6 +128,11 @@ public final class SynologyClient {
         try await apiClient.downloadMediaFile(url: url)
     }
 
+    /// Fetch a small media resource using the current DSM certificate policy.
+    public func fetchMediaData(from url: URL) async throws -> Data {
+        try await apiClient.fetchMediaData(url: url)
+    }
+
     // MARK: - Direct API Entry Points
 
     public var quickConnect: QuickConnectClient { system.connection.quickConnect }
