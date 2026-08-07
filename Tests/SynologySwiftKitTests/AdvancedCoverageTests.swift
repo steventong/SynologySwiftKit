@@ -100,7 +100,10 @@ final class AdvancedCoverageTests: XCTestCase {
 
     func testApiClientCoversMissingStateGetRequestsAndBusinessErrors() async throws {
         let transport = HTTPClientFactorySpy()
-        let client = ApiClient(httpClientFactory: transport.makeFactory())
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
 
         do {
             _ = try await client.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.INFO, method: "getinfo"))

@@ -124,6 +124,20 @@ final class ApiClient: ApiClientProviding {
             serverTrustPolicy: serverTrustPolicy(for: url)
         )
     }
+
+    /// 发送由当前客户端证书策略保护的原始媒体请求。
+    /// Send a raw media request protected by this client's certificate policy.
+    func requestMediaData(url: URL, timeout: TimeInterval = 300) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPMethod.get.rawValue
+        let (data, _) = try await executor.executeRaw(
+            request: request,
+            endpoint: rawEndpoint,
+            timeout: timeout,
+            serverTrustPolicy: serverTrustPolicy(for: url)
+        )
+        return data
+    }
 }
 
 extension ApiClient {

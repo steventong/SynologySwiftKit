@@ -2,6 +2,40 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class ApiClientHappyPathTests: XCTestCase {
+    func testMediaRequestReturnsRawDataWithApprovedCertificatePolicy() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
+        client.approveServerCertificate(
+            SynologyServerCertificate(
+                host: "nas.local",
+                subject: "DSM",
+                sha256Fingerprint: "AA:BB"
+            )
+        )
+        let expected = Data([0x49, 0x44, 0x33, 0x04])
+
+        transport.handler = { request, configuration in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: "AA:BB")
+            )
+            return (
+                expected,
+                makeHTTPURLResponse(url: try XCTUnwrap(request.url))
+            )
+        }
+
+        let result = try await client.requestMediaData(
+            url: URL(string: "https://nas.local/audio.mp3?_sid=secret")!
+        )
+
+        XCTAssertEqual(result, expected)
+    }
+
     func testApprovedCertificateFingerprintIsAppliedToHTTPSRequests() async throws {
         let transport = HTTPClientFactorySpy()
         let storage = MockKeyValueStorage()
@@ -30,7 +64,10 @@ final class ApiClientHappyPathTests: XCTestCase {
 
     func testRequestBuildsAuthenticatedPostAndDecodesEnvelope() async throws {
         let transport = HTTPClientFactorySpy()
-        let client = ApiClient(httpClientFactory: transport.makeFactory())
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.SONG.name: ApiInfoNode(path: "AudioStation/song.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )

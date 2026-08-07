@@ -70,6 +70,23 @@ final class ApiRequestExecutor {
         timeout: TimeInterval,
         serverTrustPolicy: ServerTrustPolicy
     ) async throws -> Value {
+        let (data, response) = try await executeRaw(
+            request: request,
+            endpoint: endpoint,
+            timeout: timeout,
+            serverTrustPolicy: serverTrustPolicy
+        )
+        return try responseDecoder.decode(Value.self, from: data, response: response)
+    }
+
+    /// 执行 HTTP 请求并返回经过拦截器处理的原始响应。
+    /// Execute an HTTP request and return the interceptor-processed raw response.
+    func executeRaw(
+        request: URLRequest,
+        endpoint: ApiEndpoint,
+        timeout: TimeInterval,
+        serverTrustPolicy: ServerTrustPolicy
+    ) async throws -> (Data, URLResponse) {
         var context = RequestContext()
         let currentRequest = try await applyRequestInterceptors(request, endpoint: endpoint, context: &context)
         let requestID = String(UUID().uuidString.prefix(8))
@@ -93,8 +110,9 @@ final class ApiRequestExecutor {
                 throw error
             }
 
+            try validateHTTPResponse(processedResponse)
             logRequestSuccess(requestID: requestID, request: currentRequest, response: processedResponse, duration: context.duration)
-            return try responseDecoder.decode(Value.self, from: processedData, response: processedResponse)
+            return (processedData, processedResponse)
         } catch let error as SynologyError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
@@ -124,6 +142,15 @@ final class ApiRequestExecutor {
             let wrappedError = SynologyError.network(message: error.localizedDescription)
             logRequestFailure(requestID: requestID, request: currentRequest, error: wrappedError, duration: context.duration)
             throw wrappedError
+        }
+    }
+
+    private func validateHTTPResponse(_ response: URLResponse) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SynologyError.network(message: "Invalid response")
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            throw SynologyError.network(message: "Invalid HTTP status: \(httpResponse.statusCode)")
         }
     }
 

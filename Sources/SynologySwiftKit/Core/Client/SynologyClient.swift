@@ -122,6 +122,12 @@ public final class SynologyClient {
         apiClient.approvedServerCertificateFingerprint(forHost: host)
     }
 
+    /// 下载由当前 DSM 会话生成的媒体资源。
+    /// Download a media resource produced by the current DSM session.
+    public func downloadMediaData(from url: URL) async throws -> Data {
+        try await apiClient.requestMediaData(url: url)
+    }
+
     // MARK: - Direct API Entry Points
 
     public var quickConnect: QuickConnectClient { system.connection.quickConnect }
