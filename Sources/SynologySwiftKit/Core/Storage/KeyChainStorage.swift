@@ -17,29 +17,26 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Keychain service name prefix
     private let service: String
 
-    /// 使用现代 Data Protection Keychain，避免 macOS 旧式钥匙串的 ACL 授权弹窗
-    /// Uses the modern Data Protection Keychain instead of the legacy macOS ACL model
-    private let usesDataProtectionKeychain: Bool
+    private let backend: any KeychainBackend
     
     private let unifiedAccount = "synology_secure_store"
 
-    /// 串行化所有 Keychain 访问：并发 SecItem* 调用会在 legacy keychain 层死锁，
-    /// 且 updateSecureStore 的读-改-写必须原子执行，否则并发更新会互相覆盖
-    /// Serializes all Keychain access: concurrent SecItem* calls can deadlock in the
-    /// legacy keychain layer, and updateSecureStore's read-modify-write must be atomic
-    /// or concurrent updates overwrite each other
+    /// 串行化所有 Keychain 访问，并确保 updateSecureStore 的读-改-写原子执行，
+    /// 避免并发更新互相覆盖
+    /// Serializes all Keychain access and keeps updateSecureStore's read-modify-write
+    /// atomic so concurrent updates cannot overwrite each other
     private let lock = NSRecursiveLock()
 
     /// 初始化 Keychain 存储
     /// Initialize Keychain storage
     /// - Parameter service: 服务标识符 / Service identifier
     public convenience init(service: String = "com.synologyswiftkit.keychain") {
-        self.init(service: service, usesDataProtectionKeychain: true)
+        self.init(service: service, backend: DataProtectionKeychainBackend())
     }
 
-    init(service: String, usesDataProtectionKeychain: Bool) {
+    init(service: String, backend: any KeychainBackend) {
         self.service = service
-        self.usesDataProtectionKeychain = usesDataProtectionKeychain
+        self.backend = backend
     }
 
     // MARK: - Credentials Management
@@ -212,15 +209,7 @@ extension KeyChainStorage {
         // delete data
         delete(account: account)
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecValueData as String: rawData,
-            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
-            kSecUseDataProtectionKeychain as String: usesDataProtectionKeychain,
-        ]
-        let status = SecItemAdd(query as CFDictionary, nil)
+        let status = backend.save(rawData, service: service, account: account)
         if status != errSecSuccess {
             Logger.error("[KeychainStorage] Failed to save \(account), status: \(status)")
         }
@@ -241,19 +230,9 @@ extension KeyChainStorage {
         lock.lock()
         defer { lock.unlock() }
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecUseDataProtectionKeychain as String: usesDataProtectionKeychain,
-        ]
+        let (status, data) = backend.read(service: service, account: account)
 
-        var item: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &item)
-
-        if status == errSecSuccess, let data = item as? Data {
+        if status == errSecSuccess, let data {
             return data
         }
         return nil
@@ -265,13 +244,7 @@ extension KeyChainStorage {
         lock.lock()
         defer { lock.unlock() }
 
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecUseDataProtectionKeychain as String: usesDataProtectionKeychain,
-        ]
-        SecItemDelete(query as CFDictionary)
+        backend.delete(service: service, account: account)
     }
 }
 
