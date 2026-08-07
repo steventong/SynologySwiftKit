@@ -109,7 +109,9 @@ extension AuthClient {
     /// 处理登录结果（当前仅记录日志）
     /// Handle login result (currently only logs the result)
     private func handleAuthResult(authResult: AuthResult) -> AuthResult {
-        Logger.info("authResult: \(authResult)")
+        Logger.info(
+            "AuthClient#handleAuthResult success, \(Logger.sessionSummary(sid: authResult.sid, did: authResult.did)), hasSynoToken=\(authResult.synotoken?.isEmpty == false)"
+        )
         return authResult
     }
 }
