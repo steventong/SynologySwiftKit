@@ -2,7 +2,7 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class ApiClientHappyPathTests: XCTestCase {
-    func testMediaRequestReturnsRawDataWithApprovedCertificatePolicy() async throws {
+    func testMediaRequestDownloadsFileWithApprovedCertificatePolicy() async throws {
         let transport = HTTPClientFactorySpy()
         let client = ApiClient(
             httpClientFactory: transport.makeFactory(),
@@ -29,11 +29,14 @@ final class ApiClientHappyPathTests: XCTestCase {
             )
         }
 
-        let result = try await client.requestMediaData(
+        let fileURL = try await client.downloadMediaFile(
             url: URL(string: "https://nas.local/audio.mp3?_sid=secret")!
         )
+        defer {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
 
-        XCTAssertEqual(result, expected)
+        XCTAssertEqual(try Data(contentsOf: fileURL), expected)
     }
 
     func testApprovedCertificateFingerprintIsAppliedToHTTPSRequests() async throws {

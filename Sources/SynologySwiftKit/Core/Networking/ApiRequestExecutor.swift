@@ -145,6 +145,48 @@ final class ApiRequestExecutor {
         }
     }
 
+    /// 将响应体直接下载到临时文件，避免大媒体完整进入内存。
+    /// Download a response body directly to a temporary file.
+    func download(
+        request: URLRequest,
+        endpoint: ApiEndpoint,
+        timeout: TimeInterval,
+        serverTrustPolicy: ServerTrustPolicy
+    ) async throws -> URL {
+        var context = RequestContext()
+        let currentRequest = try await applyRequestInterceptors(
+            request,
+            endpoint: endpoint,
+            context: &context
+        )
+        let httpClient = httpClientFactory(timeout, serverTrustPolicy)
+
+        do {
+            let (fileURL, response) = try await httpClient.download(currentRequest)
+            do {
+                try validateHTTPResponse(response)
+                return fileURL
+            } catch {
+                try? FileManager.default.removeItem(at: fileURL)
+                throw error
+            }
+        } catch let error as SynologyError {
+            throw error
+        } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
+            throw SynologyError.serverCertificateUntrusted(
+                SynologyServerCertificate(
+                    host: certificate.host,
+                    subject: certificate.subject,
+                    sha256Fingerprint: certificate.sha256Fingerprint
+                )
+            )
+        } catch let urlError as URLError {
+            throw errorMapper.map(urlError)
+        } catch {
+            throw SynologyError.network(message: error.localizedDescription)
+        }
+    }
+
     private func validateHTTPResponse(_ response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw SynologyError.network(message: "Invalid response")

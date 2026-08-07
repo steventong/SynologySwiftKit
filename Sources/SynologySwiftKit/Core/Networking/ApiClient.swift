@@ -125,18 +125,17 @@ final class ApiClient: ApiClientProviding {
         )
     }
 
-    /// 发送由当前客户端证书策略保护的原始媒体请求。
-    /// Send a raw media request protected by this client's certificate policy.
-    func requestMediaData(url: URL, timeout: TimeInterval = 300) async throws -> Data {
+    /// 将媒体直接下载到由调用方负责清理的临时文件。
+    /// Download media directly to a caller-owned temporary file.
+    func downloadMediaFile(url: URL, timeout: TimeInterval = 300) async throws -> URL {
         var request = URLRequest(url: url)
         request.httpMethod = HTTPMethod.get.rawValue
-        let (data, _) = try await executor.executeRaw(
+        return try await executor.download(
             request: request,
             endpoint: rawEndpoint,
             timeout: timeout,
             serverTrustPolicy: serverTrustPolicy(for: url)
         )
-        return data
     }
 }
 
