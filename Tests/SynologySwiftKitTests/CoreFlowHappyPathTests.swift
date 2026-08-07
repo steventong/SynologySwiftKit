@@ -11,7 +11,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             throw SynologyError.network(message: "Unexpected endpoint \(endpoint.apiName)#\(endpoint.method)")
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
         let audioStationApi = AudioStationClient(apiClient: apiClient)
         let connectionChecker = ConnectionChecker(
@@ -100,7 +100,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
     }
 
     func testSynologyClientRestoresAndClearsPersistedSession() {
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveSessionInfo(sid: "persisted-sid", did: "persisted-did")
 
         let client = SynologyClient(
@@ -123,7 +123,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
         let client = SynologyClient(
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString),
             apiClient: ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         )
 
@@ -148,7 +148,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             sid: "sid-123",
             did: "did-123",
             keyValueStorage: MockKeyValueStorage(),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString),
             httpClientFactory: HTTPClientFactorySpy().makeFactory()
         )
 
@@ -161,7 +161,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
         let client = SynologyClient(
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString),
             apiClient: ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         )
 

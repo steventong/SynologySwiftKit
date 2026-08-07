@@ -87,7 +87,7 @@ final class CoverageClosureTests: XCTestCase {
 
     func testKeyChainStorageSupportsAllStoredPayloads() {
         let service = UUID().uuidString
-        let keychain = KeyChainStorage(service: service)
+        let keychain = makeKeyChainStorage(service: service)
 
         XCTAssertNil(keychain.getCredentials())
         XCTAssertNil(keychain.getSessionInfo())
@@ -192,7 +192,7 @@ final class CoverageClosureTests: XCTestCase {
 
     func testAuthClientLoginMapsErrorsAndPersistsDeviceInfo() async throws {
         let service = UUID().uuidString
-        let keychain = KeyChainStorage(service: service)
+        let keychain = makeKeyChainStorage(service: service)
         let successClient = MockApiClient()
         successClient.requestHandler = { endpoint in
             XCTAssertEqual(endpoint.parameters["account"]?.stringValue, "tester")
@@ -257,7 +257,7 @@ final class CoverageClosureTests: XCTestCase {
 
     func testSynologyClientCoversSessionConnectionAndInterceptorPaths() async throws {
         let service = UUID().uuidString
-        let keychain = KeyChainStorage(service: service)
+        let keychain = makeKeyChainStorage(service: service)
         let transport = HTTPClientFactorySpy()
         let apiClient = ApiClient(httpClientFactory: transport.makeFactory())
         let client = SynologyClient(
@@ -291,7 +291,7 @@ final class CoverageClosureTests: XCTestCase {
     }
 
     func testSynologyUserLoginCoversCredentialRemovalAndErrorBranches() async {
-        let removeKeychain = KeyChainStorage(service: UUID().uuidString)
+        let removeKeychain = makeKeyChainStorage(service: UUID().uuidString)
         removeKeychain.saveCredentials(server: "nas.local", username: "tester", password: "old", usesHTTPS: true)
         let removeClient = MockApiClient()
         removeClient.requestHandler = { endpoint in
@@ -327,7 +327,7 @@ final class CoverageClosureTests: XCTestCase {
         }
         XCTAssertNil(removeKeychain.getCredentials())
 
-        let otpKeychain = KeyChainStorage(service: UUID().uuidString)
+        let otpKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let otpClient = MockApiClient()
         otpClient.requestHandler = { endpoint in
             if endpoint.apiName == SynologyApi.Core.AUTH.name {
@@ -382,7 +382,7 @@ final class CoverageClosureTests: XCTestCase {
         }
 
         let missingClient = MockApiClient()
-        let missingKeychain = KeyChainStorage(service: UUID().uuidString)
+        let missingKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let missingAuthApi = AuthClient(apiClient: missingClient, keyChainStorage: missingKeychain)
         let missingAudioStationApi = AudioStationClient(apiClient: missingClient)
         let missingConnectionChecker = ConnectionChecker(
@@ -424,7 +424,7 @@ final class CoverageClosureTests: XCTestCase {
         }
 
         let failureClient = MockApiClient()
-        let failureKeychain = KeyChainStorage(service: UUID().uuidString)
+        let failureKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let failureAuthApi = AuthClient(apiClient: failureClient, keyChainStorage: failureKeychain)
         let failureAudioStationApi = AudioStationClient(apiClient: failureClient)
         let failureConnectionChecker = ConnectionChecker(
@@ -452,7 +452,7 @@ final class CoverageClosureTests: XCTestCase {
         XCTAssertTrue(message.contains("api info failed"))
         XCTAssertNil(failureKeychain.getCredentials())
 
-        let preservedKeychain = KeyChainStorage(service: UUID().uuidString)
+        let preservedKeychain = makeKeyChainStorage(service: UUID().uuidString)
         preservedKeychain.saveCredentials(
             server: "old-nas.local",
             username: "old-user",

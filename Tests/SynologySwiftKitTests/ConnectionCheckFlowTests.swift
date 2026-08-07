@@ -6,7 +6,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
         let apiClient = MockApiClient()
         apiClient.connection = (.custom_domain, "https://nas.local")
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
 
         let checker = ConnectionChecker(
@@ -35,7 +35,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
 
     func testCheckWithoutCredentialsEmitsFailure() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         let checker = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
@@ -61,7 +61,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString)
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString)
         )
 
         var events: [ConnectionCheckProgress] = []
@@ -89,7 +89,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
                 "https://stale.local": false,
                 "https://nas.local:5001": true,
             ]),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString)
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString)
         )
 
         var events: [ConnectionCheckProgress] = []
@@ -109,7 +109,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
         let apiClient = MockApiClient()
         apiClient.connection = (.custom_domain, "https://old-nas.local")
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(
             server: "old-nas.local",
             username: "tester",
@@ -145,7 +145,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             throw SynologyError.network(message: "qc failed")
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "QC123456", username: "tester", password: "secret", usesHTTPS: true)
 
         let checker = ConnectionChecker(
@@ -176,7 +176,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             try makeConnectionCheckServerInfo(ip: "192.168.1.20", port: 5001)
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "QC123456", username: "tester", password: "secret", usesHTTPS: true)
 
         let checker = ConnectionChecker(
@@ -213,7 +213,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: CertificateFailingPingPong(certificate: certificate, recorder: recorder),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString)
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString)
         )
 
         var events: [ConnectionCheckProgress] = []

@@ -16,6 +16,10 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Keychain 服务名称前缀
     /// Keychain service name prefix
     private let service: String
+
+    /// 使用现代 Data Protection Keychain，避免 macOS 旧式钥匙串的 ACL 授权弹窗
+    /// Uses the modern Data Protection Keychain instead of the legacy macOS ACL model
+    private let usesDataProtectionKeychain: Bool
     
     private let unifiedAccount = "synology_secure_store"
 
@@ -29,8 +33,13 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 初始化 Keychain 存储
     /// Initialize Keychain storage
     /// - Parameter service: 服务标识符 / Service identifier
-    public init(service: String = "com.synologyswiftkit.keychain") {
+    public convenience init(service: String = "com.synologyswiftkit.keychain") {
+        self.init(service: service, usesDataProtectionKeychain: true)
+    }
+
+    init(service: String, usesDataProtectionKeychain: Bool) {
         self.service = service
+        self.usesDataProtectionKeychain = usesDataProtectionKeychain
     }
 
     // MARK: - Credentials Management
@@ -209,6 +218,7 @@ extension KeyChainStorage {
             kSecAttrAccount as String: account,
             kSecValueData as String: rawData,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock,
+            kSecUseDataProtectionKeychain as String: usesDataProtectionKeychain,
         ]
         let status = SecItemAdd(query as CFDictionary, nil)
         if status != errSecSuccess {
@@ -237,6 +247,7 @@ extension KeyChainStorage {
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
             kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseDataProtectionKeychain as String: usesDataProtectionKeychain,
         ]
 
         var item: CFTypeRef?
@@ -258,6 +269,7 @@ extension KeyChainStorage {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
+            kSecUseDataProtectionKeychain as String: usesDataProtectionKeychain,
         ]
         SecItemDelete(query as CFDictionary)
     }

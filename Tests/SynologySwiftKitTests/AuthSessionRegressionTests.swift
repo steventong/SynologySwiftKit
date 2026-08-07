@@ -16,7 +16,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveSessionInfo(sid: "expired-sid", did: nil)
 
@@ -69,7 +69,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.session = ("sid-123", "did-123")
         apiClient.mockResponse = EmptyData()
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveSessionInfo(sid: "sid-123", did: "did-123")
 
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)

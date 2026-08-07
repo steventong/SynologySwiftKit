@@ -12,7 +12,7 @@ final class StorageServiceTests: XCTestCase {
         suiteName = "StorageServiceTests.\(UUID().uuidString)"
         userDefaults = UserDefaults(suiteName: suiteName)!
         userDefaults.removePersistentDomain(forName: suiteName)
-        keychain = KeyChainStorage(service: suiteName)
+        keychain = makeKeyChainStorage(service: suiteName)
         storage = StorageService(
             keyValueStorage: UserDefaultsStorage(userDefaults: userDefaults),
             keyChainStorage: keychain
