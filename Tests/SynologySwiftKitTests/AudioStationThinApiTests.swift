@@ -21,6 +21,27 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertNotNil(api.tagEditor)
     }
 
+    func testConcurrentSubmoduleAccessReturnsStableInstances() async {
+        let api = AudioStationClient(apiClient: MockApiClient(), keyValueStorage: MockKeyValueStorage())
+
+        let coverIdentifiers = await withTaskGroup(of: ObjectIdentifier.self) { group in
+            for _ in 0 ..< 128 {
+                group.addTask {
+                    ObjectIdentifier(api.covers)
+                }
+            }
+
+            var identifiers: [ObjectIdentifier] = []
+            for await identifier in group {
+                identifiers.append(identifier)
+            }
+            return identifiers
+        }
+
+        XCTAssertEqual(Set(coverIdentifiers).count, 1)
+        XCTAssertTrue(api.stream === api.stream)
+    }
+
     func testCollectionApisReturnDecodedLists() async throws {
         let apiClient = MockApiClient()
         apiClient.requestHandler = { endpoint in

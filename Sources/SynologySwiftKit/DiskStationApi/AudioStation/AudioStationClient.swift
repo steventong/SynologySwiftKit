@@ -32,54 +32,50 @@ public final class AudioStationClient {
     /// API 客户端（internal 以便 extension 访问）
     /// API client (internal for extension access)
     let apiClient: ApiEndpointClient
-    private let keyValueStorage: KeyValueStorage
 
     // MARK: - API Modules
 
     /// 固定 API
-    public lazy var pins: PinApi = PinApi(apiClient: apiClient)
+    public let pins: PinApi
 
     /// 文件夹 API
-    public lazy var folders = FolderApi(apiClient: apiClient)
+    public let folders: FolderApi
 
     /// 专辑 API
-    public lazy var albums = AlbumApi(apiClient: apiClient)
+    public let albums: AlbumApi
 
     /// 艺术家 API
-    public lazy var artists = ArtistApi(apiClient: apiClient)
+    public let artists: ArtistApi
 
     /// 作曲家 API
-    public lazy var composers = ComposerApi(apiClient: apiClient)
+    public let composers: ComposerApi
 
     /// 流派 API
-    public lazy var genres = GenreApi(apiClient: apiClient)
+    public let genres: GenreApi
 
     /// 歌曲 API
-    public lazy var songs = SongApi(apiClient: apiClient, urlBuilder: apiClient)
+    public let songs: SongApi
 
     /// 播放列表 API
-    public lazy var playlists = PlaylistApi(apiClient: apiClient)
+    public let playlists: PlaylistApi
 
     /// 歌词 API
-    public lazy var lyrics = LyricsApi(apiClient: apiClient)
+    public let lyrics: LyricsApi
 
     /// 搜索 API
-    public lazy var search = SearchApi(apiClient: apiClient)
+    public let search: SearchApi
 
     /// 封面 API
-    public lazy var covers = CoverApi(urlBuilder: apiClient)
+    public let covers: CoverApi
 
     /// 流媒体 API
-    public lazy var stream = StreamApi(
-        urlBuilder: apiClient,
-        transcodeCapabilityProvider: info
-    )
+    public let stream: StreamApi
 
     /// 信息 API
-    public lazy var info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
+    public let info: InfoApi
 
     /// 标签编辑器 API
-    public lazy var tagEditor = TagEditorApi(apiClient: apiClient)
+    public let tagEditor: TagEditorApi
 
     // MARK: - Initialization
 
@@ -88,7 +84,25 @@ public final class AudioStationClient {
     /// - Parameter apiClient: API 客户端
     init(apiClient: ApiEndpointClient, keyValueStorage: KeyValueStorage = StorageService()) {
         self.apiClient = apiClient
-        self.keyValueStorage = keyValueStorage
+
+        let info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
+        pins = PinApi(apiClient: apiClient)
+        folders = FolderApi(apiClient: apiClient)
+        albums = AlbumApi(apiClient: apiClient)
+        artists = ArtistApi(apiClient: apiClient)
+        composers = ComposerApi(apiClient: apiClient)
+        genres = GenreApi(apiClient: apiClient)
+        songs = SongApi(apiClient: apiClient, urlBuilder: apiClient)
+        playlists = PlaylistApi(apiClient: apiClient)
+        lyrics = LyricsApi(apiClient: apiClient)
+        search = SearchApi(apiClient: apiClient)
+        covers = CoverApi(urlBuilder: apiClient)
+        stream = StreamApi(
+            urlBuilder: apiClient,
+            transcodeCapabilityProvider: info
+        )
+        self.info = info
+        tagEditor = TagEditorApi(apiClient: apiClient)
     }
 }
 
