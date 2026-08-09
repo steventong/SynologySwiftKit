@@ -3,11 +3,11 @@ import SwiftHttpClient
 
 /// Factory for creating request-scoped HTTP clients.
 ///
-/// Request-scoped creation keeps per-endpoint timeout and trusted SSL domain behavior
+/// Request-scoped creation keeps per-endpoint timeout and server trust behavior
 /// without sharing mutable transport state across concurrent requests.
-public typealias SynologyHTTPClientFactory = @Sendable (TimeInterval, String?) -> HTTPClient
+public typealias SynologyHTTPClientFactory = @Sendable (TimeInterval, ServerTrustPolicy) -> HTTPClient
 
 /// Default request-scoped HTTP client factory backed by `SwiftHttpClient.HTTPClient`.
-public let defaultSynologyHTTPClientFactory: SynologyHTTPClientFactory = { timeout, trustedSSLDomain in
-    HTTPClient(timeout: timeout, trustedSSLDomain: trustedSSLDomain)
+public let defaultSynologyHTTPClientFactory: SynologyHTTPClientFactory = { timeout, serverTrustPolicy in
+    HTTPClient(timeout: timeout, serverTrustPolicy: serverTrustPolicy)
 }

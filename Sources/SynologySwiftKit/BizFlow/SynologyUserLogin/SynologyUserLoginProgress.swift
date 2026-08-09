@@ -28,6 +28,9 @@ public enum SynologyUserLoginProgress: Sendable {
     /// Login failed (with localized failure description)
     case failed(message: String)
 
+    /// HTTPS certificate requires explicit user approval before retrying.
+    case serverCertificateUntrusted(SynologyServerCertificate)
+
     /// 需要输入 OTP 验证码
     /// OTP verification code required
     case otpRequired

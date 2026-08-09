@@ -5,8 +5,8 @@ import Foundation
 /// 凭据存储协议（账号密码）
 /// Protocol for credential storage (username and password)
 public protocol CredentialStorage: AnyObject, Sendable {
-    /// 保存登录凭据
-    /// Save login credentials
+    /// 保存成功登录的凭据，并自动更新历史账号。
+    /// Save successfully authenticated credentials and update account history automatically.
     func saveCredentials(server: String, username: String, password: String, usesHTTPS: Bool)
 
     /// 获取已保存的登录凭据，不存在时返回 nil
@@ -16,6 +16,20 @@ public protocol CredentialStorage: AnyObject, Sendable {
     /// 删除已保存的登录凭据
     /// Remove saved login credentials
     func removeCredentials()
+}
+
+// MARK: - LoginAccountHistoryStorage
+
+/// 历史登录账号存储协议。
+/// Protocol for storing successfully authenticated accounts.
+public protocol LoginAccountHistoryStorage: AnyObject, Sendable {
+    /// 获取历史登录账号，按最近登录时间倒序排列。
+    /// Get login account history ordered from most to least recent.
+    func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem]
+
+    /// 删除指定历史登录账号。
+    /// Remove a login account history item.
+    func removeLoginAccountFromHistory(id: UUID)
 }
 
 // MARK: - SessionStorage
@@ -73,9 +87,10 @@ public protocol DeviceIdentityStorage: AnyObject, Sendable {
 /// 敏感信息存储组合协议
 /// Composite protocol for sensitive storage
 ///
-/// 组合了凭据、会话、连接地址、设备身份四类敏感数据的存取能力。
-/// Combines credential, session, connection, and device identity storage capabilities.
+/// 组合了凭据、历史账号、会话、连接地址、设备身份五类敏感数据的存取能力。
+/// Combines credential, account history, session, connection, and device identity storage capabilities.
 public typealias SensitiveStorage = CredentialStorage
+    & LoginAccountHistoryStorage
     & SessionStorage
     & ConnectionStorage
     & DeviceIdentityStorage

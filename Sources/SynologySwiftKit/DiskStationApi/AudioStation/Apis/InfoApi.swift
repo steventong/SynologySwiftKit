@@ -72,3 +72,18 @@ public final class InfoApi {
         return false
     }
 }
+
+protocol AudioTranscodeCapabilityProviding {
+    func supportedTranscodeFormats() async throws -> Set<SongTranscodeFormat>
+}
+
+extension InfoApi: AudioTranscodeCapabilityProviding {
+    func supportedTranscodeFormats() async throws -> Set<SongTranscodeFormat> {
+        let info = try await query(usesCache: true)
+        return Set(
+            info.transcode_capability.compactMap {
+                SongTranscodeFormat(rawValue: $0.lowercased())
+            }
+        )
+    }
+}

@@ -29,6 +29,14 @@ public struct SynologyConfig: Sendable {
     /// Enable verbose network logging
     public let enableNetworkLogging: Bool
 
+    /// 日志输出目的地
+    /// Logging destination
+    public let logDestination: SynologyLogDestination
+
+    /// 宿主应用可选注入的日志处理器
+    /// Optional host application log handler
+    public let logHandler: SynologyLogHandler?
+
     /// API 信息缓存有效期 (秒，默认 24 小时)
     /// API info cache validity (seconds, default: 24 hours)
     public let apiInfoCacheValidity: Int32
@@ -40,12 +48,24 @@ public struct SynologyConfig: Sendable {
     ///   - quickConnectTimeout: QuickConnect 解析超时时间（秒，默认 10s）/ QuickConnect resolution timeout (seconds, default: 10s)
     ///   - pingpongTimeout: PingPong 检测超时时间（秒，默认 3.6s）/ PingPong check timeout (seconds, default: 3.6s)
     ///   - enableNetworkLogging: 是否启用详细网络日志（默认 true）/ Enable verbose network logging (default: true)
+    ///   - logDestination: 日志输出目的地，默认 `.system` / Logging destination, default: `.system`
+    ///   - logHandler: 可选日志处理器，默认 `nil` / Optional log handler, default: `nil`
     ///   - apiInfoCacheValidity: API 信息缓存有效期（秒，默认 86400s = 24h）/ API info cache validity (seconds, default: 86400s = 24h)
-    public init(timeoutInterval: TimeInterval = 10, quickConnectTimeout: TimeInterval = 10, pingpongTimeout: TimeInterval = 3.6, enableNetworkLogging: Bool = true, apiInfoCacheValidity: Int32 = 86400) {
+    public init(
+        timeoutInterval: TimeInterval = 10,
+        quickConnectTimeout: TimeInterval = 10,
+        pingpongTimeout: TimeInterval = 3.6,
+        enableNetworkLogging: Bool = true,
+        logDestination: SynologyLogDestination = .system,
+        logHandler: SynologyLogHandler? = nil,
+        apiInfoCacheValidity: Int32 = 86400
+    ) {
         self.timeoutInterval = timeoutInterval
         self.quickConnectTimeout = quickConnectTimeout
         self.pingpongTimeout = pingpongTimeout
         self.enableNetworkLogging = enableNetworkLogging
+        self.logDestination = logDestination
+        self.logHandler = logHandler
         self.apiInfoCacheValidity = apiInfoCacheValidity
     }
 }

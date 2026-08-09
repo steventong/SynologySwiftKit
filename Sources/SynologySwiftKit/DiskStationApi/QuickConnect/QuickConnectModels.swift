@@ -28,13 +28,13 @@ extension QuickConnectClient {
     /// QuickConnect 服务类型 ID
     /// QuickConnect service type ID
     enum QuickConnectServerId: String, Encodable {
-        /// HTTPS 模式的 DSM 服务
-        /// DSM service in HTTPS mode
-        case dsm_https
+        /// HTTPS 模式的 Audio Station 服务
+        /// Audio Station service in HTTPS mode
+        case audio_https
 
-        /// HTTP 模式的 DSM 服务
-        /// DSM service in HTTP mode
-        case dsm
+        /// HTTP 模式的 Audio Station 服务
+        /// Audio Station service in HTTP mode
+        case audio_http
     }
 
     // MARK: - SynoGetServerInfoRequest
@@ -58,21 +58,27 @@ extension QuickConnectClient {
         /// Protocol version (fixed: 1)
         let version: Int
 
-        /// 成功后是否停止（固定 false，由客户端控制）
-        /// Whether to stop on success (fixed: false, controlled by client)
-        let stop_when_success: Bool
+        /// 客户端所在地区（仅 request_tunnel 使用）
+        /// Client region (used only by request_tunnel)
+        let location: String?
 
-        /// 出错后是否停止（固定 false）
-        /// Whether to stop on error (fixed: false)
-        let stop_when_error: Bool
+        /// 客户端平台（仅 request_tunnel 使用）
+        /// Client platform (used only by request_tunnel)
+        let platform: String?
 
-        init(id: QuickConnectServerId, command: QuickConnectServerCommand, serverID: String) {
+        init(
+            id: QuickConnectServerId,
+            command: QuickConnectServerCommand,
+            serverID: String,
+            location: String? = nil,
+            platform: String? = nil
+        ) {
             self.id = id
             self.command = command
             self.serverID = serverID
             version = 1
-            stop_when_success = false
-            stop_when_error = false
+            self.location = location
+            self.platform = platform
         }
     }
 

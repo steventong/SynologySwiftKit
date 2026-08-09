@@ -10,7 +10,13 @@ final class AdvancedCoverageTests: XCTestCase {
 
         let quickConnectApi = QuickConnectClient(
             apiClient: apiClient,
-            pingpong: TestPingPong(firstResult: nil),
+            pingpong: TestPingPong(
+                firstResult: SynologyConnection(
+                    type: .relay,
+                    url: "https://relay.quickconnect.to:443"
+                ),
+                singleURLReachable: true
+            ),
             timeout: 2,
             keyValueStorage: storage
         )
@@ -94,7 +100,10 @@ final class AdvancedCoverageTests: XCTestCase {
 
     func testApiClientCoversMissingStateGetRequestsAndBusinessErrors() async throws {
         let transport = HTTPClientFactorySpy()
-        let client = ApiClient(httpClientFactory: transport.makeFactory())
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
 
         do {
             _ = try await client.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.INFO, method: "getinfo"))
@@ -118,7 +127,10 @@ final class AdvancedCoverageTests: XCTestCase {
 
         client.updateConnection(type: .custom_domain, url: "https://nas.local")
         transport.handler = { request, configuration in
-            XCTAssertEqual(configuration.trustedSSLDomain, "nas.local")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: nil)
+            )
             XCTAssertEqual(request.httpMethod, "GET")
             XCTAssertURL(try XCTUnwrap(request.url), contains: [
                 "api": SynologyApi.AudioStation.SEARCH.name,
@@ -155,7 +167,7 @@ final class AdvancedCoverageTests: XCTestCase {
         client.addInterceptor(interceptor)
 
         transport.handler = { request, configuration in
-            XCTAssertNil(configuration.trustedSSLDomain)
+            XCTAssertEqual(configuration.serverTrustPolicy, .system)
             XCTAssertEqual(request.value(forHTTPHeaderField: "Cookie"), "id=sid-1; did=did-1")
                 return (
                     try makeSynologyEnvelope(makeAudioStationInfo()),

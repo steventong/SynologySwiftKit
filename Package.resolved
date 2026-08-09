@@ -1,5 +1,5 @@
 {
-  "originHash" : "69479d47a17762d2c9795723c17599378590eba5fc73dc371e5f3453ace47aea",
+  "originHash" : "9cd4f0025c6f956e12d442cb9cd6ea31cb8298b1668ce66406c46de247d7f90a",
   "pins" : [
     {
       "identity" : "swifthttpclient",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/steventong/SwiftHttpClient",
       "state" : {
         "branch" : "main",
-        "revision" : "49c78be128a1dc37a86e5afacc64af373b04326d"
+        "revision" : "1d583d6d64ba84f3ac669498b596727619eb60aa"
       }
     }
   ],

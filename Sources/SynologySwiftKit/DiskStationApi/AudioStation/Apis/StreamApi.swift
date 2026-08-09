@@ -10,117 +10,201 @@ import OSLog
 
 public final class StreamApi {
     private let urlBuilder: ApiURLBuilding
+    private let transcodeCapabilityProvider: AudioTranscodeCapabilityProviding
 
-    init(urlBuilder: ApiURLBuilding) {
+    init(
+        urlBuilder: ApiURLBuilding,
+        transcodeCapabilityProvider: AudioTranscodeCapabilityProviding
+    ) {
         self.urlBuilder = urlBuilder
+        self.transcodeCapabilityProvider = transcodeCapabilityProvider
     }
 
-    /// 构建音频播放地址
-    public func playbackURL(for source: SongPlaybackSource, quality: SongStreamQuality) async throws -> URL {
-        // 如果是整轨的，直接返回mp3播放地址
-        if source.id.hasPrefix("music_v") || source.id.hasPrefix("music_p_v") {
-            Logger.info("整轨音频文件不支持stream，使用转码URL，id: \(source.id)")
-            let api = ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", version: 2, pathSuffix: "/0.mp3", sidOnQuery: true) {
-                ("format", "mp3")
-                ("id", source.id)
-            }
-            return try await urlBuilder.buildUrl(api)
+    /// 构造播放资源。URL、最终格式和缓存身份均来自同一播放方案。
+    public func playbackResource(
+        for source: SongPlaybackSource,
+        quality: SongStreamQuality,
+        preferredTranscodeFormat: SongTranscodeFormat = .mp3
+    ) async throws -> SongPlaybackResource {
+        let supportedFormats = try await transcodeCapabilityProvider.supportedTranscodeFormats()
+        let plan = try playbackPlan(
+            for: source,
+            quality: quality,
+            preferredTranscodeFormat: preferredTranscodeFormat,
+            supportedTranscodeFormats: supportedFormats
+        )
+        let url = try await buildPlaybackURL(for: source, plan: plan)
+        return SongPlaybackResource(url: url, plan: plan)
+    }
+
+    /// 兼容只需要 URL 的调用方。
+    public func playbackURL(
+        for source: SongPlaybackSource,
+        quality: SongStreamQuality,
+        preferredTranscodeFormat: SongTranscodeFormat = .mp3
+    ) async throws -> URL {
+        try await playbackResource(
+            for: source,
+            quality: quality,
+            preferredTranscodeFormat: preferredTranscodeFormat
+        ).url
+    }
+
+    /// 按官方客户端的顺序决定直流或转码：
+    /// 1. 先判断整轨和客户端格式兼容性。
+    /// 2. 可直放时仅在源码率高于目标码率时压缩。
+    /// 3. 需要转码时根据 NAS 能力选择实际输出格式。
+    func playbackPlan(
+        for source: SongPlaybackSource,
+        quality: SongStreamQuality,
+        preferredTranscodeFormat: SongTranscodeFormat,
+        supportedTranscodeFormats: Set<SongTranscodeFormat>
+    ) throws -> SongPlaybackPlan {
+        let sourceFormat = try normalizedSourceFormat(source.fileExtension)
+        let isVirtualTrack = source.id.hasPrefix("music_v")
+            || source.id.hasPrefix("music_p_v")
+        let isDirectPlayable = Self.directPlayFormats.contains(sourceFormat)
+
+        if isVirtualTrack {
+            return try transcodePlan(
+                sourceFormat: sourceFormat,
+                quality: quality,
+                preferredFormat: preferredTranscodeFormat,
+                supportedFormats: supportedTranscodeFormats,
+                reason: .virtualTrack
+            )
         }
 
-        // build parameters
-        var parameters: ApiParameters = ["id": .string(UrlUtils.urlEncode(source.id))]
+        if !isDirectPlayable {
+            return try transcodePlan(
+                sourceFormat: sourceFormat,
+                quality: quality,
+                preferredFormat: preferredTranscodeFormat,
+                supportedFormats: supportedTranscodeFormats,
+                reason: .incompatibleSource
+            )
+        }
 
-        // 构建播放地址 getPlayUrl
-        // 当前的音频是否需要转码
-        let streamMethod = getAudioStreamForceMethod(
-            id: source.id, path: source.path, bitrate: source.bitrate, frequency: source.frequency)
+        guard let targetBitrate = quality.bitrate else {
+            return streamPlan(sourceFormat: sourceFormat, reason: .originalRequested)
+        }
 
-        if streamMethod == .STREAM {
-            // must use stream
-            return try await buildStreamUrl(fileExtension: source.fileExtension, parameters: &parameters)
-        } else if streamMethod == .TRANSCODE {
-            // must by transcode
-            return try await buildTranscodeUrl(fileExtension: source.fileExtension, quality: quality, parameters: &parameters)
-        } else if quality == .ORIGINAL {
-            // user choose use original (stream)
-            return try await buildStreamUrl(fileExtension: source.fileExtension, parameters: &parameters)
+        guard source.bitrate > targetBitrate else {
+            return streamPlan(sourceFormat: sourceFormat, reason: .sourceWithinTargetBitrate)
+        }
+
+        // WAV 不能降低传输码率；NAS 没有 MP3 转码能力时继续使用兼容的原始流。
+        guard supportedTranscodeFormats.contains(.mp3),
+              preferredTranscodeFormat == .mp3 else {
+            return streamPlan(sourceFormat: sourceFormat, reason: .transcodingUnavailable)
+        }
+
+        return SongPlaybackPlan(
+            method: .transcode,
+            outputFormat: SongTranscodeFormat.mp3.rawValue,
+            bitrate: targetBitrate,
+            reason: .bitrateReduction
+        )
+    }
+}
+
+private extension StreamApi {
+    /// Apple 平台由 AVFoundation 直接解码的音频容器。
+    static let directPlayFormats: Set<String> = [
+        "aac",
+        "aif",
+        "aiff",
+        "caf",
+        "flac",
+        "m4a",
+        "m4b",
+        "mp3",
+        "wav",
+    ]
+
+    func normalizedSourceFormat(_ fileExtension: String) throws -> String {
+        let format = fileExtension
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            .lowercased()
+        guard !format.isEmpty else {
+            throw SongPlaybackError.missingFileExtension
+        }
+        return format
+    }
+
+    func streamPlan(
+        sourceFormat: String,
+        reason: SongPlaybackDecisionReason
+    ) -> SongPlaybackPlan {
+        SongPlaybackPlan(
+            method: .stream,
+            outputFormat: sourceFormat,
+            bitrate: nil,
+            reason: reason
+        )
+    }
+
+    func transcodePlan(
+        sourceFormat: String,
+        quality: SongStreamQuality,
+        preferredFormat: SongTranscodeFormat,
+        supportedFormats: Set<SongTranscodeFormat>,
+        reason: SongPlaybackDecisionReason
+    ) throws -> SongPlaybackPlan {
+        let outputFormat: SongTranscodeFormat?
+        if supportedFormats.contains(preferredFormat) {
+            outputFormat = preferredFormat
+        } else if supportedFormats.contains(.mp3) {
+            outputFormat = .mp3
+        } else if supportedFormats.contains(.wav) {
+            outputFormat = .wav
         } else {
-            // user choose transcode
-            return try await buildTranscodeUrl(fileExtension: source.fileExtension, quality: quality, parameters: &parameters)
+            outputFormat = nil
         }
+
+        guard let outputFormat else {
+            throw SongPlaybackError.unsupportedSourceFormat(sourceFormat)
+        }
+
+        let bitrate: Int?
+        switch outputFormat {
+        case .mp3:
+            bitrate = quality.bitrate ?? SongStreamQuality.HIGH.bitrate
+        case .wav:
+            bitrate = nil
+        }
+
+        return SongPlaybackPlan(
+            method: .transcode,
+            outputFormat: outputFormat.rawValue,
+            bitrate: bitrate,
+            reason: reason
+        )
     }
 
-    // MARK: - Private Helpers
-
-    private enum StreamMethodEnum {
-        case STREAM
-        case TRANSCODE
-    }
-
-    private func getAudioStreamForceMethod(id: String, path: String, bitrate: Int, frequency: Int) -> StreamMethodEnum? {
-        // 整轨音频文件不支持stream，强制转码
-        if id.hasPrefix("music_v") || id.hasPrefix("music_p_v") {
-            Logger.info("整轨音频文件不支持stream，强制转码, id: \(id)")
-            return .TRANSCODE
+    func buildPlaybackURL(
+        for source: SongPlaybackSource,
+        plan: SongPlaybackPlan
+    ) async throws -> URL {
+        var parameters: ApiParameters = [
+            "id": .string(source.id),
+            "format": .string(plan.outputFormat),
+        ]
+        if let bitrate = plan.bitrate {
+            parameters["bitrate"] = .int(bitrate)
         }
 
-        let _path = path.lowercased()
+        Logger.info(
+            "播放方案: method=\(plan.method.rawValue), format=\(plan.outputFormat), bitrate=\(plan.bitrate ?? 0), reason=\(plan.reason.rawValue), id=\(source.id)"
+        )
 
-        if _path.hasSuffix(".m4a") {
-            Logger.info("特定格式：.m4a，使用串流，path: \(path)")
-            return .STREAM
-        }
-
-        if _path.hasSuffix(".dsf") || _path.hasSuffix(".dff") {
-            Logger.info("特定格式：.dsf/.dff，使用转码，path: \(path)")
-            return .TRANSCODE
-        }
-
-        if _path.hasSuffix(".ogg") {
-            Logger.info("特定格式：.ogg，使用转码，path: \(path)")
-            return .TRANSCODE
-        }
-
-        if _path.hasSuffix(".mkv") {
-            Logger.info("特定格式：.mkv，使用转码，path: \(path)")
-            return .TRANSCODE
-        }
-
-        return nil
-    }
-
-    private func getTransCodeBitrate(quality: SongStreamQuality) -> Int {
-        switch quality {
-        case .ORIGINAL:
-            return 128000
-        case .HIGH:
-            return 320000
-        case .MEDIUM:
-            return 192000
-        case .LOW:
-            return 128000
-        }
-    }
-
-    private func buildStreamUrl(fileExtension: String, parameters: inout ApiParameters) async throws -> URL {
-        parameters["format"] = .string(fileExtension)
-
-        let api = ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "stream", pathSuffix: "/0\(fileExtension)", sidOnQuery: true) {
-            let pairs: [ApiParametersBuilder.Parameter] = parameters.map { key, value in
-                (key, value as ApiParameterValueConvertible)
-            }
-            for pair in pairs {
-                pair
-            }
-        }
-        return try await urlBuilder.buildUrl(api)
-    }
-
-    private func buildTranscodeUrl(fileExtension: String, quality: SongStreamQuality, parameters: inout ApiParameters) async throws -> URL {
-        parameters["format"] = .string("mp3")
-        parameters["bitrate"] = .int(getTransCodeBitrate(quality: quality))
-
-        let api = ApiEndpoint(api: SynologyApi.AudioStation.STREAM, method: "transcode", pathSuffix: "/0.mp3", sidOnQuery: true) {
+        let api = ApiEndpoint(
+            api: SynologyApi.AudioStation.STREAM,
+            method: plan.method.rawValue,
+            version: 1,
+            pathSuffix: "/0\(plan.fileExtension)",
+            sidOnQuery: true
+        ) {
             let pairs: [ApiParametersBuilder.Parameter] = parameters.map { key, value in
                 (key, value as ApiParameterValueConvertible)
             }

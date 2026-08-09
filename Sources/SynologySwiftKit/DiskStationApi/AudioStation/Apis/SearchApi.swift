@@ -27,8 +27,10 @@ public final class SearchApi {
     ///   - keyword: 搜索关键词 / Search keyword
     ///   - limit: 每页数量 / Page size
     ///   - offset: 起始偏移量 / Start offset
+    ///   - libraryScope: 媒体库范围 / Library scope
     public func list(
         keyword: String, limit: Int = 1000, offset: Int = 0,
+        libraryScope: SynologyLibraryScope,
         includeFields: String? = nil,
         sort: SynologySortDescriptor? = nil
     ) async throws -> AudioStationSearchResults {
@@ -39,6 +41,7 @@ public final class SearchApi {
                 ("keyword", keyword)
                 ("limit", limit)
                 ("offset", offset)
+                ("library", libraryScope.rawValue)
                 ("additional", includeFields)
                 if let sort {
                     ("sort_by", sort.field)

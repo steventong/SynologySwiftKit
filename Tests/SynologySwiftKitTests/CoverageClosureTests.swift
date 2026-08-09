@@ -1,12 +1,44 @@
 import XCTest
 @testable import SynologySwiftKit
 
+private final class LogCaptureBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var records: [SynologyLogRecord] = []
+
+    func append(_ record: SynologyLogRecord) {
+        lock.lock()
+        records.append(record)
+        lock.unlock()
+    }
+
+    func snapshot() -> [SynologyLogRecord] {
+        lock.lock()
+        defer { lock.unlock() }
+        return records
+    }
+}
+
 final class CoverageClosureTests: XCTestCase {
     func testLoggerAndJsonUtilsCoverSuccessAndFailurePaths() {
+        let capture = LogCaptureBox()
+        Logger.isEnabled = true
+        Logger.destination = .handler
+        Logger.handler = { capture.append($0) }
+
         SynologySwiftKit.Logger.info("info")
         SynologySwiftKit.Logger.debug("debug")
         SynologySwiftKit.Logger.warn("warn")
         SynologySwiftKit.Logger.error("error")
+
+        Logger.isEnabled = false
+        SynologySwiftKit.Logger.info("disabled")
+        Logger.destination = .system
+        Logger.handler = nil
+        Logger.isEnabled = true
+
+        let captured = capture.snapshot()
+        XCTAssertEqual(captured.map(\.level), [.info, .debug, .warning, .error])
+        XCTAssertEqual(captured.map(\.message), ["info", "debug", "warn", "error"])
 
         XCTAssertEqual(JsonUtils.toJson(codable: EncodableValue(value: "ok")), #"{"value":"ok"}"#)
         XCTAssertNil(JsonUtils.toJson(codable: ThrowingCodable()))
@@ -55,7 +87,7 @@ final class CoverageClosureTests: XCTestCase {
 
     func testKeyChainStorageSupportsAllStoredPayloads() {
         let service = UUID().uuidString
-        let keychain = KeyChainStorage(service: service)
+        let keychain = makeKeyChainStorage(service: service)
 
         XCTAssertNil(keychain.getCredentials())
         XCTAssertNil(keychain.getSessionInfo())
@@ -160,13 +192,17 @@ final class CoverageClosureTests: XCTestCase {
 
     func testAuthClientLoginMapsErrorsAndPersistsDeviceInfo() async throws {
         let service = UUID().uuidString
-        let keychain = KeyChainStorage(service: service)
+        let keychain = makeKeyChainStorage(service: service)
         let successClient = MockApiClient()
         successClient.requestHandler = { endpoint in
             XCTAssertEqual(endpoint.parameters["account"]?.stringValue, "tester")
             XCTAssertEqual(endpoint.parameters["passwd"]?.stringValue, "secret")
             XCTAssertEqual(endpoint.parameters["enable_device_token"]?.stringValue, "yes")
             XCTAssertEqual(endpoint.parameters["otp_code"]?.stringValue, "123456")
+            XCTAssertNotNil(Int(endpoint.parameters["client_time"]?.stringValue ?? ""))
+            XCTAssertNil(endpoint.parameters["enable_syno_token"])
+            XCTAssertNil(endpoint.parameters["device_id"])
+            XCTAssertNil(endpoint.parameters["device_name"])
             return AuthResult(did: "device-1", isPortalPort: false, sid: "sid-1", synotoken: nil)
         }
 
@@ -174,6 +210,19 @@ final class CoverageClosureTests: XCTestCase {
         let result = try await api.login(username: "tester", password: "secret", otpCode: "123456")
         XCTAssertEqual(result.sid, "sid-1")
         XCTAssertEqual(keychain.getDeviceInfo()?.0, "device-1")
+
+        let trustedDeviceClient = MockApiClient()
+        trustedDeviceClient.requestHandler = { endpoint in
+            XCTAssertNil(endpoint.parameters["otp_code"])
+            XCTAssertNil(endpoint.parameters["enable_device_token"])
+            XCTAssertEqual(endpoint.parameters["device_id"]?.stringValue, "device-1")
+            XCTAssertEqual(endpoint.parameters["device_name"]?.stringValue, "Apple Device - DS Music")
+            return AuthResult(did: nil, isPortalPort: false, sid: "sid-2", synotoken: nil)
+        }
+        _ = try await AuthClient(
+            apiClient: trustedDeviceClient,
+            keyChainStorage: keychain
+        ).login(username: "tester", password: "secret", otpCode: "  ")
 
         let sessionExpiredClient = MockApiClient()
         sessionExpiredClient.mockError = SynologyError.sessionExpired(code: 403, message: "otp")
@@ -208,7 +257,7 @@ final class CoverageClosureTests: XCTestCase {
 
     func testSynologyClientCoversSessionConnectionAndInterceptorPaths() async throws {
         let service = UUID().uuidString
-        let keychain = KeyChainStorage(service: service)
+        let keychain = makeKeyChainStorage(service: service)
         let transport = HTTPClientFactorySpy()
         let apiClient = ApiClient(httpClientFactory: transport.makeFactory())
         let client = SynologyClient(
@@ -242,7 +291,7 @@ final class CoverageClosureTests: XCTestCase {
     }
 
     func testSynologyUserLoginCoversCredentialRemovalAndErrorBranches() async {
-        let removeKeychain = KeyChainStorage(service: UUID().uuidString)
+        let removeKeychain = makeKeyChainStorage(service: UUID().uuidString)
         removeKeychain.saveCredentials(server: "nas.local", username: "tester", password: "old", usesHTTPS: true)
         let removeClient = MockApiClient()
         removeClient.requestHandler = { endpoint in
@@ -270,7 +319,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var removeEvents: [SynologyUserLoginProgress] = []
-        for await progress in removeLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret", shouldSavePassword: false) {
+        for await progress in removeLogin.login(server: "https://nas.local", username: "tester", password: "secret", shouldSavePassword: false) {
             removeEvents.append(progress)
         }
         guard case .completed = removeEvents.last else {
@@ -278,7 +327,7 @@ final class CoverageClosureTests: XCTestCase {
         }
         XCTAssertNil(removeKeychain.getCredentials())
 
-        let otpKeychain = KeyChainStorage(service: UUID().uuidString)
+        let otpKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let otpClient = MockApiClient()
         otpClient.requestHandler = { endpoint in
             if endpoint.apiName == SynologyApi.Core.AUTH.name {
@@ -305,15 +354,35 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var otpEvents: [SynologyUserLoginProgress] = []
-        for await progress in otpLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
+        for await progress in otpLogin.login(server: "https://nas.local", username: "tester", password: "secret") {
             otpEvents.append(progress)
         }
         guard case .otpRequired? = otpEvents.last else {
             return XCTFail("Expected otpRequired")
         }
+        XCTAssertNil(otpKeychain.getCredentials())
+
+        otpClient.requestHandler = { endpoint in
+            if endpoint.apiName == SynologyApi.Core.AUTH.name {
+                throw SynologyError.auth(code: 404, message: "otp invalid")
+            }
+            throw SynologyError.network(message: "Unexpected endpoint")
+        }
+        var invalidOTPEvents: [SynologyUserLoginProgress] = []
+        for await progress in otpLogin.login(
+            server: "https://nas.local",
+            username: "tester",
+            password: "secret",
+            otpCode: "000000"
+        ) {
+            invalidOTPEvents.append(progress)
+        }
+        guard case .otpRequired? = invalidOTPEvents.last else {
+            return XCTFail("Expected otpRequired after invalid OTP")
+        }
 
         let missingClient = MockApiClient()
-        let missingKeychain = KeyChainStorage(service: UUID().uuidString)
+        let missingKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let missingAuthApi = AuthClient(apiClient: missingClient, keyChainStorage: missingKeychain)
         let missingAudioStationApi = AudioStationClient(apiClient: missingClient)
         let missingConnectionChecker = ConnectionChecker(
@@ -355,7 +424,7 @@ final class CoverageClosureTests: XCTestCase {
         }
 
         let failureClient = MockApiClient()
-        let failureKeychain = KeyChainStorage(service: UUID().uuidString)
+        let failureKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let failureAuthApi = AuthClient(apiClient: failureClient, keyChainStorage: failureKeychain)
         let failureAudioStationApi = AudioStationClient(apiClient: failureClient)
         let failureConnectionChecker = ConnectionChecker(
@@ -374,13 +443,56 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var failureEvents: [SynologyUserLoginProgress] = []
-        for await progress in failureLogin.login(server: "nas.local", usesHTTPS: true, username: "tester", password: "secret") {
+        for await progress in failureLogin.login(server: "https://nas.local", username: "tester", password: "secret") {
             failureEvents.append(progress)
         }
         guard case let .failed(message)? = failureEvents.last else {
             return XCTFail("Expected failed event")
         }
         XCTAssertTrue(message.contains("api info failed"))
+        XCTAssertNil(failureKeychain.getCredentials())
+
+        let preservedKeychain = makeKeyChainStorage(service: UUID().uuidString)
+        preservedKeychain.saveCredentials(
+            server: "old-nas.local",
+            username: "old-user",
+            password: "old-password",
+            usesHTTPS: true
+        )
+        let preservedClient = MockApiClient()
+        let preservedLogin = SynologyUserLogin(
+            apiInfoApi: FailingApiInfoProvider(),
+            apiClient: preservedClient,
+            authApi: AuthClient(apiClient: preservedClient, keyChainStorage: preservedKeychain),
+            audioStationApi: AudioStationClient(apiClient: preservedClient),
+            connectionChecker: ConnectionChecker(
+                apiClient: preservedClient,
+                quickConnectApi: QuickConnectClient(
+                    apiClient: preservedClient,
+                    pingpong: TestPingPong(singleURLReachable: true)
+                ),
+                pingpong: TestPingPong(singleURLReachable: true),
+                keyChainStorage: preservedKeychain
+            ),
+            keyChainStorage: preservedKeychain
+        )
+
+        for await _ in preservedLogin.login(
+            server: "https://new-nas.local",
+            username: "new-user",
+            password: "wrong-password",
+            shouldSavePassword: false
+        ) {}
+
+        XCTAssertEqual(
+            preservedKeychain.getCredentials(),
+            SynologyCredentials(
+                server: "old-nas.local",
+                username: "old-user",
+                password: "old-password",
+                usesHTTPS: true
+            )
+        )
     }
 }
 

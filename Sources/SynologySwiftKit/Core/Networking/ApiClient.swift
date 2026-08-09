@@ -15,18 +15,12 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - internal State
 
-    private let state = ApiClientState()
+    private let state: ApiClientState
     private let executor: ApiRequestExecutor
     private let envelopeDecoder = SynologyEnvelopeDecoder()
-
-    private lazy var endpointResolver = ApiEndpointResolver(
-        apiInfoProvider: { [weak state] in state?.apiInfoProvider }
-    )
-
-    private lazy var requestFactory = ApiRequestFactory(
-        connectionProvider: { [weak state] in state?.connection },
-        sessionProvider: { [weak state] in state?.session }
-    )
+    private let endpointResolver: ApiEndpointResolver
+    private let requestFactory: ApiRequestFactory
+    private let certificateTrustStore: ServerCertificateTrustStore
 
     /// API 信息提供者（延迟设置以解决循环依赖）
     /// API info provider (lazy set to resolve circular dependency)
@@ -52,11 +46,31 @@ final class ApiClient: ApiClientProviding {
     /// 初始化 API 客户端
     /// Initialize API client
     /// - Parameter httpClientFactory: HTTP client factory
-    init(httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory) {
+    init(
+        httpClientFactory: @escaping SynologyHTTPClientFactory = defaultSynologyHTTPClientFactory,
+        keyValueStorage: KeyValueStorage = StorageService()
+    ) {
+        let state = ApiClientState()
+        let certificateTrustStore = ServerCertificateTrustStore(storage: keyValueStorage)
+        self.state = state
+        self.certificateTrustStore = certificateTrustStore
+        endpointResolver = ApiEndpointResolver(
+            apiInfoProvider: { [weak state] in state?.apiInfoProvider }
+        )
+        requestFactory = ApiRequestFactory(
+            connectionProvider: { [weak state] in state?.connection },
+            sessionProvider: { [weak state] in state?.session }
+        )
         executor = ApiRequestExecutor(
             httpClientFactory: httpClientFactory,
             interceptorsProvider: { [weak state] in
                 state?.interceptorsSnapshot() ?? []
+            },
+            sessionSummaryProvider: { [weak state] in
+                state?.sessionSummary ?? Logger.sessionSummary(sid: nil, did: nil)
+            },
+            connectionSummaryProvider: { [weak state] in
+                state?.connectionSummary ?? Logger.connectionSummary(url: nil)
             }
         )
     }
@@ -107,8 +121,34 @@ final class ApiClient: ApiClientProviding {
             request: request,
             endpoint: rawEndpoint,
             timeout: timeout,
-            trustedSSLDomain: nil
+            serverTrustPolicy: serverTrustPolicy(for: url)
         )
+    }
+
+    /// 将媒体直接下载到由调用方负责清理的临时文件。
+    /// Download media directly to a caller-owned temporary file.
+    func downloadMediaFile(url: URL, timeout: TimeInterval = 300) async throws -> URL {
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPMethod.get.rawValue
+        return try await executor.download(
+            request: request,
+            endpoint: rawEndpoint,
+            timeout: timeout,
+            serverTrustPolicy: serverTrustPolicy(for: url)
+        )
+    }
+
+    /// Fetch a small media resource while applying the current DSM trust policy.
+    func fetchMediaData(url: URL, timeout: TimeInterval = 30) async throws -> Data {
+        var request = URLRequest(url: url)
+        request.httpMethod = HTTPMethod.get.rawValue
+        let (data, _) = try await executor.executeRaw(
+            request: request,
+            endpoint: rawEndpoint,
+            timeout: timeout,
+            serverTrustPolicy: serverTrustPolicy(for: url)
+        )
+        return data
     }
 }
 
@@ -130,6 +170,14 @@ extension ApiClient {
     /// Clear session
     func clearSession() {
         state.clearSession()
+    }
+
+    func approveServerCertificate(_ certificate: SynologyServerCertificate) {
+        certificateTrustStore.approve(certificate)
+    }
+
+    func approvedServerCertificateFingerprint(forHost host: String) -> String? {
+        certificateTrustStore.approvedFingerprint(forHost: host)
     }
 }
 
@@ -154,7 +202,7 @@ extension ApiClient {
             request: request,
             endpoint: endpoint,
             timeout: endpoint.timeout,
-            trustedSSLDomain: requestFactory.trustedSSLDomainForCurrentConnection()
+            serverTrustPolicy: serverTrustPolicy(for: request.url)
         )
         return (value, request)
     }
@@ -167,6 +215,16 @@ extension ApiClient {
 
     private var rawEndpoint: ApiEndpoint {
         ApiEndpoint(api: SynologyApi.Core.INFO, method: "")
+    }
+
+    private func serverTrustPolicy(for url: URL?) -> ServerTrustPolicy {
+        guard url?.scheme?.lowercased() == "https", let host = url?.host else {
+            return .system
+        }
+        return .userApprovedCertificate(
+            host: host,
+            sha256Fingerprint: certificateTrustStore.approvedFingerprint(forHost: host)
+        )
     }
 
     private func logApiErrorResponse<T>(
@@ -186,11 +244,13 @@ extension ApiClient {
             "version=\(endpoint.version)",
             "httpMethod=\(endpoint.httpMethod.rawValue)",
             "parameters=\(sanitizedParameters(endpoint.parameters))",
-            "url=\(sanitizedURLString(request.url))",
-            "body=\(sanitizedBodyString(request.httpBody))",
-            "headers=\(sanitizedHeaders(request.allHTTPHeaderFields))",
+            "url=\(Logger.sanitizedURLString(request.url))",
+            "body=\(Logger.sanitizedBodyString(request.httpBody))",
+            "headers=\(Logger.sanitizedHeaders(request.allHTTPHeaderFields))",
             "requiresAuthCookie=\(endpoint.sidOnCookie ?? endpoint.requireAuthCookie)",
             "requiresQuerySid=\(endpoint.sidOnQuery ?? endpoint.requireQuerySid)",
+            state.connectionSummary,
+            state.sessionSummary,
         ].joined(separator: ", ")
 
         if code == 105 {
@@ -210,62 +270,8 @@ extension ApiClient {
             .joined(separator: "&")
     }
 
-    private func sanitizedURLString(_ url: URL?) -> String {
-        guard let url, var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
-            return "nil"
-        }
-        components.queryItems = components.queryItems?.map {
-            URLQueryItem(name: $0.name, value: sanitizedValue($0.value ?? "", forKey: $0.name))
-        }
-        return components.url?.absoluteString ?? url.absoluteString
-    }
-
-    private func sanitizedBodyString(_ body: Data?) -> String {
-        guard let body, let bodyString = String(data: body, encoding: .utf8), !bodyString.isEmpty else {
-            return "nil"
-        }
-
-        return bodyString
-            .split(separator: "&")
-            .map { pair in
-                let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
-                let key = parts.first ?? ""
-                let value = parts.count > 1 ? parts[1] : ""
-                return "\(key)=\(sanitizedValue(value, forKey: key))"
-            }
-            .joined(separator: "&")
-    }
-
-    private func sanitizedHeaders(_ headers: [String: String]?) -> String {
-        guard let headers, !headers.isEmpty else {
-            return "[:]"
-        }
-        return headers
-            .sorted { $0.key < $1.key }
-            .map { "\($0.key)=\(sanitizedValue($0.value, forKey: $0.key))" }
-            .joined(separator: "&")
-    }
-
     private func sanitizedValue(_ value: String, forKey key: String) -> String {
-        let lowercasedKey = key.lowercased()
-        let sensitiveKeys = [
-            "sid",
-            "_sid",
-            "did",
-            "cookie",
-            "authorization",
-            "passwd",
-            "password",
-            "otp_code",
-            "token",
-            "synotoken",
-            "ciphertoken",
-        ]
-
-        if sensitiveKeys.contains(where: { lowercasedKey.contains($0) }) {
-            return "<redacted>"
-        }
-        return value
+        Logger.sanitizedValue(value, forKey: key)
     }
 }
 

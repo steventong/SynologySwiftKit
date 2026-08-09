@@ -83,8 +83,28 @@ final class FoundationAndUtilityTests: XCTestCase {
         do {
             _ = try SynologyResponse<String>(success: false, error: SynologyApiError(code: 105), data: nil).unwrap()
             XCTFail("Expected unwrap to throw")
-        } catch let SynologyError.sessionExpired(code, _) {
+        } catch let SynologyError.api(code, _) {
             XCTAssertEqual(code, 105)
+        }
+        guard case .auth(411, _) = SynologyApiError(code: 411).toSynologyError() else {
+            return XCTFail("Expected account locked auth error")
+        }
+    }
+
+    func testSynologyApiErrorDecodesBothErrorsShapes() throws {
+        // 常规错误：errors 为子错误码数组 / Regular error: errors is an array of sub-codes
+        let arrayForm = Data(#"{"success":false,"error":{"code":1002,"errors":[1006]}}"#.utf8)
+        let arrayResponse = try JSONDecoder().decode(SynologyResponse<EmptyData>.self, from: arrayForm)
+        XCTAssertEqual(arrayResponse.error?.code, 1002)
+        XCTAssertEqual(arrayResponse.error?.errors, [1006])
+
+        // 2FA 错误：errors 为字典 {token, types} / 2FA error: errors is a dictionary {token, types}
+        let dictForm = Data(#"{"success":false,"error":{"code":403,"errors":{"token":"jwt","types":[{"type":"otp"}]}}}"#.utf8)
+        let dictResponse = try JSONDecoder().decode(SynologyResponse<EmptyData>.self, from: dictForm)
+        XCTAssertEqual(dictResponse.error?.code, 403)
+        XCTAssertEqual(dictResponse.error?.errors, [])
+        guard case .auth(403, _)? = dictResponse.error?.toSynologyError() else {
+            return XCTFail("Expected auth error for code 403")
         }
     }
 
@@ -138,7 +158,7 @@ final class FoundationAndUtilityTests: XCTestCase {
         let adaptedPost = try await interceptor.adapt(postRequest, for: postEndpoint)
         XCTAssertEqual(adaptedPost.value(forHTTPHeaderField: "Cookie"), "id=sid-123; did=did-123")
 
-        _ = try await interceptor.process(.failure(SynologyError.sessionExpired(code: 105, message: "expired")), for: postEndpoint)
+        _ = try await interceptor.process(.failure(SynologyError.sessionExpired(code: 106, message: "expired")), for: postEndpoint)
         XCTAssertTrue(didExpire)
     }
 

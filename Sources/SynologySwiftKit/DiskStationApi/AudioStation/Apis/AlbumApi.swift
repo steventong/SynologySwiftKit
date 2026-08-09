@@ -42,4 +42,5 @@ public final class AlbumApi {
         let result: AlbumListResult = try await apiClient.request(api)
         return SynologyPage(total: result.total, items: result.albums)
     }
+
 }

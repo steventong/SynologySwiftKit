@@ -130,16 +130,28 @@ extension StorageService {
 
 extension StorageService {
     public func saveCredentials(server: String, username: String, password: String, usesHTTPS: Bool) {
-        let credentials = SynologyCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
-        setValue(credentials, forKey: SensitiveStorageKeys.credentials.rawValue)
+        keyChainStorage.saveCredentials(
+            server: server,
+            username: username,
+            password: password,
+            usesHTTPS: usesHTTPS
+        )
     }
 
     public func getCredentials() -> SynologyCredentials? {
-        value(forKey: SensitiveStorageKeys.credentials.rawValue, as: SynologyCredentials.self)
+        keyChainStorage.getCredentials()
     }
 
     public func removeCredentials() {
-        removeValue(forKey: SensitiveStorageKeys.credentials.rawValue, as: SynologyCredentials.self)
+        keyChainStorage.removeCredentials()
+    }
+
+    public func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem] {
+        keyChainStorage.getLoginAccountHistory()
+    }
+
+    public func removeLoginAccountFromHistory(id: UUID) {
+        keyChainStorage.removeLoginAccountFromHistory(id: id)
     }
 
     public func saveSessionInfo(sid: String, did: String?) {

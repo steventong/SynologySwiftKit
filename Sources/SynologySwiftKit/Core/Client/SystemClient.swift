@@ -25,7 +25,7 @@ public final class ConnectionClient {
     /// 测试指定地址是否可达
     /// Test whether the specified URL is reachable
     public func ping(url: String) async -> Bool {
-        await ping.pingpong(url: url)
+        (try? await ping.pingpong(url: url)) ?? false
     }
 }
 

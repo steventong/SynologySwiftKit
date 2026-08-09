@@ -11,6 +11,9 @@ class QuickConnectUtils {
     /// 判断是否是 QuickConnect ID
     /// Check if the server string is a QuickConnect ID
     public nonisolated static func isQuickConnectId(server: String) -> Bool {
-        return !server.contains(".")
+        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !normalizedServer.isEmpty
+            && !normalizedServer.contains(".")
+            && !normalizedServer.contains(":")
     }
 }

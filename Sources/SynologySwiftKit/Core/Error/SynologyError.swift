@@ -22,10 +22,14 @@ import Foundation
 ///     // Session 过期
 /// }
 /// ```
-public enum SynologyError: Error, LocalizedError {
+public enum SynologyError: Error, LocalizedError, Sendable {
     /// 网络层错误（超时、连接失败、解码失败、HTTP 状态码异常等）
     /// Network layer error (timeout, connection failure, decoding failure, HTTP status, etc.)
     case network(message: String)
+
+    /// HTTPS 证书不受系统信任，需要用户确认后重试。
+    /// The HTTPS certificate is not system-trusted and requires user approval.
+    case serverCertificateUntrusted(SynologyServerCertificate)
 
     /// API 业务错误（带错误码）
     /// API business error (with error code)
@@ -45,6 +49,8 @@ public enum SynologyError: Error, LocalizedError {
         switch self {
         case let .network(message):
             return message
+        case let .serverCertificateUntrusted(certificate):
+            return "The certificate presented by \(certificate.host) is not trusted."
         case let .api(code, message):
             return "API error (\(code)): \(message)"
         case let .sessionExpired(_, message):

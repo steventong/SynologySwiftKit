@@ -21,24 +21,6 @@ struct ApiRequestFactory {
     /// Session info provider (lazily fetched via closure)
     let sessionProvider: () -> (sid: String, did: String?)?
 
-    /// 获取当前连接的可信 SSL 域名（仅 custom_domain 类型的 HTTPS 连接）
-    /// Get the trusted SSL domain for the current connection (only for custom_domain HTTPS connections)
-    ///
-    /// 用于向 URLSession 注册自签名证书信任域名。
-    /// Used to register a self-signed certificate trusted domain in URLSession.
-    /// - Returns: 域名字符串（如 "192.168.1.x"），如果不适用则返回 nil / Domain string or nil if not applicable
-    func trustedSSLDomainForCurrentConnection() -> String? {
-        guard
-            let connection = connectionProvider(),
-            connection.type == .custom_domain,
-            connection.url.hasPrefix("https://"),
-            let url = URL(string: connection.url)
-        else {
-            return nil
-        }
-        return url.host
-    }
-
     /// 构建 URLRequest（用于正常 API 请求）
     /// Build URLRequest for normal API requests
     ///

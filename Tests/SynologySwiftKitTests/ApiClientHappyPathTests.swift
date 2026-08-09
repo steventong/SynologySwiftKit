@@ -2,9 +2,109 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class ApiClientHappyPathTests: XCTestCase {
+    func testMediaRequestReturnsDataWithApprovedCertificatePolicy() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
+        client.approveServerCertificate(
+            SynologyServerCertificate(
+                host: "nas.local",
+                subject: "DSM",
+                sha256Fingerprint: "AA:BB"
+            )
+        )
+        let expected = Data([0x89, 0x50, 0x4E, 0x47])
+
+        transport.handler = { request, configuration in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: "AA:BB")
+            )
+            return (
+                expected,
+                makeHTTPURLResponse(url: try XCTUnwrap(request.url))
+            )
+        }
+
+        let data = try await client.fetchMediaData(
+            url: URL(string: "https://nas.local/cover.jpg?_sid=secret")!
+        )
+
+        XCTAssertEqual(data, expected)
+    }
+
+    func testMediaRequestDownloadsFileWithApprovedCertificatePolicy() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
+        client.approveServerCertificate(
+            SynologyServerCertificate(
+                host: "nas.local",
+                subject: "DSM",
+                sha256Fingerprint: "AA:BB"
+            )
+        )
+        let expected = Data([0x49, 0x44, 0x33, 0x04])
+
+        transport.handler = { request, configuration in
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: "AA:BB")
+            )
+            return (
+                expected,
+                makeHTTPURLResponse(url: try XCTUnwrap(request.url))
+            )
+        }
+
+        let fileURL = try await client.downloadMediaFile(
+            url: URL(string: "https://nas.local/audio.mp3?_sid=secret")!
+        )
+        defer {
+            try? FileManager.default.removeItem(at: fileURL)
+        }
+
+        XCTAssertEqual(try Data(contentsOf: fileURL), expected)
+    }
+
+    func testApprovedCertificateFingerprintIsAppliedToHTTPSRequests() async throws {
+        let transport = HTTPClientFactorySpy()
+        let storage = MockKeyValueStorage()
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: storage
+        )
+        let certificate = SynologyServerCertificate(
+            host: "nas.local",
+            subject: "DSM",
+            sha256Fingerprint: "AA:BB"
+        )
+        client.approveServerCertificate(certificate)
+
+        transport.handler = { request, configuration in
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: "AA:BB")
+            )
+            return (Data("{}".utf8), makeHTTPURLResponse(url: try XCTUnwrap(request.url)))
+        }
+
+        let _: EmptyData = try await client.request(url: URL(string: "https://nas.local/ping")!)
+        XCTAssertEqual(client.approvedServerCertificateFingerprint(forHost: "NAS.LOCAL"), "AA:BB")
+    }
+
     func testRequestBuildsAuthenticatedPostAndDecodesEnvelope() async throws {
         let transport = HTTPClientFactorySpy()
-        let client = ApiClient(httpClientFactory: transport.makeFactory())
+        let client = ApiClient(
+            httpClientFactory: transport.makeFactory(),
+            keyValueStorage: MockKeyValueStorage()
+        )
         client.apiInfoProvider = TestApiInfoProvider(
             nodes: [SynologyApi.AudioStation.SONG.name: ApiInfoNode(path: "AudioStation/song.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)]
         )
@@ -13,7 +113,10 @@ final class ApiClientHappyPathTests: XCTestCase {
         client.addInterceptor(AuthInterceptor(sessionProvider: { client.session }))
 
         transport.handler = { request, configuration in
-            XCTAssertEqual(configuration.trustedSSLDomain, "nas.local")
+            XCTAssertEqual(
+                configuration.serverTrustPolicy,
+                .userApprovedCertificate(host: "nas.local", sha256Fingerprint: nil)
+            )
             XCTAssertEqual(request.url?.absoluteString, "https://nas.local/webapi/AudioStation/song.cgi")
             XCTAssertEqual(request.httpMethod, "POST")
             XCTAssertEqual(request.value(forHTTPHeaderField: "Cookie"), "id=sid-123; did=did-123")
@@ -96,5 +199,47 @@ final class ApiClientHappyPathTests: XCTestCase {
 
         XCTAssertEqual(url.absoluteString.contains("//webapi"), false)
         XCTAssertEqual(url.path, "/dsm/webapi/AudioStation/cover.cgi")
+    }
+
+    func testConcurrentFirstBuildUrlAccessIsSafe() async throws {
+        let client = ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
+        client.apiInfoProvider = TestApiInfoProvider(
+            nodes: [
+                SynologyApi.AudioStation.COVER.name: ApiInfoNode(
+                    path: "AudioStation/cover.cgi",
+                    minVersion: 1,
+                    maxVersion: 3,
+                    requestFormat: nil
+                ),
+            ]
+        )
+        client.updateConnection(type: .custom_domain, url: "https://nas.local")
+        client.updateSession(sid: "sid-concurrent", did: nil)
+
+        let urls = try await withThrowingTaskGroup(of: URL.self) { group in
+            for index in 0 ..< 128 {
+                group.addTask {
+                    try await client.buildUrl(
+                        ApiEndpoint(
+                            api: SynologyApi.AudioStation.COVER,
+                            method: "getsongcover",
+                            version: 1
+                        ) {
+                            ("id", "music_\(index)")
+                        }
+                    )
+                }
+            }
+
+            var results: [URL] = []
+            for try await url in group {
+                results.append(url)
+            }
+            return results
+        }
+
+        XCTAssertEqual(urls.count, 128)
+        XCTAssertTrue(urls.allSatisfy { $0.host == "nas.local" })
+        XCTAssertTrue(urls.allSatisfy { $0.path == "/webapi/AudioStation/cover.cgi" })
     }
 }

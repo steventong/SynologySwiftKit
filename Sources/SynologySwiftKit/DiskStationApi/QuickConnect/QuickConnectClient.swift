@@ -41,9 +41,9 @@ public final class QuickConnectClient {
         // Parse device connection info from server response
         let connections = parseConnectionUrls(serverInfo: serverInfo.serverInfo, usesHTTPS: usesHTTPS, isRequestTunnel: false)
 
-        // 竞速查找可用连接：pingpong 测试 + requestTunnel 并发，首个最优结果立即返回
-        // Race for available connection: pingpong test + requestTunnel concurrent, first best result returns immediately
-        let resolvedConnection = await raceForBestConnection(
+        // 先测试服务端已返回的候选，仅在全部不可达时请求新 tunnel。
+        // Test advertised candidates first; request a new tunnel only when all are unreachable.
+        let resolvedConnection = try await resolveBestReachableConnection(
             connections: connections.connectionMap,
             pingPongPaths: connections.pingPongPaths,
             synologyServer: serverInfo.synologyServer,
@@ -94,7 +94,7 @@ private extension QuickConnectClient {
         )
 
         if !connections.connectionMap.keys.contains(.relay),
-           let relay = await requestForRelayConnection(
+           let relay = try await requestForRelayConnection(
                connections: connections.connectionMap,
                synologyServer: serverInfo.synologyServer,
                quickConnectId: quickConnectId,
@@ -168,57 +168,33 @@ private extension QuickConnectClient {
         }
     }
 
-    /// 竞速查找最优连接：pingpong 和 requestTunnel 并发，首个可用连接立即返回
-    /// Race pingpong and requestTunnel concurrently, return first available connection
-    private func raceForBestConnection(connections: [ConnectionType: [String]], pingPongPaths: [String: String], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async -> (type: ConnectionType, url: String)? {
-        await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
-            // 子任务 1：pingpong 测试所有已解析地址的可达性（竞速模式）
-            // Task 1: Ping all parsed addresses for reachability (race mode)
-            group.addTask {
-                Logger.debug("QuickConnectClient.raceForBestConnection: starting pingpong task")
-                return await self.pingpong.pingpongFirst(connections: connections, pingPongPaths: pingPongPaths)
-            }
-
-            // 子任务 2：requestTunnel 获取 relay 连接（仅当没有 relay 地址时）
-            // Task 2: Request tunnel for relay connection (only if no relay address present)
-            group.addTask {
-                Logger.debug("QuickConnectClient.raceForBestConnection: starting requestTunnel task")
-                return await self.requestForRelayConnection(connections: connections, synologyServer: synologyServer, quickConnectId: quickConnectId, usesHTTPS: usesHTTPS)
-            }
-
-            // 竞速收集结果，取优先级最高的
-            // Race to collect results, pick the highest priority
-            var best: (type: ConnectionType, url: String)?
-            for await result in group {
-                guard let result else { continue }
-
-                if let current = best {
-                    // 比较优先级
-                    let resultPriority = ConnectionType.ordered.firstIndex(of: result.type) ?? Int.max
-                    let currentPriority = ConnectionType.ordered.firstIndex(of: current.type) ?? Int.max
-                    if resultPriority < currentPriority {
-                        best = result
-                    }
-                } else {
-                    best = result
-                }
-
-                // 如果已经找到非 relay 类型（高优先级），不需要等 requestTunnel
-                // If a non-relay type (high priority) is found, no need to wait for requestTunnel
-                if let best, best.type != .relay {
-                    group.cancelAll()
-                    Logger.debug("QuickConnectClient.raceForBestConnection: found high-priority connection \(best.type), cancelling remaining tasks")
-                    return best
-                }
-            }
-
-            if let best {
-                Logger.debug("QuickConnectClient.raceForBestConnection: best connection: \(best)")
-            } else {
-                Logger.warn("QuickConnectClient.raceForBestConnection: no reachable connection found")
-            }
-            return best
+    /// 从已公布的候选中查找最优连接，失败后才申请并验证新 relay。
+    /// Find the best advertised connection, then request and validate a new relay as fallback.
+    private func resolveBestReachableConnection(connections: [ConnectionType: [String]], pingPongPaths: [String: String], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async throws -> (type: ConnectionType, url: String)? {
+        if let reachable = try await pingpong.pingpongFirst(
+            connections: connections,
+            pingPongPaths: pingPongPaths
+        ) {
+            Logger.debug("QuickConnectClient.resolveBestReachableConnection: reachable advertised endpoint: \(reachable)")
+            return reachable
         }
+
+        guard let relay = try await requestForRelayConnection(
+            connections: connections,
+            synologyServer: synologyServer,
+            quickConnectId: quickConnectId,
+            usesHTTPS: usesHTTPS,
+            skipWhenRelayPresent: false
+        ) else {
+            Logger.warn("QuickConnectClient.resolveBestReachableConnection: no relay endpoint returned")
+            return nil
+        }
+
+        guard try await pingpong.pingpong(url: relay.url) else {
+            Logger.warn("QuickConnectClient.resolveBestReachableConnection: relay endpoint unreachable: \(relay.url)")
+            return nil
+        }
+        return relay
     }
 }
 
@@ -258,27 +234,34 @@ private extension QuickConnectClient {
 // MARK: - Network Requests
 
 private extension QuickConnectClient {
-    /// 请求 relay 连接（仅当解析结果中没有 relay 地址时才发起 requestTunnel）
-    /// Request relay connection (only sends requestTunnel when no relay address in parsed results)
-    private func requestForRelayConnection(connections: [ConnectionType: [String]], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async -> (type: ConnectionType, url: String)? {
+    /// 请求 relay 连接；仅列举候选地址时可跳过已有 relay 的重复申请。
+    /// Request a relay connection; candidate listing may skip the request when relay data already exists.
+    private func requestForRelayConnection(
+        connections: [ConnectionType: [String]],
+        synologyServer: String,
+        quickConnectId: String,
+        usesHTTPS: Bool,
+        skipWhenRelayPresent: Bool = true
+    ) async throws -> (type: ConnectionType, url: String)? {
         // 如果已有 relay 地址则不需要 requestTunnel
         // Skip if relay addresses already exist
-        if connections.keys.contains(.relay) {
+        if skipWhenRelayPresent, connections.keys.contains(.relay) {
             return nil
         }
 
         Logger.debug("relay connection is not present, send request_tunnel request, synologyServer = \(synologyServer)")
 
-        do {
-            let serverInfo = try await invokeSynologyServiceApi(synologyServer: synologyServer, quickConnectId: quickConnectId, usesHTTPS: usesHTTPS, command: .request_tunnel)
+        let serverInfo = try await invokeSynologyServiceApi(
+            synologyServer: synologyServer,
+            quickConnectId: quickConnectId,
+            usesHTTPS: usesHTTPS,
+            command: .request_tunnel
+        )
 
-            let tunnelConnections = parseConnectionUrls(serverInfo: serverInfo, usesHTTPS: usesHTTPS, isRequestTunnel: true)
-            if let relay = tunnelConnections.connectionMap[.relay]?.first {
-                Logger.debug("parse relay connection: \(relay)")
-                return (.relay, relay)
-            }
-        } catch {
-            Logger.debug("parse relay connection error: \(error)")
+        let tunnelConnections = parseConnectionUrls(serverInfo: serverInfo, usesHTTPS: usesHTTPS, isRequestTunnel: true)
+        if let relay = tunnelConnections.connectionMap[.relay]?.first {
+            Logger.debug("parse relay connection: \(relay)")
+            return (.relay, relay)
         }
 
         return nil
@@ -293,9 +276,43 @@ private extension QuickConnectClient {
             throw SynologyError.network(message: "Invalid QuickConnect URL")
         }
 
-        let requestParams = SynoGetServerInfoRequest(id: usesHTTPS ? .dsm_https : .dsm, command: command, serverID: quickConnectId)
-        let result: ServerInfo = try await apiClient.request(url: url, httpMethod: .post, headers: ["Content-Type": "application/json"], body: try JSONEncoder().encode(requestParams), timeout: timeout)
+        let requestParams = SynoGetServerInfoRequest(
+            id: usesHTTPS ? .audio_https : .audio_http,
+            command: command,
+            serverID: quickConnectId,
+            location: command == .request_tunnel ? quickConnectLocation : nil,
+            platform: command == .request_tunnel ? quickConnectPlatform : nil
+        )
+        let result: ServerInfo = try await apiClient.request(
+            url: url,
+            httpMethod: .post,
+            headers: ["Content-Type": "text/plain; charset=utf-8"],
+            body: try JSONEncoder().encode(requestParams),
+            timeout: timeout
+        )
         return result
+    }
+
+    var quickConnectLocation: String {
+        Locale.current.regionCode?.lowercased() ?? ""
+    }
+
+    var quickConnectPlatform: String {
+        #if os(iOS)
+        let platform = "iOS"
+        #elseif os(macOS)
+        let platform = "macOS"
+        #elseif os(watchOS)
+        let platform = "watchOS"
+        #elseif os(tvOS)
+        let platform = "tvOS"
+        #elseif os(visionOS)
+        let platform = "visionOS"
+        #else
+        let platform = "Apple"
+        #endif
+
+        return "\(platform) \(ProcessInfo.processInfo.operatingSystemVersionString)"
     }
 }
 

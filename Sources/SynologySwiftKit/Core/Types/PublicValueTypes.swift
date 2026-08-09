@@ -36,6 +36,22 @@ public enum SynologySortDirection: String, Sendable {
     case descending = "desc"
 }
 
+// MARK: - SynologyServerCertificate
+
+/// HTTPS 服务器提供的叶子证书信息。
+/// Leaf certificate information presented by an HTTPS server.
+public struct SynologyServerCertificate: Codable, Equatable, Sendable {
+    public let host: String
+    public let subject: String
+    public let sha256Fingerprint: String
+
+    public init(host: String, subject: String, sha256Fingerprint: String) {
+        self.host = host
+        self.subject = subject
+        self.sha256Fingerprint = sha256Fingerprint
+    }
+}
+
 // MARK: - SynologySortDescriptor
 
 /// 排序描述符（字段 + 方向）
@@ -81,6 +97,32 @@ public struct SynologyCredentials: Codable, Equatable, Sendable, SensitiveStorag
         self.username = username
         self.password = password
         self.usesHTTPS = usesHTTPS
+    }
+}
+
+// MARK: - SynologyLoginAccountHistoryItem
+
+/// 成功登录过的 Synology 账号，用于安全地恢复登录表单。
+/// A successfully authenticated Synology account used to restore the login form securely.
+public struct SynologyLoginAccountHistoryItem: Codable, Equatable, Identifiable, Sendable, SensitiveStorageValue {
+    public let id: UUID
+    public let server: String
+    public let username: String
+    public let password: String
+    public let lastLoginAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        server: String,
+        username: String,
+        password: String,
+        lastLoginAt: Date = Date()
+    ) {
+        self.id = id
+        self.server = server
+        self.username = username
+        self.password = password
+        self.lastLoginAt = lastLoginAt
     }
 }
 

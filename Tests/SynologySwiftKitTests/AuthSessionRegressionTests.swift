@@ -2,18 +2,21 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class AuthSessionRegressionTests: XCTestCase {
-    func testSilentLoginWithExpiredCachedSessionReturnsInvalidSession() async {
+    func testSilentLoginWithExpiredCachedSessionFallsBackToFullLogin() async {
         let apiClient = MockApiClient()
         apiClient.connection = (.custom_domain, "https://nas.local")
         apiClient.session = ("expired-sid", nil)
         apiClient.requestHandler = { endpoint in
             if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                throw SynologyError.sessionExpired(code: 105, message: "expired")
+                throw SynologyError.sessionExpired(code: 106, message: "expired")
+            }
+            if endpoint.apiName == SynologyApi.Core.AUTH.name {
+                return AuthResult(did: nil, isPortalPort: false, sid: "new-sid", synotoken: nil)
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveSessionInfo(sid: "expired-sid", did: nil)
 
@@ -47,10 +50,18 @@ final class AuthSessionRegressionTests: XCTestCase {
         guard case .authenticating = events[1] else {
             return XCTFail("Expected authenticating progress second")
         }
-        guard case let .invalidSession(message) = events[2] else {
-            return XCTFail("Expected invalidSession instead of completed")
+        guard case let .completed(result) = events[2] else {
+            return XCTFail("Expected completed after falling back to full login")
         }
-        XCTAssertEqual(message, "session expired")
+        XCTAssertEqual(result.session.sid, "new-sid")
+
+        // slice 校验确实发生过（缓存 SID 被验证并判定失效）
+        // slice validation did happen (cached SID was checked and found invalid)
+        XCTAssertTrue(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.AudioStation.INFO.name })
+        // 全量登录成功后会话被刷新
+        // session refreshed after successful full login
+        XCTAssertEqual(apiClient.session?.sid, "new-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
     }
 
     func testLogoutClearsLocalSessionState() async throws {
@@ -58,7 +69,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.session = ("sid-123", "did-123")
         apiClient.mockResponse = EmptyData()
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveSessionInfo(sid: "sid-123", did: "did-123")
 
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
@@ -86,15 +97,15 @@ private struct MockPingPong: PingPongProviding {
         self.singleURLReachable = singleURLReachable
     }
 
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+    func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
         [:]
     }
 
-    func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+    func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
         nil
     }
 
-    func pingpong(url: String) async -> Bool {
+    func pingpong(url: String) async throws -> Bool {
         singleURLReachable
     }
 }

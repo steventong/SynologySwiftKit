@@ -185,6 +185,10 @@ enum KeyValueStorageKeys {
     /// AudioStation system info last update time
     case DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME
 
+    /// 用户确认允许的 HTTPS 服务器证书指纹
+    /// User-approved HTTPS server certificate fingerprints
+    case APPROVED_SERVER_CERTIFICATES
+
     /// 对应的 UserDefaults key 字符串
     /// Corresponding UserDefaults key string
     var keyName: String {
@@ -199,6 +203,8 @@ enum KeyValueStorageKeys {
             return "SynologySwiftKit_DiskStation_AudioStation_Info"
         case .DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME:
             return "SynologySwiftKit_DiskStation_AudioStation_updateTime"
+        case .APPROVED_SERVER_CERTIFICATES:
+            return "SynologySwiftKit_ApprovedServerCertificates"
         }
     }
 }

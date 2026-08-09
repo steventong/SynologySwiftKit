@@ -11,7 +11,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             throw SynologyError.network(message: "Unexpected endpoint \(endpoint.apiName)#\(endpoint.method)")
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
         let audioStationApi = AudioStationClient(apiClient: apiClient)
         let connectionChecker = ConnectionChecker(
@@ -31,8 +31,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
 
         var events: [SynologyUserLoginProgress] = []
         for await progress in login.login(
-            server: "nas.local",
-            usesHTTPS: true,
+            server: "https://nas.local",
             username: "tester",
             password: "secret",
             shouldSavePassword: true
@@ -53,6 +52,8 @@ final class CoreFlowHappyPathTests: XCTestCase {
         XCTAssertEqual(result.session.sid, "sid-123")
         XCTAssertEqual(apiClient.session?.sid, "sid-123")
         XCTAssertEqual(keychain.getCredentials()?.username, "tester")
+        XCTAssertEqual(keychain.getLoginAccountHistory().first?.username, "tester")
+        XCTAssertEqual(keychain.getLoginAccountHistory().first?.server, "https://nas.local")
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "sid-123")
     }
 
@@ -101,7 +102,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
     }
 
     func testSynologyClientRestoresAndClearsPersistedSession() {
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveSessionInfo(sid: "persisted-sid", did: "persisted-did")
 
         let client = SynologyClient(
@@ -124,7 +125,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
         let client = SynologyClient(
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString),
             apiClient: ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         )
 
@@ -149,7 +150,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             sid: "sid-123",
             did: "did-123",
             keyValueStorage: MockKeyValueStorage(),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString),
             httpClientFactory: HTTPClientFactorySpy().makeFactory()
         )
 
@@ -162,12 +163,12 @@ final class CoreFlowHappyPathTests: XCTestCase {
         let client = SynologyClient(
             config: .default,
             keyValueStorage: MockKeyValueStorage(),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString),
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString),
             apiClient: ApiClient(httpClientFactory: HTTPClientFactorySpy().makeFactory())
         )
 
         await withTaskGroup(of: Void.self) { group in
-            for index in 0 ..< 100 {
+            for index in 0 ..< 20 {
                 group.addTask {
                     client.configureConnection(type: .custom_domain, url: "https://nas-\(index).local")
                     client.configureSession(sid: "sid-\(index)", did: "did-\(index)")

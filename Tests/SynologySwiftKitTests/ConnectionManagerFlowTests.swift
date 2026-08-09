@@ -4,7 +4,7 @@ import XCTest
 final class ConnectionManagerFlowTests: XCTestCase {
     func testRecoverConnectionRestoresPersistedQuickConnectEndpointAndSchedulesOptimization() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://cached.local", typeString: ConnectionType.lan.rawValue)
         apiClient.requestHandler = { endpoint in
@@ -56,7 +56,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRecoverConnectionWithUnreachableQuickConnectEndpointRequiresRelogin() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://cached.local", typeString: ConnectionType.lan.rawValue)
         apiClient.rawRequestHandler = { _, _, _, _, _ in
@@ -81,7 +81,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRecoverConnectionWithUnreachableCustomDomainDisconnects() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://nas.example.com", typeString: ConnectionType.custom_domain.rawValue)
 
@@ -103,7 +103,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRecoverConnectionWithoutCredentialsDisconnects() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
 
         let manager = ConnectionManager(
             apiClient: apiClient,
@@ -123,14 +123,14 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testOptimizeQuickConnectEndpointPersistsRefreshedConnection() async throws {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         apiClient.rawRequestHandler = { _, _, _, _, _ in
             try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
         }
 
         let refreshed = SynologyConnection(type: .lan, url: "https://192.168.1.20:5001")
-        let pingpong = TestPingPong(firstResult: refreshed, singleURLReachable: true)
+        let pingpong = RecordingPingPong(firstResult: refreshed, singleURLReachable: true)
         let manager = ConnectionManager(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
@@ -154,11 +154,12 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(keychain.getConnectionInfo()?.typeString, ConnectionType.lan.rawValue)
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
         XCTAssertEqual(keychain.getSessionInfo()?.did, "new-did")
+        XCTAssertTrue(pingpong.singleURLPings.isEmpty)
     }
 
     func testRecoverConnectionKeepsReachableQuickConnectEndpointAndSkipsSynchronousOptimization() async throws {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
         keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
@@ -222,7 +223,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRecoverConnectionRequiresReloginWhenReachableEndpointHasInvalidSession() async throws {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
         keychain.saveSessionInfo(sid: "expired-sid", did: "old-did")
@@ -242,7 +243,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
         apiClient.requestHandler = { endpoint in
             if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                throw SynologyError.sessionExpired(code: 105, message: "expired")
+                throw SynologyError.sessionExpired(code: 106, message: "expired")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
@@ -258,7 +259,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         apiClient.updateConnection(type: .lan, url: "https://192.168.1.10:5001")
         apiClient.updateSession(sid: "old-sid", did: "old-did")
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
         keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
@@ -294,7 +295,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testListReturnsCandidatesWithCurrentFlagAndReachability() async throws {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
         apiClient.rawRequestHandler = { _, _, _, _, _ in
@@ -325,7 +326,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         let apiClient = MockApiClient()
         apiClient.updateConnection(type: .custom_domain, url: "https://nas.example.com")
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
 
         let manager = ConnectionManager(
@@ -351,7 +352,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
     func testListFallsBackToSavedServerForCustomDomainWithoutCurrentConnection() async throws {
         let apiClient = MockApiClient()
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
 
         let manager = ConnectionManager(
@@ -376,7 +377,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testUsePersistsSelectedEndpointAndRefreshesSession() async throws {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
         apiClient.updateSession(sid: "old-sid", did: "old-did")
@@ -409,7 +410,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testUseRejectsUnreachableSelectedEndpoint() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
 
         let manager = ConnectionManager(
@@ -440,7 +441,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         apiClient.updateConnection(type: .lan, url: "https://192.168.1.10:5001")
         apiClient.updateSession(sid: "old-sid", did: "old-did")
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
         keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
@@ -481,7 +482,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testUseClearsSessionWhenRefreshFailsWithoutPreviousSession() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
 
         let manager = ConnectionManager(
@@ -514,7 +515,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRefreshQuickConnectEndpointReturnsNilWithoutCredentials() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
 
         let manager = ConnectionManager(
             apiClient: apiClient,
@@ -534,7 +535,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRefreshQuickConnectEndpointReturnsNilForCustomDomainCredentials() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
 
         let manager = ConnectionManager(
@@ -555,7 +556,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRefreshQuickConnectEndpointReturnsNilWhenResolvedEndpointIsUnreachable() async throws {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         apiClient.rawRequestHandler = { _, _, _, _, _ in
             try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
@@ -602,11 +603,11 @@ private final class RecordingPingPong: PingPongProviding, @unchecked Sendable {
         self.singleURLReachable = singleURLReachable
     }
 
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+    func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
         [:]
     }
 
-    func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+    func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
         queue.sync {
             storedDidRunBestConnectionSelection = true
         }
@@ -617,7 +618,7 @@ private final class RecordingPingPong: PingPongProviding, @unchecked Sendable {
         return (firstResult.type, firstResult.url)
     }
 
-    func pingpong(url: String) async -> Bool {
+    func pingpong(url: String) async throws -> Bool {
         queue.sync {
             storedSingleURLPings.append(url)
         }

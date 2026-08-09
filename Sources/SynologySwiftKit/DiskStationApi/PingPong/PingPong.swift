@@ -21,30 +21,36 @@ final class PingPong: PingPongProviding {
     /// 并发测试多个连接地址的可达性，首个最高优先级类型可达即提前返回
     /// Test reachability of multiple connection URLs concurrently.
     /// Returns early when the highest possible priority type becomes reachable.
-    public func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
-        await pingpong(connections: connections, pingPongPaths: [:])
+    public func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
+        try await pingpong(connections: connections, pingPongPaths: [:])
     }
 
-    public func pingpong(connections: [ConnectionType: [String]], pingPongPaths: [String: String]) async -> [ConnectionType: String] {
+    public func pingpong(connections: [ConnectionType: [String]], pingPongPaths: [String: String]) async throws -> [ConnectionType: String] {
         let bestPossibleType = ConnectionType.ordered.first { connections.keys.contains($0) }
 
-        return await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
+        return try await withThrowingTaskGroup(of: ReachabilityProbeOutcome.self) { group in
             for (type, urls) in connections {
                 for url in urls {
                     group.addTask {
-                        let pingPongPath = pingPongPaths[url]
-                        return await self.pingpong(url: url, pingPongPath: pingPongPath) ? (type, url) : nil
+                        await self.probe(type: type, url: url, pingPongPath: pingPongPaths[url])
                     }
                 }
             }
 
             var results: [ConnectionType: String] = [:]
-            for await result in group {
-                guard let result else { continue }
+            var certificateFailure: SynologyServerCertificate?
+            for try await outcome in group {
+                switch outcome {
+                case let .reachable(type, url):
                 // 同种类型只保留第一个可达的
                 // Keep only the first reachable URL for each type
-                if results[result.type] == nil {
-                    results[result.type] = result.url
+                    if results[type] == nil {
+                        results[type] = url
+                    }
+                case let .certificateUntrusted(certificate):
+                    certificateFailure = certificateFailure ?? certificate
+                case .unreachable:
+                    continue
                 }
                 // 最高优先级类型已可达，提前返回
                 // Best possible type is reachable, return early
@@ -55,6 +61,9 @@ final class PingPong: PingPongProviding {
                 }
             }
 
+            if results.isEmpty, let certificateFailure {
+                throw SynologyError.serverCertificateUntrusted(certificateFailure)
+            }
             Logger.debug("pingpong: all tasks completed. results: \(results)")
             return results
         }
@@ -63,26 +72,35 @@ final class PingPong: PingPongProviding {
     /// 按连接类型优先级竞速，返回最优可达连接（首个最高优先级可达即返回）
     /// Race all URLs by connection type priority, return the best reachable connection.
     /// Cancels remaining tasks once the highest possible priority type is found.
-    public func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
-        await pingpongFirst(connections: connections, pingPongPaths: [:])
+    public func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
+        try await pingpongFirst(connections: connections, pingPongPaths: [:])
     }
 
-    public func pingpongFirst(connections: [ConnectionType: [String]], pingPongPaths: [String: String]) async -> (type: ConnectionType, url: String)? {
+    public func pingpongFirst(connections: [ConnectionType: [String]], pingPongPaths: [String: String]) async throws -> (type: ConnectionType, url: String)? {
         let bestPossibleType = ConnectionType.ordered.first { connections.keys.contains($0) }
 
-        return await withTaskGroup(of: (type: ConnectionType, url: String)?.self) { group in
+        return try await withThrowingTaskGroup(of: ReachabilityProbeOutcome.self) { group in
             for (type, urls) in connections {
                 for url in urls {
                     group.addTask {
-                        let pingPongPath = pingPongPaths[url]
-                        return await self.pingpong(url: url, pingPongPath: pingPongPath) ? (type, url) : nil
+                        await self.probe(type: type, url: url, pingPongPath: pingPongPaths[url])
                     }
                 }
             }
 
             var best: (type: ConnectionType, url: String)?
-            for await result in group {
-                guard let result else { continue }
+            var certificateFailure: SynologyServerCertificate?
+            for try await outcome in group {
+                let result: (type: ConnectionType, url: String)
+                switch outcome {
+                case let .reachable(type, url):
+                    result = (type, url)
+                case let .certificateUntrusted(certificate):
+                    certificateFailure = certificateFailure ?? certificate
+                    continue
+                case .unreachable:
+                    continue
+                }
 
                 // 比较优先级，保留更优的
                 // Compare priority, keep the better one
@@ -107,6 +125,8 @@ final class PingPong: PingPongProviding {
 
             if let best {
                 Logger.debug("pingpongFirst: all tasks completed, best: \(best)")
+            } else if let certificateFailure {
+                throw SynologyError.serverCertificateUntrusted(certificateFailure)
             } else {
                 Logger.debug("pingpongFirst: all tasks completed, no reachable connection found")
             }
@@ -118,11 +138,11 @@ final class PingPong: PingPongProviding {
     /// Test reachability of a single URL
     /// - Parameter url: 要测试的 URL / URL to test
     /// - Returns: 是否可达 / Whether the URL is reachable
-    public func pingpong(url: String) async -> Bool {
-        await pingpong(url: url, pingPongPath: nil)
+    public func pingpong(url: String) async throws -> Bool {
+        try await pingpong(url: url, pingPongPath: nil)
     }
 
-    private func pingpong(url: String, pingPongPath: String?) async -> Bool {
+    private func pingpong(url: String, pingPongPath: String?) async throws -> Bool {
         let requestUrl = buildPingPongUrl(url: url, pingPongPath: pingPongPath)
 
         guard let url = URL(string: requestUrl) else {
@@ -131,12 +151,42 @@ final class PingPong: PingPongProviding {
         }
 
         do {
-            let result: PingPongResult = try await apiClient.request(url: url, httpMethod: .get, headers: nil, body: nil, timeout: timeout)
+            let result: PingPongResult = try await apiClient.request(
+                url: url,
+                httpMethod: .get,
+                headers: nil,
+                body: nil,
+                timeout: timeout
+            )
             return result.success
+        } catch let SynologyError.serverCertificateUntrusted(certificate) {
+            throw SynologyError.serverCertificateUntrusted(certificate)
         } catch {
             return false
         }
     }
+
+    private func probe(
+        type: ConnectionType,
+        url: String,
+        pingPongPath: String?
+    ) async -> ReachabilityProbeOutcome {
+        do {
+            return try await pingpong(url: url, pingPongPath: pingPongPath)
+                ? .reachable(type: type, url: url)
+                : .unreachable
+        } catch let SynologyError.serverCertificateUntrusted(certificate) {
+            return .certificateUntrusted(certificate)
+        } catch {
+            return .unreachable
+        }
+    }
+}
+
+private enum ReachabilityProbeOutcome: Sendable {
+    case reachable(type: ConnectionType, url: String)
+    case certificateUntrusted(SynologyServerCertificate)
+    case unreachable
 }
 
 extension PingPong {

@@ -6,7 +6,7 @@ import XCTest
 final class HTTPClientFactorySpy: @unchecked Sendable {
     struct Configuration: Equatable {
         let timeout: TimeInterval
-        let trustedSSLDomain: String?
+        let serverTrustPolicy: ServerTrustPolicy
     }
 
     var handler: ((URLRequest, Configuration) throws -> (Data, URLResponse))?
@@ -15,8 +15,8 @@ final class HTTPClientFactorySpy: @unchecked Sendable {
     private(set) var configurations: [Configuration] = []
 
     func makeFactory() -> SynologyHTTPClientFactory {
-        { [self] timeout, trustedSSLDomain in
-            let configuration = Configuration(timeout: timeout, trustedSSLDomain: trustedSSLDomain)
+        { [self] timeout, serverTrustPolicy in
+            let configuration = Configuration(timeout: timeout, serverTrustPolicy: serverTrustPolicy)
             recordConfiguration(configuration)
 
             StubURLProtocol.handler = { [self] request in
@@ -245,16 +245,19 @@ struct TestPingPong: PingPongProviding {
     var firstResult: SynologyConnection?
     var singleURLReachable = false
 
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+    func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
         results
     }
 
-    func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+    func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
         guard let firstResult else { return nil }
+        guard connections[firstResult.type]?.contains(firstResult.url) == true else {
+            return nil
+        }
         return (firstResult.type, firstResult.url)
     }
 
-    func pingpong(url: String) async -> Bool {
+    func pingpong(url: String) async throws -> Bool {
         singleURLReachable
     }
 }

@@ -17,6 +17,8 @@ final class ApiRequestExecutor {
     /// 拦截器快照提供者（通过闭包延迟获取，避免强引用）
     /// Interceptor snapshot provider (lazily fetched via closure to avoid strong reference)
     private let interceptorsProvider: () -> [RequestInterceptor]
+    private let sessionSummaryProvider: () -> String
+    private let connectionSummaryProvider: () -> String
     private let responseDecoder: ApiResponseDecoder
     private let errorMapper: SynologyErrorMapper
 
@@ -30,11 +32,15 @@ final class ApiRequestExecutor {
     init(
         httpClientFactory: @escaping SynologyHTTPClientFactory,
         interceptorsProvider: @escaping () -> [RequestInterceptor],
+        sessionSummaryProvider: @escaping () -> String,
+        connectionSummaryProvider: @escaping () -> String,
         responseDecoder: ApiResponseDecoder = ApiResponseDecoder(),
         errorMapper: SynologyErrorMapper = SynologyErrorMapper()
     ) {
         self.httpClientFactory = httpClientFactory
         self.interceptorsProvider = interceptorsProvider
+        self.sessionSummaryProvider = sessionSummaryProvider
+        self.connectionSummaryProvider = connectionSummaryProvider
         self.responseDecoder = responseDecoder
         self.errorMapper = errorMapper
     }
@@ -54,7 +60,7 @@ final class ApiRequestExecutor {
     ///   - request: 已构建的 URLRequest / Built URLRequest
     ///   - endpoint: 原始端点（传递给拦截器）/ Original endpoint (passed to interceptors)
     ///   - timeout: 超时时间（秒）/ Timeout in seconds
-    ///   - trustedSSLDomain: 可信 SSL 域名（用于自签名证书）/ Trusted SSL domain (for self-signed certs)
+    ///   - serverTrustPolicy: HTTPS 服务器证书信任策略 / HTTPS server certificate trust policy
     /// - Returns: 解码后的结果 / Decoded result
     /// - Throws: `SynologyError` 各类业务或网络错误 / Various business or network errors
     func execute<Value: Decodable>(
@@ -62,11 +68,30 @@ final class ApiRequestExecutor {
         request: URLRequest,
         endpoint: ApiEndpoint,
         timeout: TimeInterval,
-        trustedSSLDomain: String?
+        serverTrustPolicy: ServerTrustPolicy
     ) async throws -> Value {
+        let (data, response) = try await executeRaw(
+            request: request,
+            endpoint: endpoint,
+            timeout: timeout,
+            serverTrustPolicy: serverTrustPolicy
+        )
+        return try responseDecoder.decode(Value.self, from: data, response: response)
+    }
+
+    /// 执行 HTTP 请求并返回经过拦截器处理的原始响应。
+    /// Execute an HTTP request and return the interceptor-processed raw response.
+    func executeRaw(
+        request: URLRequest,
+        endpoint: ApiEndpoint,
+        timeout: TimeInterval,
+        serverTrustPolicy: ServerTrustPolicy
+    ) async throws -> (Data, URLResponse) {
         var context = RequestContext()
         let currentRequest = try await applyRequestInterceptors(request, endpoint: endpoint, context: &context)
-        let httpClient = httpClientFactory(timeout, trustedSSLDomain)
+        let requestID = String(UUID().uuidString.prefix(8))
+        let httpClient = httpClientFactory(timeout, serverTrustPolicy)
+        logRequestStart(requestID: requestID, request: currentRequest, endpoint: endpoint)
 
         do {
             let (data, response) = try await httpClient.send(currentRequest)
@@ -85,19 +110,89 @@ final class ApiRequestExecutor {
                 throw error
             }
 
-            return try responseDecoder.decode(Value.self, from: processedData, response: processedResponse)
+            try validateHTTPResponse(processedResponse)
+            logRequestSuccess(requestID: requestID, request: currentRequest, response: processedResponse, duration: context.duration)
+            return (processedData, processedResponse)
         } catch let error as SynologyError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: error, duration: context.duration)
             throw error
+        } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
+            context.duration = Date().timeIntervalSince(context.startTime)
+            let mappedError = SynologyError.serverCertificateUntrusted(
+                SynologyServerCertificate(
+                    host: certificate.host,
+                    subject: certificate.subject,
+                    sha256Fingerprint: certificate.sha256Fingerprint
+                )
+            )
+            _ = try await applyResponseInterceptors(.failure(mappedError), endpoint: endpoint, context: &context)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: mappedError, duration: context.duration)
+            throw mappedError
         } catch let urlError as URLError {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)
-            throw errorMapper.map(urlError)
+            let mappedError = errorMapper.map(urlError)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: mappedError, duration: context.duration)
+            throw mappedError
         } catch {
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
+            let wrappedError = SynologyError.network(message: error.localizedDescription)
+            logRequestFailure(requestID: requestID, request: currentRequest, error: wrappedError, duration: context.duration)
+            throw wrappedError
+        }
+    }
+
+    /// 将响应体直接下载到临时文件，避免大媒体完整进入内存。
+    /// Download a response body directly to a temporary file.
+    func download(
+        request: URLRequest,
+        endpoint: ApiEndpoint,
+        timeout: TimeInterval,
+        serverTrustPolicy: ServerTrustPolicy
+    ) async throws -> URL {
+        var context = RequestContext()
+        let currentRequest = try await applyRequestInterceptors(
+            request,
+            endpoint: endpoint,
+            context: &context
+        )
+        let httpClient = httpClientFactory(timeout, serverTrustPolicy)
+
+        do {
+            let (fileURL, response) = try await httpClient.download(currentRequest)
+            do {
+                try validateHTTPResponse(response)
+                return fileURL
+            } catch {
+                try? FileManager.default.removeItem(at: fileURL)
+                throw error
+            }
+        } catch let error as SynologyError {
+            throw error
+        } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
+            throw SynologyError.serverCertificateUntrusted(
+                SynologyServerCertificate(
+                    host: certificate.host,
+                    subject: certificate.subject,
+                    sha256Fingerprint: certificate.sha256Fingerprint
+                )
+            )
+        } catch let urlError as URLError {
+            throw errorMapper.map(urlError)
+        } catch {
             throw SynologyError.network(message: error.localizedDescription)
+        }
+    }
+
+    private func validateHTTPResponse(_ response: URLResponse) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw SynologyError.network(message: "Invalid response")
+        }
+        guard (200 ... 299).contains(httpResponse.statusCode) else {
+            throw SynologyError.network(message: "Invalid HTTP status: \(httpResponse.statusCode)")
         }
     }
 
@@ -127,5 +222,26 @@ final class ApiRequestExecutor {
             }
         }
         return current
+    }
+
+    private func logRequestStart(requestID: String, request: URLRequest, endpoint: ApiEndpoint) {
+        Logger.debug(
+            "ApiRequestExecutor#execute start, requestId=\(requestID), api=\(endpoint.apiName), method=\(endpoint.method), httpMethod=\(request.httpMethod ?? endpoint.httpMethod.rawValue), url=\(Logger.sanitizedURLString(request.url)), headers=\(Logger.sanitizedHeaders(request.allHTTPHeaderFields)), body=\(Logger.sanitizedBodyString(request.httpBody)), \(connectionSummaryProvider()), \(sessionSummaryProvider())"
+        )
+    }
+
+    private func logRequestSuccess(requestID: String, request: URLRequest, response: URLResponse, duration: TimeInterval?) {
+        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
+        let durationMillis = Int((duration ?? 0) * 1000)
+        Logger.debug(
+            "ApiRequestExecutor#execute success, requestId=\(requestID), statusCode=\(statusCode), durationMs=\(durationMillis), url=\(Logger.sanitizedURLString(request.url)), \(connectionSummaryProvider()), \(sessionSummaryProvider())"
+        )
+    }
+
+    private func logRequestFailure(requestID: String, request: URLRequest, error: Error, duration: TimeInterval?) {
+        let durationMillis = Int((duration ?? 0) * 1000)
+        Logger.warn(
+            "ApiRequestExecutor#execute failure, requestId=\(requestID), durationMs=\(durationMillis), error=\(error), url=\(Logger.sanitizedURLString(request.url)), headers=\(Logger.sanitizedHeaders(request.allHTTPHeaderFields)), \(connectionSummaryProvider()), \(sessionSummaryProvider())"
+        )
     }
 }

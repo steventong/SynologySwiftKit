@@ -188,7 +188,10 @@ final class FeatureApiHappyPathTests: XCTestCase {
         }
 
         let coverApi = CoverApi(urlBuilder: apiClient)
-        let streamApi = StreamApi(urlBuilder: apiClient)
+        let streamApi = StreamApi(
+            urlBuilder: apiClient,
+            transcodeCapabilityProvider: StubAudioTranscodeCapabilityProvider()
+        )
 
         _ = try await coverApi.songCoverURL(songID: "music_1", libraryScope: .shared)
         _ = try await streamApi.playbackURL(
@@ -239,21 +242,133 @@ final class FeatureApiHappyPathTests: XCTestCase {
         apiClient.buildUrlHandler = { endpoint in
             URL(string: "https://mock.local/\(endpoint.method)")!
         }
-        let api = StreamApi(urlBuilder: apiClient)
+        let api = StreamApi(
+            urlBuilder: apiClient,
+            transcodeCapabilityProvider: StubAudioTranscodeCapabilityProvider()
+        )
 
-        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track1", path: "/music/file.m4a", bitrate: 1000, frequency: 44_100, fileExtension: ".aac"), quality: .HIGH)
-        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track2", path: "/music/file.dsf", bitrate: 1000, frequency: 44_100), quality: .HIGH)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track1", path: "/music/file.m4a", bitrate: 400_000, frequency: 44_100, fileExtension: ".aac"), quality: .HIGH)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track2", path: "/music/file.dsf", bitrate: 1000, frequency: 44_100, fileExtension: ".dsf"), quality: .HIGH)
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "track3", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .ORIGINAL)
-        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track4", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .LOW)
+        _ = try await api.playbackURL(for: SongPlaybackSource(id: "track4", path: "/music/file.flac", bitrate: 500_000, frequency: 44_100), quality: .LOW)
         _ = try await api.playbackURL(for: SongPlaybackSource(id: "music_p_v_1", path: "/music/file.flac", bitrate: 1000, frequency: 44_100), quality: .LOW)
 
-        XCTAssertEqual(apiClient.builtUrlEndpoints[0].method, "stream")
-        XCTAssertEqual(apiClient.builtUrlEndpoints[0].pathSuffix, "/0.aac")
+        XCTAssertEqual(apiClient.builtUrlEndpoints[0].method, "transcode")
+        XCTAssertEqual(apiClient.builtUrlEndpoints[0].pathSuffix, "/0.mp3")
         XCTAssertEqual(apiClient.builtUrlEndpoints[1].method, "transcode")
         XCTAssertEqual(apiClient.builtUrlEndpoints[1].parameters["bitrate"]?.stringValue, "320000")
         XCTAssertEqual(apiClient.builtUrlEndpoints[2].method, "stream")
         XCTAssertEqual(apiClient.builtUrlEndpoints[3].parameters["bitrate"]?.stringValue, "128000")
         XCTAssertEqual(apiClient.builtUrlEndpoints[4].parameters["id"]?.stringValue, "music_p_v_1")
+        XCTAssertEqual(apiClient.builtUrlEndpoints[4].parameters["bitrate"]?.stringValue, "128000")
+    }
+
+    func testStreamPlanAvoidsUpscalingAndKeepsFinalOutputMetadataTogether() throws {
+        let api = StreamApi(
+            urlBuilder: MockApiClient(),
+            transcodeCapabilityProvider: StubAudioTranscodeCapabilityProvider()
+        )
+
+        let directPlan = try api.playbackPlan(
+            for: SongPlaybackSource(
+                id: "track1",
+                path: "/music/file.mp3",
+                bitrate: 96_000,
+                frequency: 44_100,
+                fileExtension: ".mp3"
+            ),
+            quality: .HIGH,
+            preferredTranscodeFormat: .mp3,
+            supportedTranscodeFormats: [.mp3, .wav]
+        )
+        XCTAssertEqual(
+            directPlan,
+            SongPlaybackPlan(
+                method: .stream,
+                outputFormat: "mp3",
+                bitrate: nil,
+                reason: .sourceWithinTargetBitrate
+            )
+        )
+
+        let transcodePlan = try api.playbackPlan(
+            for: SongPlaybackSource(
+                id: "track2",
+                path: "/music/file.flac",
+                bitrate: 1_000_000,
+                frequency: 96_000,
+                fileExtension: ".flac"
+            ),
+            quality: .MEDIUM,
+            preferredTranscodeFormat: .mp3,
+            supportedTranscodeFormats: [.mp3, .wav]
+        )
+        XCTAssertEqual(transcodePlan.method, .transcode)
+        XCTAssertEqual(transcodePlan.outputFormat, "mp3")
+        XCTAssertEqual(transcodePlan.bitrate, 192_000)
+        XCTAssertEqual(transcodePlan.fileExtension, ".mp3")
+        XCTAssertEqual(transcodePlan.cacheIdentity, "transcode-mp3-192000")
+    }
+
+    func testStreamPlanUsesServerCapabilityForIncompatibleAndVirtualTracks() throws {
+        let api = StreamApi(
+            urlBuilder: MockApiClient(),
+            transcodeCapabilityProvider: StubAudioTranscodeCapabilityProvider()
+        )
+
+        let wavPlan = try api.playbackPlan(
+            for: SongPlaybackSource(
+                id: "track1",
+                path: "/music/file.dsf",
+                bitrate: 5_000_000,
+                frequency: 2_822_400,
+                fileExtension: ".dsf"
+            ),
+            quality: .ORIGINAL,
+            preferredTranscodeFormat: .mp3,
+            supportedTranscodeFormats: [.wav]
+        )
+        XCTAssertEqual(wavPlan.method, .transcode)
+        XCTAssertEqual(wavPlan.outputFormat, "wav")
+        XCTAssertNil(wavPlan.bitrate)
+
+        let virtualPlan = try api.playbackPlan(
+            for: SongPlaybackSource(
+                id: "music_v_1",
+                path: "/music/disc.ape",
+                bitrate: 0,
+                frequency: 44_100,
+                fileExtension: ".ape"
+            ),
+            quality: .LOW,
+            preferredTranscodeFormat: .mp3,
+            supportedTranscodeFormats: [.mp3]
+        )
+        XCTAssertEqual(virtualPlan.outputFormat, "mp3")
+        XCTAssertEqual(virtualPlan.bitrate, 128_000)
+        XCTAssertEqual(virtualPlan.reason, .virtualTrack)
+    }
+
+    func testStreamPlanRejectsUnsupportedSourceWithoutServerTranscoding() {
+        let api = StreamApi(
+            urlBuilder: MockApiClient(),
+            transcodeCapabilityProvider: StubAudioTranscodeCapabilityProvider()
+        )
+
+        XCTAssertThrowsError(
+            try api.playbackPlan(
+                for: SongPlaybackSource(
+                    id: "track1",
+                    path: "/music/file.ape",
+                    bitrate: 900_000,
+                    frequency: 44_100,
+                    fileExtension: ".ape"
+                ),
+                quality: .ORIGINAL,
+                preferredTranscodeFormat: .mp3,
+                supportedTranscodeFormats: []
+            )
+        )
     }
 
     func testDsmInfoFileStationAndEncryptionClientsHappyPath() async throws {
@@ -304,5 +419,17 @@ final class FeatureApiHappyPathTests: XCTestCase {
         } catch {
             XCTFail("Unexpected error \(error)")
         }
+    }
+}
+
+private struct StubAudioTranscodeCapabilityProvider: AudioTranscodeCapabilityProviding {
+    let formats: Set<SongTranscodeFormat>
+
+    init(formats: Set<SongTranscodeFormat> = [.mp3, .wav]) {
+        self.formats = formats
+    }
+
+    func supportedTranscodeFormats() async throws -> Set<SongTranscodeFormat> {
+        formats
     }
 }

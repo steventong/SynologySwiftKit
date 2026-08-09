@@ -6,7 +6,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
         let apiClient = MockApiClient()
         apiClient.connection = (.custom_domain, "https://nas.local")
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.local", username: "tester", password: "secret", usesHTTPS: true)
 
         let checker = ConnectionChecker(
@@ -35,7 +35,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
 
     func testCheckWithoutCredentialsEmitsFailure() async {
         let apiClient = MockApiClient()
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         let checker = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
@@ -61,7 +61,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString)
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString)
         )
 
         var events: [ConnectionCheckProgress] = []
@@ -74,7 +74,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             return XCTFail("Expected refreshed success")
         }
         XCTAssertEqual(connection.type, .custom_domain)
-        XCTAssertEqual(connection.url, "nas.local")
+        XCTAssertEqual(connection.url, "https://nas.local:5001")
         XCTAssertFalse(usedCachedConnection)
     }
 
@@ -87,9 +87,9 @@ final class ConnectionCheckFlowTests: XCTestCase {
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: URLReachabilityPingPong(reachability: [
                 "https://stale.local": false,
-                "nas.local": true,
+                "https://nas.local:5001": true,
             ]),
-            keyChainStorage: KeyChainStorage(service: UUID().uuidString)
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString)
         )
 
         var events: [ConnectionCheckProgress] = []
@@ -101,7 +101,41 @@ final class ConnectionCheckFlowTests: XCTestCase {
         guard case let .success(connection, usedCachedConnection) = events[1] else {
             return XCTFail("Expected fallback success")
         }
-        XCTAssertEqual(connection.url, "nas.local")
+        XCTAssertEqual(connection.url, "https://nas.local:5001")
+        XCTAssertFalse(usedCachedConnection)
+    }
+
+    func testCheckDoesNotReuseReachableConnectionFromAnotherServer() async {
+        let apiClient = MockApiClient()
+        apiClient.connection = (.custom_domain, "https://old-nas.local")
+
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(
+            server: "old-nas.local",
+            username: "tester",
+            password: "secret",
+            usesHTTPS: true
+        )
+        let checker = ConnectionChecker(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: URLReachabilityPingPong(reachability: [
+                "https://old-nas.local": true,
+                "https://new-nas.local:5001": true,
+            ]),
+            keyChainStorage: keychain
+        )
+
+        var events: [ConnectionCheckProgress] = []
+        for await progress in checker.check(server: "new-nas.local", usesHTTPS: true) {
+            events.append(progress)
+        }
+
+        XCTAssertEqual(events.count, 2)
+        guard case let .success(connection, usedCachedConnection) = events[1] else {
+            return XCTFail("Expected refreshed success")
+        }
+        XCTAssertEqual(connection.url, "https://new-nas.local:5001")
         XCTAssertFalse(usedCachedConnection)
     }
 
@@ -111,7 +145,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             throw SynologyError.network(message: "qc failed")
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "QC123456", username: "tester", password: "secret", usesHTTPS: true)
 
         let checker = ConnectionChecker(
@@ -142,7 +176,7 @@ final class ConnectionCheckFlowTests: XCTestCase {
             try makeConnectionCheckServerInfo(ip: "192.168.1.20", port: 5001)
         }
 
-        let keychain = KeyChainStorage(service: UUID().uuidString)
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "QC123456", username: "tester", password: "secret", usesHTTPS: true)
 
         let checker = ConnectionChecker(
@@ -166,21 +200,75 @@ final class ConnectionCheckFlowTests: XCTestCase {
             SynologyError.network(message: "Failed to establish QuickConnect connection").localizedDescription
         )
     }
+
+    func testCertificateFailureStopsAutomaticHTTPFallback() async {
+        let apiClient = MockApiClient()
+        let certificate = SynologyServerCertificate(
+            host: "nas.local",
+            subject: "DSM",
+            sha256Fingerprint: "AA:BB"
+        )
+        let recorder = URLProbeRecorder()
+        let checker = ConnectionChecker(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: CertificateFailingPingPong(certificate: certificate, recorder: recorder),
+            keyChainStorage: makeKeyChainStorage(service: UUID().uuidString)
+        )
+
+        var events: [ConnectionCheckProgress] = []
+        for await progress in checker.check(server: "nas.local") {
+            events.append(progress)
+        }
+
+        guard case let .serverCertificateUntrusted(actual) = events.last else {
+            return XCTFail("Expected certificate confirmation event")
+        }
+        XCTAssertEqual(actual, certificate)
+        let probedURLs = await recorder.urls
+        XCTAssertEqual(probedURLs, ["https://nas.local:5001"])
+    }
 }
 
 private struct URLReachabilityPingPong: PingPongProviding {
     let reachability: [String: Bool]
 
-    func pingpong(connections: [ConnectionType: [String]]) async -> [ConnectionType: String] {
+    func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
         [:]
     }
 
-    func pingpongFirst(connections: [ConnectionType: [String]]) async -> (type: ConnectionType, url: String)? {
+    func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
         nil
     }
 
-    func pingpong(url: String) async -> Bool {
+    func pingpong(url: String) async throws -> Bool {
         reachability[url] ?? false
+    }
+}
+
+private actor URLProbeRecorder {
+    private(set) var urls: [String] = []
+
+    func append(_ url: String) {
+        urls.append(url)
+    }
+}
+
+private struct CertificateFailingPingPong: PingPongProviding {
+    let certificate: SynologyServerCertificate
+    let recorder: URLProbeRecorder
+
+    func pingpong(connections: [ConnectionType: [String]]) async throws -> [ConnectionType: String] {
+        [:]
+    }
+
+    func pingpongFirst(connections: [ConnectionType: [String]]) async throws -> (type: ConnectionType, url: String)? {
+        nil
+    }
+
+    func pingpong(url: String) async throws -> Bool {
+        await recorder.append(url)
+        throw SynologyError.serverCertificateUntrusted(certificate)
     }
 }
 

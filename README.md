@@ -8,9 +8,9 @@ Swift package for building Synology DSM and Audio Station clients in Swift.
 
 - Swift 5.10+
 - Xcode 15.4+
-- iOS 13+
-- macOS 10.15+
-- tvOS 13+
+- iOS 14+
+- macOS 11+
+- tvOS 14+
 - visionOS 1+
 
 ## Installation
@@ -168,12 +168,35 @@ let factory: SynologyHTTPClientFactory = { timeout, trustedSSLDomain in
 }
 
 let client = SynologyClient(
-    config: SynologyConfig(enableNetworkLogging: false),
+    config: SynologyConfig(
+        enableNetworkLogging: true,
+        logDestination: .systemAndHandler,
+        logHandler: { record in
+            AppLogger.debug("[SynologySwiftKit] \(record.message)")
+        }
+    ),
     keyValueStorage: UserDefaultsStorage(userDefaults: .standard),
     keyChainStorage: KeyChainStorage(service: "com.example.synology"),
     httpClientFactory: factory
 )
 ```
+
+## Logging
+
+`SynologySwiftKit` uses Apple Unified Logging by default.
+
+```swift
+let client = SynologyClientFactory.make(
+    config: SynologyConfig(
+        logDestination: .systemAndHandler,
+        logHandler: { record in
+            AppLogger.debug("[SynologySwiftKit][\(record.level)] \(record.message)")
+        }
+    )
+)
+```
+
+Use `.system` to keep only OS logging, `.handler` to forward only to the host app, or `.systemAndHandler` to do both. The handler is optional.
 
 ## Available Modules
 

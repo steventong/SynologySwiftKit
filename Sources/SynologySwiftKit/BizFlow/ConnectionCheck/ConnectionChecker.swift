@@ -35,7 +35,26 @@ final class ConnectionChecker: ConnectionChecking {
                 throw SynologyError.network(message: "Connection unreachable and no saved credentials")
             }
 
-            return ConnectionCheckRequest(server: credentials.server, usesHTTPS: credentials.usesHTTPS)
+            return ConnectionCheckRequest(
+                originalServer: credentials.server,
+                attempts: [
+                    try LoginServerAddressResolver.fixedAttempt(
+                        for: credentials.server,
+                        usesHTTPS: credentials.usesHTTPS
+                    ),
+                ]
+            )
+        }
+    }
+
+    /// 自动识别协议并优先尝试 HTTPS。
+    /// Automatically resolve the protocol with HTTPS preferred.
+    func check(server: String) -> AsyncStream<ConnectionCheckProgress> {
+        makeCheckStream {
+            ConnectionCheckRequest(
+                originalServer: server,
+                attempts: try LoginServerAddressResolver.automaticAttempts(for: server)
+            )
         }
     }
 
@@ -44,7 +63,15 @@ final class ConnectionChecker: ConnectionChecking {
     /// - Returns: AsyncStream 返回连接检查进度
     func check(server: String, usesHTTPS: Bool) -> AsyncStream<ConnectionCheckProgress> {
         makeCheckStream {
-            ConnectionCheckRequest(server: server, usesHTTPS: usesHTTPS)
+            ConnectionCheckRequest(
+                originalServer: server,
+                attempts: [
+                    try LoginServerAddressResolver.fixedAttempt(
+                        for: server,
+                        usesHTTPS: usesHTTPS
+                    ),
+                ]
+            )
         }
     }
 }
@@ -53,8 +80,8 @@ final class ConnectionChecker: ConnectionChecking {
 
 private extension ConnectionChecker {
     struct ConnectionCheckRequest {
-        let server: String
-        let usesHTTPS: Bool
+        let originalServer: String
+        let attempts: [LoginConnectionAttempt]
     }
 
     func makeCheckStream(
@@ -92,25 +119,44 @@ private extension ConnectionChecker {
         do {
             try Task.checkCancellation()
 
-            if let cachedConnection = await reachableCachedConnection() {
-                Logger.info("ConnectionChecker#check, using reachable cached url: \(cachedConnection.url)")
-                finish(continuation, with: .success(connection: cachedConnection, usedCachedConnection: true))
-                return
+            var lastError: Error = SynologyError.network(message: "Connection resolution failed")
+            for attempt in request.attempts {
+                do {
+                    if let cachedConnection = try await reachableCachedConnection(
+                        originalServer: request.originalServer,
+                        attempt: attempt
+                    ) {
+                        Logger.info("ConnectionChecker#check, using reachable cached url: \(cachedConnection.url)")
+                        finish(continuation, with: .success(connection: cachedConnection, usedCachedConnection: true))
+                        return
+                    }
+
+                    let isQuickConnect = QuickConnectUtils.isQuickConnectId(server: attempt.server)
+                    let newConn = try await resolveAvailableConnection(
+                        server: attempt.server,
+                        usesHTTPS: attempt.usesHTTPS
+                    )
+                    try Task.checkCancellation()
+
+                    if !isQuickConnect, !(try await pingpong.pingpong(url: newConn.url)) {
+                        throw SynologyError.network(message: "Refreshed connection unreachable")
+                    }
+                    try Task.checkCancellation()
+
+                    Logger.info("ConnectionChecker#check, resolved reachable connection candidate: \(newConn.url)")
+                    finish(continuation, with: .success(connection: newConn, usedCachedConnection: false))
+                    return
+                } catch let SynologyError.serverCertificateUntrusted(certificate) {
+                    finish(continuation, with: .serverCertificateUntrusted(certificate))
+                    return
+                } catch {
+                    lastError = error
+                    Logger.info(
+                        "ConnectionChecker#check, candidate unavailable: \(attempt.server), error: \(error.localizedDescription)"
+                    )
+                }
             }
-
-            let newConn = try await resolveAvailableConnection(
-                server: request.server,
-                usesHTTPS: request.usesHTTPS
-            )
-            try Task.checkCancellation()
-
-            guard await pingpong.pingpong(url: newConn.url) else {
-                throw SynologyError.network(message: "Refreshed connection unreachable")
-            }
-            try Task.checkCancellation()
-
-            Logger.info("ConnectionChecker#check, resolved reachable connection candidate: \(newConn.url)")
-            finish(continuation, with: .success(connection: newConn, usedCachedConnection: false))
+            throw lastError
         } catch is CancellationError {
             continuation.finish()
         } catch {
@@ -119,14 +165,29 @@ private extension ConnectionChecker {
         }
     }
 
-    func reachableCachedConnection() async -> SynologyConnection? {
-        guard let currentConn = apiClient.connection,
-              await pingpong.pingpong(url: currentConn.url)
+    func reachableCachedConnection(
+        originalServer: String,
+        attempt: LoginConnectionAttempt
+    ) async throws -> SynologyConnection? {
+        guard let credentials = keyChainStorage.getCredentials(),
+              normalizedServer(credentials.server) == normalizedServer(originalServer),
+              credentials.usesHTTPS == attempt.usesHTTPS,
+              let currentConn = apiClient.connection
         else {
             return nil
         }
 
+        guard try await pingpong.pingpong(url: currentConn.url) else {
+            return nil
+        }
         return SynologyConnection(type: currentConn.type, url: currentConn.url)
+    }
+
+    func normalizedServer(_ server: String) -> String {
+        server
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .lowercased()
     }
 
     /// 解析可用连接（封装 Ping 测试、QuickConnect 解析、AudioStation 验证等逻辑）

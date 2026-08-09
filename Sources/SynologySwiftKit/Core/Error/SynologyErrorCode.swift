@@ -64,11 +64,13 @@ public struct SynologyErrorCode: RawRepresentable, Equatable, Hashable, Sendable
     public static let deniedPermission = SynologyErrorCode(rawValue: 402)
     public static let authenticationCodeRequired = SynologyErrorCode(rawValue: 403)
     public static let authenticationCodeFailed = SynologyErrorCode(rawValue: 404)
+    public static let portalPortInvalid = SynologyErrorCode(rawValue: 405)
     public static let enforceAuthenticationWithCode = SynologyErrorCode(rawValue: 406)
     public static let blockedIPSource = SynologyErrorCode(rawValue: 407)
     public static let expiredPasswordCannotChange = SynologyErrorCode(rawValue: 408)
     public static let expiredPassword = SynologyErrorCode(rawValue: 409)
     public static let passwordMustBeChanged = SynologyErrorCode(rawValue: 410)
+    public static let accountLocked = SynologyErrorCode(rawValue: 411)
 
     // MARK: - Descriptions
 
@@ -99,11 +101,13 @@ public struct SynologyErrorCode: RawRepresentable, Equatable, Hashable, Sendable
         case .deniedPermission: return Localization.text("DENIED_PERMISSION")
         case .authenticationCodeRequired: return Localization.text("AUTHENTICATION_CODE_REQUIRED")
         case .authenticationCodeFailed: return Localization.text("AUTHENTICATION_CODE_FAILED")
+        case .portalPortInvalid: return Localization.text("PORTAL_PORT_INVALID")
         case .enforceAuthenticationWithCode: return Localization.text("ENFORCE_AUTHENTICATION_WITH_CODE")
         case .blockedIPSource: return Localization.text("BLOCKED_IP_SOURCE")
         case .expiredPasswordCannotChange: return Localization.text("EXPIRED_PASSWORD_CANNOT_CHANGE")
         case .expiredPassword: return Localization.text("EXPIRED_PASSWORD")
         case .passwordMustBeChanged: return Localization.text("PASSWORD_MUST_BE_CHANGED")
+        case .accountLocked: return Localization.text("ACCOUNT_LOCKED")
 
         default:
             if (120...149).contains(rawValue) {
@@ -119,9 +123,9 @@ public struct SynologyErrorCode: RawRepresentable, Equatable, Hashable, Sendable
     /// Convert error code to SDK's core error type
     public func toSynologyError() -> SynologyError {
         switch self {
-        case .sessionPermissionDenied, .sessionTimeout, .sessionInterrupted, .invalidSession:
+        case .sessionTimeout, .sessionInterrupted, .invalidSession:
             return .sessionExpired(code: rawValue, message: description)
-        case _ where (400...410).contains(rawValue):
+        case _ where (400...411).contains(rawValue):
             return .auth(code: rawValue, message: description)
         default:
             return .api(code: rawValue, message: description)
