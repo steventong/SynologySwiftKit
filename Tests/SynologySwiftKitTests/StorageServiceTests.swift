@@ -90,23 +90,39 @@ final class StorageServiceTests: XCTestCase {
         XCTAssertEqual(storage.getDeviceInfo()?.1, "phone")
     }
 
-    func testSensitiveStoragePersistsInSingleUnifiedKeychainAccount() {
+    func testSensitiveStoragePreservesExistingAccountsAndUsesNewHistoryAccount() {
         keychain.saveCredentials(server: "demo.local", username: "user", password: "pwd", usesHTTPS: true)
         keychain.saveSessionInfo(sid: "sid-123", did: "did-456")
         keychain.saveConnectionInfo(url: "https://demo.local:5001", typeString: "lan")
         keychain.saveDeviceInfo("did-456", "phone")
 
-        let payload: UnifiedKeychainPayload? = keychain.codable(forKey: "synology_secure_store")
-        XCTAssertEqual(payload?.credentials?.username, "user")
-        XCTAssertEqual(payload?.sessionInfo?.sid, "sid-123")
-        XCTAssertEqual(payload?.connectionInfo?.url, "https://demo.local:5001")
-        XCTAssertEqual(payload?.deviceInfo?.did, "did-456")
-        XCTAssertEqual(payload?.loginAccountHistory?.first?.server, "demo.local")
+        let credentials: SynologyCredentials? = keychain.codable(forKey: "synology_credentials")
+        let history: [SynologyLoginAccountHistoryItem]? = keychain.codable(forKey: "synology_login_account_history")
+        let session: SynologySessionInfo? = keychain.codable(forKey: "synology_session_info")
+        let connection: SynologyConnectionInfo? = keychain.codable(forKey: "synology_connection_info")
+        let device: SynologyDeviceInfo? = keychain.codable(forKey: "synology_device_info")
 
-        let legacyCredentials: SynologyCredentials? = keychain.codable(forKey: "synology_credentials")
-        let legacySession: SynologySessionInfo? = keychain.codable(forKey: "synology_session_info")
-        XCTAssertNil(legacyCredentials)
-        XCTAssertNil(legacySession)
+        XCTAssertEqual(credentials?.username, "user")
+        XCTAssertEqual(history?.first?.server, "demo.local")
+        XCTAssertEqual(session?.sid, "sid-123")
+        XCTAssertEqual(connection?.url, "https://demo.local:5001")
+        XCTAssertEqual(device?.did, "did-456")
+
+        let unifiedPayload: Data? = keychain.codable(forKey: "synology_secure_store")
+        XCTAssertNil(unifiedPayload)
+    }
+
+    func testReadsCredentialsAlreadyStoredUnderExistingAccount() {
+        let credentials = SynologyCredentials(
+            server: "existing.local",
+            username: "existing-user",
+            password: "existing-password",
+            usesHTTPS: true
+        )
+        keychain.setCodable(credentials, forKey: "synology_credentials")
+
+        XCTAssertEqual(storage.getCredentials(), credentials)
+        XCTAssertTrue(storage.getLoginAccountHistory().isEmpty)
     }
 
     func testLoginAccountHistoryDeduplicatesMovesNewestFirstAndDeletes() {
@@ -125,6 +141,8 @@ final class StorageServiceTests: XCTestCase {
 
         history = storage.getLoginAccountHistory()
         XCTAssertEqual(history.map(\.username), ["bob"])
+        XCTAssertEqual(storage.getCredentials()?.username, "alice")
+        XCTAssertEqual(storage.getCredentials()?.password, "new-password")
     }
 
 }
@@ -136,12 +154,4 @@ private struct DemoSettings: Codable, Equatable, Sendable {
 
 private struct DemoSecretToken: Codable, Equatable, Sendable, SensitiveStorageValue {
     let value: String
-}
-
-private struct UnifiedKeychainPayload: Codable {
-    let credentials: SynologyCredentials?
-    let loginAccountHistory: [SynologyLoginAccountHistoryItem]?
-    let sessionInfo: SynologySessionInfo?
-    let connectionInfo: SynologyConnectionInfo?
-    let deviceInfo: SynologyDeviceInfo?
 }
