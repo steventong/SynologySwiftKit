@@ -12,6 +12,10 @@ import Foundation
 /// API 信息管理类
 /// API information manager
 final class ApiInfoApi: ApiInfoProviding {
+    /// `SYNO.API.Info` 的协议引导入口。获取服务器路由表前无法通过路由表解析自身。
+    /// Protocol bootstrap endpoint for `SYNO.API.Info`; its route cannot be resolved before the server route table is fetched.
+    private static let bootstrapPath = "/webapi/query.cgi"
+
     // MARK: - Dependencies & State
 
     /// API 客户端
@@ -39,12 +43,7 @@ final class ApiInfoApi: ApiInfoProviding {
 
     /// 根据 API 名称获取 API 节点信息
     /// Get API node info by API name
-    /// - Note: `SYNO.API.Info` 终端节点直接返回硬编码路径，不查询远端 / `SYNO.API.Info` returns a hardcoded path without querying remote
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
-        if apiName == SynologyApi.Core.INFO.name {
-            return ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
-        }
-
         if cache.isEmpty, let cached = getApiInfoFromStorage() {
             cache.replace(with: cached)
             Logger.debug("ApiInfoApi#getApiInfoByApiName load from cache: \(cached.count)")
@@ -88,7 +87,10 @@ extension ApiInfoApi {
     /// 向 DSM 发起 `SYNO.API.Info query` 请求，获取全量 API 信息
     /// Send `SYNO.API.Info query` request to DSM to get all API info
     private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
-        let api = ApiEndpoint(api: SynologyApi.Core.INFO, method: "query") {
+        let api = ApiEndpoint(api: SynologyApi.Core.INFO, fullPath: Self.bootstrapPath, httpMethod: .get) {
+            ("api", SynologyApi.Core.INFO.name)
+            ("version", 1)
+            ("method", "query")
             ("query", "all")
         }
         let apiInfo: [String: ApiInfoNode] = try await apiClient.request(api)
