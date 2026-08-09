@@ -19,12 +19,16 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
 
     private let backend: any KeychainBackend
     
-    private let unifiedAccount = "synology_secure_store"
+    private let credentialsAccount = "synology_credentials"
+    private let loginAccountHistoryAccount = "synology_login_account_history"
+    private let sessionAccount = "synology_session_info"
+    private let connectionAccount = "synology_connection_info"
+    private let deviceAccount = "synology_device_info"
 
-    /// 串行化所有 Keychain 访问，并确保 updateSecureStore 的读-改-写原子执行，
+    /// 串行化所有 Keychain 访问，并确保历史账号的读-改-写原子执行，
     /// 避免并发更新互相覆盖
-    /// Serializes all Keychain access and keeps updateSecureStore's read-modify-write
-    /// atomic so concurrent updates cannot overwrite each other
+    /// Serializes all Keychain access and keeps account-history read-modify-write
+    /// operations atomic so concurrent updates cannot overwrite each other
     private let lock = NSRecursiveLock()
 
     /// 初始化 Keychain 存储
@@ -52,21 +56,24 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
         let credentials = SynologyCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
         let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        updateSecureStore {
-            $0.credentials = credentials
 
-            if !normalizedServer.isEmpty, !normalizedUsername.isEmpty, !password.isEmpty {
-                let account = SynologyLoginAccountHistoryItem(
-                    server: normalizedServer,
-                    username: normalizedUsername,
-                    password: password
-                )
-                let deduplicatedHistory = ($0.loginAccountHistory ?? []).filter {
-                    $0.server.caseInsensitiveCompare(normalizedServer) != .orderedSame
-                        || $0.username != normalizedUsername
-                }
-                $0.loginAccountHistory = [account] + deduplicatedHistory
+        lock.lock()
+        defer { lock.unlock() }
+
+        save(account: credentialsAccount, data: credentials)
+
+        if !normalizedServer.isEmpty, !normalizedUsername.isEmpty, !password.isEmpty {
+            let account = SynologyLoginAccountHistoryItem(
+                server: normalizedServer,
+                username: normalizedUsername,
+                password: password
+            )
+            let history: [SynologyLoginAccountHistoryItem] = read(account: loginAccountHistoryAccount) ?? []
+            let deduplicatedHistory = history.filter {
+                $0.server.caseInsensitiveCompare(normalizedServer) != .orderedSame
+                    || $0.username != normalizedUsername
             }
+            save(account: loginAccountHistoryAccount, data: [account] + deduplicatedHistory)
         }
     }
 
@@ -74,27 +81,31 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Read saved credentials from Keychain
     /// - Returns: 凭据对象，如果不存在则返回 nil
     public func getCredentials() -> SynologyCredentials? {
-        secureStore().credentials
+        read(account: credentialsAccount)
     }
 
     /// 从 Keychain 删除凭据
     /// Remove credentials from Keychain
     public func removeCredentials() {
-        updateSecureStore {
-            $0.credentials = nil
-        }
+        delete(account: credentialsAccount)
     }
 
     // MARK: - Login Account History
 
     public func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem] {
-        secureStore().loginAccountHistory ?? []
+        read(account: loginAccountHistoryAccount) ?? []
     }
 
     public func removeLoginAccountFromHistory(id: UUID) {
-        updateSecureStore {
-            let updatedHistory = ($0.loginAccountHistory ?? []).filter { $0.id != id }
-            $0.loginAccountHistory = updatedHistory.isEmpty ? nil : updatedHistory
+        lock.lock()
+        defer { lock.unlock() }
+
+        let history: [SynologyLoginAccountHistoryItem] = read(account: loginAccountHistoryAccount) ?? []
+        let updatedHistory = history.filter { $0.id != id }
+        if updatedHistory.isEmpty {
+            delete(account: loginAccountHistoryAccount)
+        } else {
+            save(account: loginAccountHistoryAccount, data: updatedHistory)
         }
     }
 
@@ -104,15 +115,13 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Save session info
     public func saveSessionInfo(sid: String, did: String?) {
         let sessionInfo = SynologySessionInfo(sid: sid, did: did)
-        updateSecureStore {
-            $0.sessionInfo = sessionInfo
-        }
+        save(account: sessionAccount, data: sessionInfo)
     }
 
     /// 获取 Session 信息
     /// Get session info
     public func getSessionInfo() -> (sid: String, did: String?)? {
-        guard let sessionInfo = secureStore().sessionInfo else {
+        guard let sessionInfo: SynologySessionInfo = read(account: sessionAccount) else {
             return nil
         }
         return (sessionInfo.sid, sessionInfo.did)
@@ -121,9 +130,7 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 移除 Session 信息
     /// Remove session info
     public func removeSessionInfo() {
-        updateSecureStore {
-            $0.sessionInfo = nil
-        }
+        delete(account: sessionAccount)
     }
 
     // MARK: - Device ID (Persistent)
@@ -132,15 +139,13 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Save Device ID (Persistent, not cleared on logout)
     public func saveDeviceInfo(_ did: String, _ name: String) {
         let data = SynologyDeviceInfo(did: did, name: name)
-        updateSecureStore {
-            $0.deviceInfo = data
-        }
+        save(account: deviceAccount, data: data)
     }
 
     /// 获取设备 ID
     /// Get Device ID
     public func getDeviceInfo() -> (String, String)? {
-        guard let data = secureStore().deviceInfo else {
+        guard let data: SynologyDeviceInfo = read(account: deviceAccount) else {
             return nil
         }
         return (data.did, data.name)
@@ -152,15 +157,13 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// Save connection URL info
     public func saveConnectionInfo(url: String, typeString: String) {
         let data = SynologyConnectionInfo(url: url, typeString: typeString)
-        updateSecureStore {
-            $0.connectionInfo = data
-        }
+        save(account: connectionAccount, data: data)
     }
 
     /// 获取连接地址信息
     /// Get connection URL info
     public func getConnectionInfo() -> (url: String, typeString: String)? {
-        guard let data = secureStore().connectionInfo else {
+        guard let data: SynologyConnectionInfo = read(account: connectionAccount) else {
             return nil
         }
         return (data.url, data.typeString)
@@ -169,9 +172,7 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     /// 移除连接地址信息
     /// Remove connection URL info
     public func removeConnectionInfo() {
-        updateSecureStore {
-            $0.connectionInfo = nil
-        }
+        delete(account: connectionAccount)
     }
 }
 
@@ -190,24 +191,6 @@ extension KeyChainStorage {
 
     func removeValue(forKey key: String) {
         delete(account: key)
-    }
-
-    private func secureStore() -> SecureStorePayload {
-        read(account: unifiedAccount) ?? SecureStorePayload()
-    }
-
-    private func updateSecureStore(_ mutate: (inout SecureStorePayload) -> Void) {
-        lock.lock()
-        defer { lock.unlock() }
-
-        var store = secureStore()
-        mutate(&store)
-
-        if store.hasContent {
-            save(account: unifiedAccount, data: store)
-        } else {
-            delete(account: unifiedAccount)
-        }
     }
 
     // MARK: - API Info Cache (Optional, maybe keep in UserDefaults for performance?)
@@ -273,21 +256,5 @@ extension KeyChainStorage {
         defer { lock.unlock() }
 
         backend.delete(service: service, account: account)
-    }
-}
-
-private struct SecureStorePayload: Codable {
-    var credentials: SynologyCredentials?
-    var loginAccountHistory: [SynologyLoginAccountHistoryItem]?
-    var sessionInfo: SynologySessionInfo?
-    var connectionInfo: SynologyConnectionInfo?
-    var deviceInfo: SynologyDeviceInfo?
-
-    var hasContent: Bool {
-        credentials != nil
-            || loginAccountHistory?.isEmpty == false
-            || sessionInfo != nil
-            || connectionInfo != nil
-            || deviceInfo != nil
     }
 }
