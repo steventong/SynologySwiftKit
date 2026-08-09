@@ -70,6 +70,40 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
         }
     }
 
+    // MARK: - Login Account History
+
+    public func saveLoginAccountToHistory(server: String, username: String, password: String) {
+        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedServer.isEmpty, !normalizedUsername.isEmpty, !password.isEmpty else {
+            return
+        }
+
+        let account = SynologyLoginAccountHistoryItem(
+            server: normalizedServer,
+            username: normalizedUsername,
+            password: password
+        )
+        updateSecureStore {
+            let deduplicatedHistory = ($0.loginAccountHistory ?? []).filter {
+                $0.server.caseInsensitiveCompare(normalizedServer) != .orderedSame
+                    || $0.username != normalizedUsername
+            }
+            $0.loginAccountHistory = [account] + deduplicatedHistory
+        }
+    }
+
+    public func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem] {
+        secureStore().loginAccountHistory ?? []
+    }
+
+    public func removeLoginAccountFromHistory(id: UUID) {
+        updateSecureStore {
+            let updatedHistory = ($0.loginAccountHistory ?? []).filter { $0.id != id }
+            $0.loginAccountHistory = updatedHistory.isEmpty ? nil : updatedHistory
+        }
+    }
+
     // MARK: - Session Info
 
     /// 保存 Session 信息
@@ -250,11 +284,16 @@ extension KeyChainStorage {
 
 private struct SecureStorePayload: Codable {
     var credentials: SynologyCredentials?
+    var loginAccountHistory: [SynologyLoginAccountHistoryItem]?
     var sessionInfo: SynologySessionInfo?
     var connectionInfo: SynologyConnectionInfo?
     var deviceInfo: SynologyDeviceInfo?
 
     var hasContent: Bool {
-        credentials != nil || sessionInfo != nil || connectionInfo != nil || deviceInfo != nil
+        credentials != nil
+            || loginAccountHistory?.isEmpty == false
+            || sessionInfo != nil
+            || connectionInfo != nil
+            || deviceInfo != nil
     }
 }

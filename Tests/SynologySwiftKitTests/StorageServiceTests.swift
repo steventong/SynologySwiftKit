@@ -22,6 +22,9 @@ final class StorageServiceTests: XCTestCase {
     override func tearDown() {
         userDefaults.removePersistentDomain(forName: suiteName)
         storage.removeCredentials()
+        for account in storage.getLoginAccountHistory() {
+            storage.removeLoginAccountFromHistory(id: account.id)
+        }
         storage.removeSessionInfo()
         storage.removeConnectionInfo()
         userDefaults = nil
@@ -92,17 +95,37 @@ final class StorageServiceTests: XCTestCase {
         keychain.saveSessionInfo(sid: "sid-123", did: "did-456")
         keychain.saveConnectionInfo(url: "https://demo.local:5001", typeString: "lan")
         keychain.saveDeviceInfo("did-456", "phone")
+        keychain.saveLoginAccountToHistory(server: "demo.local", username: "user", password: "pwd")
 
         let payload: UnifiedKeychainPayload? = keychain.codable(forKey: "synology_secure_store")
         XCTAssertEqual(payload?.credentials?.username, "user")
         XCTAssertEqual(payload?.sessionInfo?.sid, "sid-123")
         XCTAssertEqual(payload?.connectionInfo?.url, "https://demo.local:5001")
         XCTAssertEqual(payload?.deviceInfo?.did, "did-456")
+        XCTAssertEqual(payload?.loginAccountHistory?.first?.server, "demo.local")
 
         let legacyCredentials: SynologyCredentials? = keychain.codable(forKey: "synology_credentials")
         let legacySession: SynologySessionInfo? = keychain.codable(forKey: "synology_session_info")
         XCTAssertNil(legacyCredentials)
         XCTAssertNil(legacySession)
+    }
+
+    func testLoginAccountHistoryDeduplicatesMovesNewestFirstAndDeletes() {
+        storage.saveLoginAccountToHistory(server: "nas-a.local", username: "alice", password: "old-password")
+        storage.saveLoginAccountToHistory(server: "nas-b.local", username: "bob", password: "bob-password")
+        storage.saveLoginAccountToHistory(server: "NAS-A.LOCAL", username: "alice", password: "new-password")
+
+        var history = storage.getLoginAccountHistory()
+        XCTAssertEqual(history.count, 2)
+        XCTAssertEqual(history[0].server, "NAS-A.LOCAL")
+        XCTAssertEqual(history[0].username, "alice")
+        XCTAssertEqual(history[0].password, "new-password")
+        XCTAssertEqual(history[1].server, "nas-b.local")
+
+        storage.removeLoginAccountFromHistory(id: history[0].id)
+
+        history = storage.getLoginAccountHistory()
+        XCTAssertEqual(history.map(\.username), ["bob"])
     }
 
 }
@@ -118,6 +141,7 @@ private struct DemoSecretToken: Codable, Equatable, Sendable, SensitiveStorageVa
 
 private struct UnifiedKeychainPayload: Codable {
     let credentials: SynologyCredentials?
+    let loginAccountHistory: [SynologyLoginAccountHistoryItem]?
     let sessionInfo: SynologySessionInfo?
     let connectionInfo: SynologyConnectionInfo?
     let deviceInfo: SynologyDeviceInfo?

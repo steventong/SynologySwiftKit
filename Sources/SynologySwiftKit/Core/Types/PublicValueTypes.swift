@@ -100,6 +100,32 @@ public struct SynologyCredentials: Codable, Equatable, Sendable, SensitiveStorag
     }
 }
 
+// MARK: - SynologyLoginAccountHistoryItem
+
+/// 成功登录过的 Synology 账号，用于安全地恢复登录表单。
+/// A successfully authenticated Synology account used to restore the login form securely.
+public struct SynologyLoginAccountHistoryItem: Codable, Equatable, Identifiable, Sendable, SensitiveStorageValue {
+    public let id: UUID
+    public let server: String
+    public let username: String
+    public let password: String
+    public let lastLoginAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        server: String,
+        username: String,
+        password: String,
+        lastLoginAt: Date = Date()
+    ) {
+        self.id = id
+        self.server = server
+        self.username = username
+        self.password = password
+        self.lastLoginAt = lastLoginAt
+    }
+}
+
 /// 持久化的 Synology Session 信息
 /// Persisted Synology session info
 public struct SynologySessionInfo: Codable, Equatable, Sendable, SensitiveStorageValue {

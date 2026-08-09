@@ -18,6 +18,24 @@ public protocol CredentialStorage: AnyObject, Sendable {
     func removeCredentials()
 }
 
+// MARK: - LoginAccountHistoryStorage
+
+/// 历史登录账号存储协议。
+/// Protocol for storing successfully authenticated accounts.
+public protocol LoginAccountHistoryStorage: AnyObject, Sendable {
+    /// 将成功登录的账号保存到历史记录；相同服务器和用户名的记录会被替换并置顶。
+    /// Save a successfully authenticated account; duplicate server and username pairs are replaced and moved first.
+    func saveLoginAccountToHistory(server: String, username: String, password: String)
+
+    /// 获取历史登录账号，按最近登录时间倒序排列。
+    /// Get login account history ordered from most to least recent.
+    func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem]
+
+    /// 删除指定历史登录账号。
+    /// Remove a login account history item.
+    func removeLoginAccountFromHistory(id: UUID)
+}
+
 // MARK: - SessionStorage
 
 /// 会话存储协议（SID + DID）
@@ -73,9 +91,10 @@ public protocol DeviceIdentityStorage: AnyObject, Sendable {
 /// 敏感信息存储组合协议
 /// Composite protocol for sensitive storage
 ///
-/// 组合了凭据、会话、连接地址、设备身份四类敏感数据的存取能力。
-/// Combines credential, session, connection, and device identity storage capabilities.
+/// 组合了凭据、历史账号、会话、连接地址、设备身份五类敏感数据的存取能力。
+/// Combines credential, account history, session, connection, and device identity storage capabilities.
 public typealias SensitiveStorage = CredentialStorage
+    & LoginAccountHistoryStorage
     & SessionStorage
     & ConnectionStorage
     & DeviceIdentityStorage

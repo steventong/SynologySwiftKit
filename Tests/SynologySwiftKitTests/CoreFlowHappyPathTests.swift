@@ -52,6 +52,8 @@ final class CoreFlowHappyPathTests: XCTestCase {
         XCTAssertEqual(result.session.sid, "sid-123")
         XCTAssertEqual(apiClient.session?.sid, "sid-123")
         XCTAssertEqual(keychain.getCredentials()?.username, "tester")
+        XCTAssertEqual(keychain.getLoginAccountHistory().first?.username, "tester")
+        XCTAssertEqual(keychain.getLoginAccountHistory().first?.server, "https://nas.local")
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "sid-123")
     }
 

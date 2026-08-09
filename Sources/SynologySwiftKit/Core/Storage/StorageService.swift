@@ -142,6 +142,22 @@ extension StorageService {
         removeValue(forKey: SensitiveStorageKeys.credentials.rawValue, as: SynologyCredentials.self)
     }
 
+    public func saveLoginAccountToHistory(server: String, username: String, password: String) {
+        keyChainStorage.saveLoginAccountToHistory(
+            server: server,
+            username: username,
+            password: password
+        )
+    }
+
+    public func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem] {
+        keyChainStorage.getLoginAccountHistory()
+    }
+
+    public func removeLoginAccountFromHistory(id: UUID) {
+        keyChainStorage.removeLoginAccountFromHistory(id: id)
+    }
+
     public func saveSessionInfo(sid: String, did: String?) {
         let sessionInfo = SynologySessionInfo(sid: sid, did: did)
         setValue(sessionInfo, forKey: SensitiveStorageKeys.sessionInfo.rawValue)

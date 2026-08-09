@@ -95,6 +95,18 @@ public final class AuthClient {
     public func getCredentials() -> SynologyCredentials? {
         keyChainStorage.getCredentials()
     }
+
+    /// 读取成功登录过的账号历史。
+    /// Read successfully authenticated account history.
+    public func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem] {
+        keyChainStorage.getLoginAccountHistory()
+    }
+
+    /// 删除指定历史登录账号。
+    /// Remove a login account history item.
+    public func removeLoginAccountFromHistory(id: UUID) {
+        keyChainStorage.removeLoginAccountFromHistory(id: id)
+    }
 }
 
 private extension String {
