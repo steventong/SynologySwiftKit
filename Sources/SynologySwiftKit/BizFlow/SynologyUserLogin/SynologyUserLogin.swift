@@ -405,11 +405,6 @@ private extension SynologyUserLogin {
                 password: password,
                 usesHTTPS: usesHTTPS
             )
-            keyChainStorage.saveLoginAccountToHistory(
-                server: server,
-                username: username,
-                password: password
-            )
         } else {
             keyChainStorage.removeCredentials()
         }

@@ -41,8 +41,8 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
 
     // MARK: - Credentials Management
 
-    /// 保存登录凭据到 Keychain
-    /// Save login credentials to Keychain
+    /// 保存成功登录的凭据到 Keychain，并自动更新历史账号。
+    /// Save successfully authenticated credentials to Keychain and update account history automatically.
     /// - Parameters:
     ///   - server: 服务器地址（QuickConnect ID 或自定义域名）/ Server address
     ///   - username: 用户名 / Username
@@ -50,8 +50,23 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     ///   - usesHTTPS: 是否启用 HTTPS (可选) / Enable HTTPS (optional)
     public func saveCredentials(server: String, username: String, password: String, usesHTTPS: Bool) {
         let credentials = SynologyCredentials(server: server, username: username, password: password, usesHTTPS: usesHTTPS)
+        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
         updateSecureStore {
             $0.credentials = credentials
+
+            if !normalizedServer.isEmpty, !normalizedUsername.isEmpty, !password.isEmpty {
+                let account = SynologyLoginAccountHistoryItem(
+                    server: normalizedServer,
+                    username: normalizedUsername,
+                    password: password
+                )
+                let deduplicatedHistory = ($0.loginAccountHistory ?? []).filter {
+                    $0.server.caseInsensitiveCompare(normalizedServer) != .orderedSame
+                        || $0.username != normalizedUsername
+                }
+                $0.loginAccountHistory = [account] + deduplicatedHistory
+            }
         }
     }
 
@@ -71,27 +86,6 @@ public final class KeyChainStorage: SensitiveStorage, @unchecked Sendable {
     }
 
     // MARK: - Login Account History
-
-    public func saveLoginAccountToHistory(server: String, username: String, password: String) {
-        let normalizedServer = server.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedServer.isEmpty, !normalizedUsername.isEmpty, !password.isEmpty else {
-            return
-        }
-
-        let account = SynologyLoginAccountHistoryItem(
-            server: normalizedServer,
-            username: normalizedUsername,
-            password: password
-        )
-        updateSecureStore {
-            let deduplicatedHistory = ($0.loginAccountHistory ?? []).filter {
-                $0.server.caseInsensitiveCompare(normalizedServer) != .orderedSame
-                    || $0.username != normalizedUsername
-            }
-            $0.loginAccountHistory = [account] + deduplicatedHistory
-        }
-    }
 
     public func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem] {
         secureStore().loginAccountHistory ?? []

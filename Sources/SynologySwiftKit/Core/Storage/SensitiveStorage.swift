@@ -5,8 +5,8 @@ import Foundation
 /// 凭据存储协议（账号密码）
 /// Protocol for credential storage (username and password)
 public protocol CredentialStorage: AnyObject, Sendable {
-    /// 保存登录凭据
-    /// Save login credentials
+    /// 保存成功登录的凭据，并自动更新历史账号。
+    /// Save successfully authenticated credentials and update account history automatically.
     func saveCredentials(server: String, username: String, password: String, usesHTTPS: Bool)
 
     /// 获取已保存的登录凭据，不存在时返回 nil
@@ -23,10 +23,6 @@ public protocol CredentialStorage: AnyObject, Sendable {
 /// 历史登录账号存储协议。
 /// Protocol for storing successfully authenticated accounts.
 public protocol LoginAccountHistoryStorage: AnyObject, Sendable {
-    /// 将成功登录的账号保存到历史记录；相同服务器和用户名的记录会被替换并置顶。
-    /// Save a successfully authenticated account; duplicate server and username pairs are replaced and moved first.
-    func saveLoginAccountToHistory(server: String, username: String, password: String)
-
     /// 获取历史登录账号，按最近登录时间倒序排列。
     /// Get login account history ordered from most to least recent.
     func getLoginAccountHistory() -> [SynologyLoginAccountHistoryItem]

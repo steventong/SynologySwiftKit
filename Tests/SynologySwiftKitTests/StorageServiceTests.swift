@@ -95,7 +95,6 @@ final class StorageServiceTests: XCTestCase {
         keychain.saveSessionInfo(sid: "sid-123", did: "did-456")
         keychain.saveConnectionInfo(url: "https://demo.local:5001", typeString: "lan")
         keychain.saveDeviceInfo("did-456", "phone")
-        keychain.saveLoginAccountToHistory(server: "demo.local", username: "user", password: "pwd")
 
         let payload: UnifiedKeychainPayload? = keychain.codable(forKey: "synology_secure_store")
         XCTAssertEqual(payload?.credentials?.username, "user")
@@ -111,9 +110,9 @@ final class StorageServiceTests: XCTestCase {
     }
 
     func testLoginAccountHistoryDeduplicatesMovesNewestFirstAndDeletes() {
-        storage.saveLoginAccountToHistory(server: "nas-a.local", username: "alice", password: "old-password")
-        storage.saveLoginAccountToHistory(server: "nas-b.local", username: "bob", password: "bob-password")
-        storage.saveLoginAccountToHistory(server: "NAS-A.LOCAL", username: "alice", password: "new-password")
+        storage.saveCredentials(server: "nas-a.local", username: "alice", password: "old-password", usesHTTPS: true)
+        storage.saveCredentials(server: "nas-b.local", username: "bob", password: "bob-password", usesHTTPS: true)
+        storage.saveCredentials(server: "NAS-A.LOCAL", username: "alice", password: "new-password", usesHTTPS: true)
 
         var history = storage.getLoginAccountHistory()
         XCTAssertEqual(history.count, 2)
