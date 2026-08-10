@@ -2,13 +2,33 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class FoundationAndUtilityTests: XCTestCase {
-    func testUrlUtilsAndDictionaryEncoding() {
-        let encoded = UrlUtils.urlEncode("a b&c")
-        XCTAssertTrue(encoded.contains("a"))
+    func testApiRequestFactoryEncodesFormSeparatorsInsideLyrics() async throws {
+        let endpoint = ApiEndpoint.custom(
+            api: SynologyApi.AudioStation.TAG_EDITOR_UI,
+            path: "/webman/tag_editor.cgi",
+            httpMethod: .post,
+            parameters: ["data": .string(#"{"lyrics":"[ar:伍佰 &amp; China Blue]"}"#)]
+        )
+        let resolved = ResolvedApiEndpoint(
+            name: endpoint.apiName,
+            method: endpoint.method,
+            version: endpoint.version,
+            parameters: endpoint.parameters,
+            apiPath: "/webman/tag_editor.cgi",
+            requireAuthCookie: false,
+            requireAuthQuery: false
+        )
+        let factory = ApiRequestFactory(
+            connectionProvider: { (.lan, "https://nas.local") },
+            sessionProvider: { nil }
+        )
 
-        let apiDict: [String: ApiParameterValue] = ["title": .string("Hello World"), "count": .int(2)]
-        XCTAssertTrue(apiDict.urlEncodedString.contains("count=2"))
-        XCTAssertNotNil(apiDict.urlEncodedData)
+        let request = try await factory.makeRequest(endpoint: endpoint, resolved: resolved)
+        let body = try XCTUnwrap(request.httpBody.flatMap { String(data: $0, encoding: .utf8) })
+
+        XCTAssertTrue(body.contains("%26amp%3B"))
+        XCTAssertFalse(body.contains("&amp;"))
+        XCTAssertEqual(body.split(separator: "&").count, 2)
     }
 
     func testJsonUtilsAndLyricsResultDecoding() throws {

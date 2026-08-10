@@ -1,4 +1,5 @@
 import Foundation
+import SwiftHttpClient
 
 // MARK: - ApiRequestFactory
 
@@ -157,7 +158,9 @@ struct ApiRequestFactory {
             if $0.key.hasPrefix("_") && !$1.key.hasPrefix("_") { return false }
             if !$0.key.hasPrefix("_") && $1.key.hasPrefix("_") { return true }
             return $0.key < $1.key
-        }.map { "\($0.key)=\(UrlUtils.urlEncode($0.value.stringValue))" }
+        }.map {
+            "\(URLCoding.encode($0.key))=\(URLCoding.encode($0.value.stringValue))"
+        }
             .joined(separator: "&")
             .data(using: .utf8)
     }
