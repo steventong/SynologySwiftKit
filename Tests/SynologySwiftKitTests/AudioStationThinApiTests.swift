@@ -276,7 +276,7 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(request.track, String(file.track))
         XCTAssertEqual(request.disc, String(file.disc))
         XCTAssertEqual(request.year, String(file.year))
-        XCTAssertEqual(request.coverType, "")
+        XCTAssertEqual(request.coverType, "original_image")
         XCTAssertEqual(request.coverPath, "")
         XCTAssertEqual(request.codePage, "SYNO_NO_CODE_PAGE_CONVERT")
     }
