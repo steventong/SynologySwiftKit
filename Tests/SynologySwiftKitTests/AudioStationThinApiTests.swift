@@ -400,16 +400,38 @@ final class AudioStationThinApiTests: XCTestCase {
 
     func testTagEditorApiThrowsOnFailedResult() async {
         let apiClient = MockApiClient()
-        apiClient.mockResponse = TagEditorResult(success: false, readFailCount: 1, lyrics: nil, files: [])
+        apiClient.mockResponse = TagEditorResult(
+            success: false,
+            readFailCount: 1,
+            lyrics: nil,
+            files: [],
+            errorMessage: "error_system"
+        )
 
         do {
             _ = try await TagEditorApi(apiClient: apiClient).load(path: "/music/file.mp3")
             XCTFail("Expected load failure")
-        } catch let SynologyError.api(code, _) {
+        } catch let SynologyError.api(code, message) {
             XCTAssertEqual(code, -1)
+            XCTAssertEqual(message, "error_system")
         } catch {
             XCTFail("Unexpected error \(error)")
         }
+    }
+
+    func testTagEditorResultDecodesMinimalFailureResponse() throws {
+        let data = try makeJSONData([
+            "success": false,
+            "error_msg": "error_system"
+        ])
+
+        let result = try JSONDecoder().decode(TagEditorResult.self, from: data)
+
+        XCTAssertFalse(result.success)
+        XCTAssertEqual(result.errorMessage, "error_system")
+        XCTAssertEqual(result.readFailCount, 0)
+        XCTAssertNil(result.lyrics)
+        XCTAssertTrue(result.files.isEmpty)
     }
 
     func testPinApiSupportsListPinUnpinAndConvenienceMethods() async throws {

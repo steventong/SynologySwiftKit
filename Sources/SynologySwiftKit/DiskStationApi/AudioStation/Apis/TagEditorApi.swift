@@ -30,7 +30,7 @@ public final class TagEditorApi {
         }
         let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
-            throw SynologyError.api(code: -1, message: "query failed")
+            throw SynologyError.api(code: -1, message: result.errorMessage ?? "query failed")
         }
         return TagEditorDocument(
             lyrics: result.lyrics,
@@ -53,7 +53,7 @@ public final class TagEditorApi {
         }
         let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
-            throw SynologyError.api(code: -1, message: "update failed")
+            throw SynologyError.api(code: -1, message: result.errorMessage ?? "update failed")
         }
         return TagEditorDocument(
             lyrics: result.lyrics,

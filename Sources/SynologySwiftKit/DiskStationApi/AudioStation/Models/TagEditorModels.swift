@@ -121,12 +121,37 @@ struct TagEditorResult: Decodable, Sendable {
     var readFailCount: Int
     var lyrics: String?
     var files: [TagEditorData]
+    var errorMessage: String?
 
     enum CodingKeys: String, CodingKey {
         case success
         case readFailCount = "read_fail_count"
         case lyrics
         case files
+        case errorMessage = "error_msg"
+    }
+
+    init(
+        success: Bool,
+        readFailCount: Int,
+        lyrics: String?,
+        files: [TagEditorData],
+        errorMessage: String? = nil
+    ) {
+        self.success = success
+        self.readFailCount = readFailCount
+        self.lyrics = lyrics
+        self.files = files
+        self.errorMessage = errorMessage
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        success = try container.decode(Bool.self, forKey: .success)
+        readFailCount = try container.decodeIfPresent(Int.self, forKey: .readFailCount) ?? 0
+        lyrics = try container.decodeIfPresent(String.self, forKey: .lyrics)
+        files = try container.decodeIfPresent([TagEditorData].self, forKey: .files) ?? []
+        errorMessage = try container.decodeIfPresent(String.self, forKey: .errorMessage)
     }
 }
 
