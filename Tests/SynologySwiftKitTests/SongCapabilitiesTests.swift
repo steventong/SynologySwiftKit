@@ -43,6 +43,28 @@ final class SongCapabilitiesTests: XCTestCase {
         assertEditingDisabled(song.capabilities, context: "remote")
     }
 
+    func testFolderSongEntriesUseTheSameCapabilityRules() {
+        let editable = Folder(
+            id: "music_1",
+            path: "/music/Track.flac",
+            isPersonal: false,
+            title: "Track",
+            type: "file",
+            additional: nil
+        )
+        let virtual = Folder(
+            id: "music_v_1",
+            path: "/music/CDImage.flac",
+            isPersonal: false,
+            title: "Track",
+            type: "file",
+            additional: nil
+        )
+
+        XCTAssertEqual(editable.capabilities, .allSupported)
+        assertEditingDisabled(virtual.capabilities, context: "folder virtual track")
+    }
+
     private func makeSong(
         id: String,
         type: String = "file",

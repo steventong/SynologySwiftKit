@@ -25,6 +25,15 @@ public struct Folder: Decodable, Sendable {
     /// 额外信息（歌曲标签/音频信息等）/ Additional info (song tag/audio info, etc.)
     public var additional: SongAdditional?
 
+    /// 文件浏览中的歌曲条目沿用与歌曲列表相同的 Audio Station 能力规则。
+    public var capabilities: SongCapabilities {
+        AudioStationSongCapabilitiesResolver.resolve(
+            id: id,
+            type: type,
+            path: path
+        )
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case path

@@ -29,6 +29,29 @@ public struct SongCapabilities: Codable, Equatable, Sendable {
     public static let allSupported = SongCapabilities()
 }
 
+enum AudioStationSongCapabilitiesResolver {
+    private static let virtualIDPrefixes = ["music_v_", "music_p_v_"]
+    private static let tagEditableFileExtensions: Set<String> = [
+        "mp3", "ogg", "m4a", "m4p", "flac", "aiff", "aif", "m4b",
+    ]
+
+    static func resolve(id: String, type: String, path: String) -> SongCapabilities {
+        let isVirtual = virtualIDPrefixes.contains { id.hasPrefix($0) }
+        let isLocalFile = type.caseInsensitiveCompare("file") == .orderedSame
+            && !path.lowercased().hasPrefix("http")
+        let fileExtension = URL(fileURLWithPath: path).pathExtension.lowercased()
+        let supportsTagEditing = isLocalFile
+            && !isVirtual
+            && tagEditableFileExtensions.contains(fileExtension)
+
+        return SongCapabilities(
+            supportsMetadataEditing: supportsTagEditing,
+            supportsLyricsEditing: supportsTagEditing,
+            supportsArtworkEditing: supportsTagEditing
+        )
+    }
+}
+
 /// {
 ///         "path": "\/music\/五月天\/五月天专辑\/2007.04-Enrich Your Life\/CDImage.ape",
 ///         "id": "music_v_6503",
@@ -61,11 +84,6 @@ public struct SongCapabilities: Codable, Equatable, Sendable {
 ///         "type": "file"
 ///       }
 public struct Song: Decodable, Encodable, Sendable {
-    private static let virtualIDPrefixes = ["music_v_", "music_p_v_"]
-    private static let tagEditableFileExtensions: Set<String> = [
-        "mp3", "ogg", "m4a", "m4p", "flac", "aiff", "aif", "m4b",
-    ]
-
     public var id: String
     public var title: String
     public var type: String
@@ -87,28 +105,11 @@ public struct Song: Decodable, Encodable, Sendable {
 
     /// 与 Audio Station Web UI `isTagEditableMusic` 保持一致的能力判断。
     public var capabilities: SongCapabilities {
-        let supportsTagEditing = isLocalFile
-            && !isVirtual
-            && Self.tagEditableFileExtensions.contains(fileExtension)
-
-        return SongCapabilities(
-            supportsMetadataEditing: supportsTagEditing,
-            supportsLyricsEditing: supportsTagEditing,
-            supportsArtworkEditing: supportsTagEditing
+        AudioStationSongCapabilitiesResolver.resolve(
+            id: id,
+            type: type,
+            path: path
         )
-    }
-
-    private var isVirtual: Bool {
-        Self.virtualIDPrefixes.contains { id.hasPrefix($0) }
-    }
-
-    private var isLocalFile: Bool {
-        type.caseInsensitiveCompare("file") == .orderedSame
-            && !path.lowercased().hasPrefix("http")
-    }
-
-    private var fileExtension: String {
-        URL(fileURLWithPath: path).pathExtension.lowercased()
     }
 }
 
