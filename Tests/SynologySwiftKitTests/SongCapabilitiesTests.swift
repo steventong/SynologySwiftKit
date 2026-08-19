@@ -17,30 +17,30 @@ final class SongCapabilitiesTests: XCTestCase {
         }
     }
 
-    func testUnsupportedFormatsDisableAllEditingCapabilities() {
+    func testUnsupportedFormatsDisableWritesButKeepMatching() {
         for fileExtension in ["ape", "wav", "wma", "dsf"] {
             let song = makeSong(id: "music_1", path: "/music/Track.\(fileExtension)")
 
-            assertEditingDisabled(song.capabilities, context: fileExtension)
+            assertWriteCapabilitiesDisabled(song.capabilities, context: fileExtension)
         }
     }
 
-    func testVirtualSongsDisableEditingEvenForSupportedFormats() {
+    func testVirtualSongsDisableWritesButKeepMatching() {
         for id in ["music_v_1", "music_p_v_1"] {
             let song = makeSong(id: id, path: "/music/CDImage.flac")
 
-            assertEditingDisabled(song.capabilities, context: id)
+            assertWriteCapabilitiesDisabled(song.capabilities, context: id)
         }
     }
 
-    func testRemoteResourcesDisableEditing() {
+    func testRemoteResourcesDisableWritesButKeepMatching() {
         let song = makeSong(
             id: "music_1",
             type: "remote",
             path: "https://example.com/Track.mp3"
         )
 
-        assertEditingDisabled(song.capabilities, context: "remote")
+        assertWriteCapabilitiesDisabled(song.capabilities, context: "remote")
     }
 
     func testFolderSongEntriesUseTheSameCapabilityRules() {
@@ -62,7 +62,10 @@ final class SongCapabilitiesTests: XCTestCase {
         )
 
         XCTAssertEqual(editable.capabilities, .allSupported)
-        assertEditingDisabled(virtual.capabilities, context: "folder virtual track")
+        assertWriteCapabilitiesDisabled(
+            virtual.capabilities,
+            context: "folder virtual track"
+        )
     }
 
     private func makeSong(
@@ -79,14 +82,16 @@ final class SongCapabilitiesTests: XCTestCase {
         )
     }
 
-    private func assertEditingDisabled(
+    private func assertWriteCapabilitiesDisabled(
         _ capabilities: SongCapabilities,
         context: String,
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         XCTAssertFalse(capabilities.supportsMetadataEditing, context, file: file, line: line)
-        XCTAssertFalse(capabilities.supportsLyricsEditing, context, file: file, line: line)
-        XCTAssertFalse(capabilities.supportsArtworkEditing, context, file: file, line: line)
+        XCTAssertTrue(capabilities.supportsLyricsMatching, context, file: file, line: line)
+        XCTAssertFalse(capabilities.supportsLyricsSaving, context, file: file, line: line)
+        XCTAssertTrue(capabilities.supportsArtworkMatching, context, file: file, line: line)
+        XCTAssertFalse(capabilities.supportsArtworkSaving, context, file: file, line: line)
     }
 }
