@@ -7,6 +7,28 @@
 
 import Foundation
 
+/// Audio Station 对单首歌曲暴露的功能能力。
+///
+/// 默认值表示普通音乐源支持全部编辑能力；Audio Station 的歌曲模型会根据
+/// 虚拟歌曲 ID、资源类型和文件扩展名覆盖实际能力。
+public struct SongCapabilities: Codable, Equatable, Sendable {
+    public var supportsMetadataEditing: Bool
+    public var supportsLyricsEditing: Bool
+    public var supportsArtworkEditing: Bool
+
+    public init(
+        supportsMetadataEditing: Bool = true,
+        supportsLyricsEditing: Bool = true,
+        supportsArtworkEditing: Bool = true
+    ) {
+        self.supportsMetadataEditing = supportsMetadataEditing
+        self.supportsLyricsEditing = supportsLyricsEditing
+        self.supportsArtworkEditing = supportsArtworkEditing
+    }
+
+    public static let allSupported = SongCapabilities()
+}
+
 /// {
 ///         "path": "\/music\/五月天\/五月天专辑\/2007.04-Enrich Your Life\/CDImage.ape",
 ///         "id": "music_v_6503",
@@ -39,6 +61,11 @@ import Foundation
 ///         "type": "file"
 ///       }
 public struct Song: Decodable, Encodable, Sendable {
+    private static let virtualIDPrefixes = ["music_v_", "music_p_v_"]
+    private static let tagEditableFileExtensions: Set<String> = [
+        "mp3", "ogg", "m4a", "m4p", "flac", "aiff", "aif", "m4b",
+    ]
+
     public var id: String
     public var title: String
     public var type: String
@@ -56,6 +83,32 @@ public struct Song: Decodable, Encodable, Sendable {
 
     public var tag: SongTag? {
         additional?.songTag
+    }
+
+    /// 与 Audio Station Web UI `isTagEditableMusic` 保持一致的能力判断。
+    public var capabilities: SongCapabilities {
+        let supportsTagEditing = isLocalFile
+            && !isVirtual
+            && Self.tagEditableFileExtensions.contains(fileExtension)
+
+        return SongCapabilities(
+            supportsMetadataEditing: supportsTagEditing,
+            supportsLyricsEditing: supportsTagEditing,
+            supportsArtworkEditing: supportsTagEditing
+        )
+    }
+
+    private var isVirtual: Bool {
+        Self.virtualIDPrefixes.contains { id.hasPrefix($0) }
+    }
+
+    private var isLocalFile: Bool {
+        type.caseInsensitiveCompare("file") == .orderedSame
+            && !path.lowercased().hasPrefix("http")
+    }
+
+    private var fileExtension: String {
+        URL(fileURLWithPath: path).pathExtension.lowercased()
     }
 }
 
