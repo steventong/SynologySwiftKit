@@ -50,6 +50,27 @@ public struct SongPlaybackPlan: Sendable, Equatable {
             bitrate.map(String.init) ?? "original",
         ].joined(separator: "-")
     }
+
+    /// 将播放器报告的通用媒体加载失败转换成 Audio Station 领域错误。
+    ///
+    /// 直流资源可能因源文件损坏或客户端解码能力不足而失败，Kit 无法在
+    /// 缺少更多信息时归因给服务端。转码资源则由 Audio Station 负责生成
+    /// 客户端声明可播放的格式，因此加载失败表示服务端返回了无效转码产物。
+    public func playbackError(
+        for failure: SongPlaybackFailure
+    ) -> SongPlaybackError? {
+        switch (method, failure) {
+        case (.transcode, .failedToLoadMediaData):
+            return .invalidTranscodedMedia
+        case (.stream, .failedToLoadMediaData):
+            return nil
+        }
+    }
+}
+
+/// 播放器反馈给 Kit 的平台无关失败类型。
+public enum SongPlaybackFailure: Sendable, Equatable {
+    case failedToLoadMediaData
 }
 
 /// 已完成决策并构造好 URL 的播放资源。
@@ -59,9 +80,10 @@ public struct SongPlaybackResource: Sendable {
 }
 
 /// 无法为歌曲生成可播放资源时返回的错误。
-public enum SongPlaybackError: LocalizedError {
+public enum SongPlaybackError: LocalizedError, Sendable, Equatable {
     case missingFileExtension
     case unsupportedSourceFormat(String)
+    case invalidTranscodedMedia
 
     public var errorDescription: String? {
         switch self {
@@ -69,6 +91,8 @@ public enum SongPlaybackError: LocalizedError {
             return "The song does not have a usable file extension."
         case let .unsupportedSourceFormat(format):
             return "The source format \(format) cannot be streamed and the server cannot transcode it."
+        case .invalidTranscodedMedia:
+            return "Audio Station returned invalid media data for the transcoded stream."
         }
     }
 }

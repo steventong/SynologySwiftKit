@@ -349,6 +349,39 @@ final class FeatureApiHappyPathTests: XCTestCase {
         XCTAssertEqual(virtualPlan.reason, .virtualTrack)
     }
 
+    func testTranscodePlanMapsMediaLoadFailureToInvalidTranscodedMedia() throws {
+        let api = StreamApi(
+            urlBuilder: MockApiClient(),
+            transcodeCapabilityProvider: StubAudioTranscodeCapabilityProvider()
+        )
+        let transcodePlan = try api.playbackPlan(
+            for: SongPlaybackSource(
+                id: "music_v_1",
+                path: "/music/disc.ape",
+                bitrate: 0,
+                frequency: 44_100,
+                fileExtension: ".ape"
+            ),
+            quality: .ORIGINAL,
+            preferredTranscodeFormat: .mp3,
+            supportedTranscodeFormats: [.mp3]
+        )
+        let streamPlan = SongPlaybackPlan(
+            method: .stream,
+            outputFormat: "flac",
+            bitrate: nil,
+            reason: .originalRequested
+        )
+
+        XCTAssertEqual(
+            transcodePlan.playbackError(for: .failedToLoadMediaData),
+            .invalidTranscodedMedia
+        )
+        XCTAssertNil(
+            streamPlan.playbackError(for: .failedToLoadMediaData)
+        )
+    }
+
     func testStreamPlanRejectsUnsupportedSourceWithoutServerTranscoding() {
         let api = StreamApi(
             urlBuilder: MockApiClient(),
