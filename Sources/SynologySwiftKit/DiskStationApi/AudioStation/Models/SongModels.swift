@@ -13,22 +13,16 @@ import Foundation
 /// 虚拟歌曲 ID、资源类型和文件扩展名覆盖实际能力。
 public struct SongCapabilities: Codable, Equatable, Sendable {
     public var supportsMetadataEditing: Bool
-    public var supportsLyricsMatching: Bool
     public var supportsLyricsSaving: Bool
-    public var supportsArtworkMatching: Bool
     public var supportsArtworkSaving: Bool
 
     public init(
         supportsMetadataEditing: Bool = true,
-        supportsLyricsMatching: Bool = true,
         supportsLyricsSaving: Bool = true,
-        supportsArtworkMatching: Bool = true,
         supportsArtworkSaving: Bool = true
     ) {
         self.supportsMetadataEditing = supportsMetadataEditing
-        self.supportsLyricsMatching = supportsLyricsMatching
         self.supportsLyricsSaving = supportsLyricsSaving
-        self.supportsArtworkMatching = supportsArtworkMatching
         self.supportsArtworkSaving = supportsArtworkSaving
     }
 
@@ -52,9 +46,7 @@ enum AudioStationSongCapabilitiesResolver {
 
         return SongCapabilities(
             supportsMetadataEditing: supportsTagEditing,
-            supportsLyricsMatching: true,
             supportsLyricsSaving: supportsTagEditing,
-            supportsArtworkMatching: true,
             supportsArtworkSaving: supportsTagEditing
         )
     }

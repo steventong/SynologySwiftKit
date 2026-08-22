@@ -17,7 +17,7 @@ final class SongCapabilitiesTests: XCTestCase {
         }
     }
 
-    func testUnsupportedFormatsDisableWritesButKeepMatching() {
+    func testUnsupportedFormatsDisableEditingCapabilities() {
         for fileExtension in ["ape", "wav", "wma", "dsf"] {
             let song = makeSong(id: "music_1", path: "/music/Track.\(fileExtension)")
 
@@ -25,7 +25,7 @@ final class SongCapabilitiesTests: XCTestCase {
         }
     }
 
-    func testVirtualSongsDisableWritesButKeepMatching() {
+    func testVirtualSongsDisableEditingCapabilities() {
         for id in ["music_v_1", "music_p_v_1"] {
             let song = makeSong(id: id, path: "/music/CDImage.flac")
 
@@ -33,7 +33,7 @@ final class SongCapabilitiesTests: XCTestCase {
         }
     }
 
-    func testRemoteResourcesDisableWritesButKeepMatching() {
+    func testRemoteResourcesDisableEditingCapabilities() {
         let song = makeSong(
             id: "music_1",
             type: "remote",
@@ -89,9 +89,7 @@ final class SongCapabilitiesTests: XCTestCase {
         line: UInt = #line
     ) {
         XCTAssertFalse(capabilities.supportsMetadataEditing, context, file: file, line: line)
-        XCTAssertTrue(capabilities.supportsLyricsMatching, context, file: file, line: line)
         XCTAssertFalse(capabilities.supportsLyricsSaving, context, file: file, line: line)
-        XCTAssertTrue(capabilities.supportsArtworkMatching, context, file: file, line: line)
         XCTAssertFalse(capabilities.supportsArtworkSaving, context, file: file, line: line)
     }
 }
