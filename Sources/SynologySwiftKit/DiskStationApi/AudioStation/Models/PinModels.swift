@@ -17,6 +17,7 @@ public enum PinType: String, Codable, Sendable {
     case artist
     case composer
     case genre
+    case playlist
 }
 
 // MARK: - Pin Criteria
@@ -31,6 +32,9 @@ public struct PinCriteria: Codable, Sendable {
     public var artist: String?
     public var composer: String?
     public var genre: String?
+    public var playlist: String?
+    public var library: String?
+    public var type: String?
 
     enum CodingKeys: String, CodingKey {
         case folder
@@ -40,6 +44,9 @@ public struct PinCriteria: Codable, Sendable {
         case artist
         case composer
         case genre
+        case playlist
+        case library
+        case type
     }
 
     // MARK: Factory Methods

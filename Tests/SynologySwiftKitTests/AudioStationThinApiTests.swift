@@ -472,6 +472,23 @@ final class AudioStationThinApiTests: XCTestCase {
         XCTAssertEqual(genre.item?.id, "pin_1")
     }
 
+    func testPinListResultDecodesPlaylistItemReturnedByAudioStation() throws {
+        let data = Data(
+            #"{"offset":0,"total":1,"items":[{"criteria":{"library":"personal","path":"/homes/user/music/playlists/1.m3u","playlist":"playlist_personal_normal/3","type":"normal"},"id":"9","name":"1","type":"playlist"}]}"#.utf8
+        )
+
+        let result = try JSONDecoder().decode(PinListResult.self, from: data)
+        let item = try XCTUnwrap(result.items.first)
+
+        XCTAssertEqual(item.id, "9")
+        XCTAssertEqual(item.type, .playlist)
+        XCTAssertEqual(item.name, "1")
+        XCTAssertEqual(item.criteria.playlist, "playlist_personal_normal/3")
+        XCTAssertEqual(item.criteria.library, "personal")
+        XCTAssertEqual(item.criteria.type, "normal")
+        XCTAssertEqual(item.criteria.path, "/homes/user/music/playlists/1.m3u")
+    }
+
     func testPinApiReturnsAlreadyExistsAsIdempotentSuccess() async throws {
         let apiClient = MockApiClient()
         apiClient.mockResponse = SynologyResponse<PinOperationResult>(
