@@ -168,6 +168,137 @@ final class FeatureApiHappyPathTests: XCTestCase {
         }
     }
 
+    func testPlaylistApiCreateFolderSmartUsesSinglePathIncludesRule() async throws {
+        let cases = [
+            ("/music/Albums", "/music/Albums/"),
+            ("/music/Albums/", "/music/Albums/"),
+            ("/music/Albums///", "/music/Albums/"),
+            (#"/music/ 中文 "精选" "#, #"/music/ 中文 "精选" /"#),
+            (#"/music/合集\现场"#, #"/music/合集\现场/"#),
+            ("/volume2/music/100%20Hits", "/volume2/music/100%20Hits/")
+        ]
+
+        for (folderPath, expectedPath) in cases {
+            let apiClient = MockApiClient()
+            apiClient.requestHandler = { endpoint in
+                XCTAssertEqual(endpoint.apiName, SynologyApi.AudioStation.PLAYLIST.name)
+                XCTAssertEqual(endpoint.method, "createsmart")
+                XCTAssertEqual(endpoint.version, 2)
+                XCTAssertEqual(endpoint.httpMethod, .post)
+                XCTAssertEqual(Set(endpoint.parameters.keys), Set(["name", "library", "conj_rule", "rules_json"]))
+                XCTAssertEqual(endpoint.parameters["name"]?.stringValue, "Folder Smart")
+                XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "personal")
+                XCTAssertEqual(endpoint.parameters["conj_rule"]?.stringValue, "and")
+                let json = try XCTUnwrap(endpoint.parameters["rules_json"]?.stringValue)
+                let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]])
+                XCTAssertEqual(rules.count, 1)
+                let rule = try XCTUnwrap(rules.first)
+                XCTAssertEqual(Set(rule.keys), Set(["tag", "op", "tagval", "interval"]))
+                XCTAssertEqual(rule["tag"] as? Int, 4)
+                XCTAssertEqual(rule["op"] as? Int, 4)
+                XCTAssertEqual(rule["tagval"] as? String, expectedPath)
+                XCTAssertEqual(rule["interval"] as? Int, 0)
+                return PlaylistCreateResult(id: "folder_smart_1")
+            }
+
+            let playlist = try await PlaylistApi(apiClient: apiClient).createFolderSmart(
+                name: "Folder Smart", folderPath: folderPath
+            )
+
+            XCTAssertEqual(playlist.id, "folder_smart_1")
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        }
+    }
+
+    func testPlaylistApiCreateFolderSmartForwardsLibraryScope() async throws {
+        for scope in [SynologyLibraryScope.shared, .personal] {
+            let apiClient = MockApiClient()
+            apiClient.mockResponse = PlaylistCreateResult(id: "folder_smart_1")
+
+            _ = try await PlaylistApi(apiClient: apiClient).createFolderSmart(
+                name: "Folder Smart", folderPath: "/music/Albums", libraryScope: scope
+            )
+
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+            XCTAssertEqual(apiClient.requestedEndpoints.first?.parameters["library"]?.stringValue, scope.rawValue)
+        }
+    }
+
+    func testPlaylistApiCreateFolderSmartRejectsAllLibraryWithoutRequests() async throws {
+        let apiClient = MockApiClient()
+
+        do {
+            _ = try await PlaylistApi(apiClient: apiClient).createFolderSmart(
+                name: "Folder Smart", folderPath: "/music/Albums", libraryScope: .all
+            )
+            XCTFail("Expected invalid playlist library error")
+        } catch let SynologyError.api(code, message) {
+            XCTAssertEqual(code, -1)
+            XCTAssertEqual(message, "Invalid playlist library scope")
+        }
+
+        XCTAssertTrue(apiClient.requestedEndpoints.isEmpty)
+    }
+
+    func testPlaylistApiCreateFolderSmartRejectsInvalidPathsWithoutRequests() async throws {
+        let invalidPaths = [
+            "", "   ", "\t\n", "/", "///", "root", "music", "music_shared", "dir_123",
+            "music/Albums", " /music/Albums", "/music/.", "/music/../Albums",
+            "/music/Albums/../", "/music//Albums", "//music/Albums",
+            "/music/Albums\u{0}", "/music/Albums\n", "file:///music/Albums"
+        ]
+
+        for folderPath in invalidPaths {
+            let apiClient = MockApiClient()
+            apiClient.mockResponse = PlaylistCreateResult(id: "unexpected")
+
+            do {
+                _ = try await PlaylistApi(apiClient: apiClient).createFolderSmart(
+                    name: "Invalid", folderPath: folderPath
+                )
+                XCTFail("Expected invalid folder path error for \(folderPath.debugDescription)")
+            } catch let SynologyError.api(code, message) {
+                XCTAssertEqual(code, -1)
+                XCTAssertEqual(message, "Invalid folder path")
+            }
+
+            XCTAssertTrue(apiClient.requestedEndpoints.isEmpty, folderPath.debugDescription)
+        }
+    }
+
+    func testPlaylistApiCreateFolderSmartPropagatesRequestErrors() async throws {
+        let errors: [SynologyError] = [
+            .api(code: 105, message: "Permission denied"),
+            .network(message: "Connection failed"),
+            .sessionExpired(code: 119, message: "Session expired")
+        ]
+
+        for expectedError in errors {
+            let apiClient = MockApiClient()
+            apiClient.mockError = expectedError
+
+            do {
+                _ = try await PlaylistApi(apiClient: apiClient).createFolderSmart(
+                    name: "Folder Smart", folderPath: "/music/Albums"
+                )
+                XCTFail("Expected request error")
+            } catch let error as SynologyError {
+                switch (expectedError, error) {
+                case let (.api(expectedCode, expectedMessage), .api(code, message)),
+                     let (.sessionExpired(expectedCode, expectedMessage), .sessionExpired(code, message)):
+                    XCTAssertEqual(code, expectedCode)
+                    XCTAssertEqual(message, expectedMessage)
+                case let (.network(expectedMessage), .network(message)):
+                    XCTAssertEqual(message, expectedMessage)
+                default:
+                    XCTFail("Unexpected error \(error)")
+                }
+            }
+
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        }
+    }
+
     func testPlaylistApiCoversRemainingOperationsAndFallbacks() async throws {
         let apiClient = MockApiClient()
         apiClient.requestHandler = { endpoint in

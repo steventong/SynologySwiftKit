@@ -89,6 +89,44 @@ public final class PlaylistApi {
         return PlaylistReference(id: result.id)
     }
 
+    /// 根据目录路径创建智能播放列表，包含子目录中的歌曲。
+    /// Create a smart playlist matching the folder path, including songs in subfolders.
+    /// - Parameter folderPath: 实际绝对目录路径（非虚拟根或文件夹 ID）；仅规范化尾部斜杠。
+    ///   Actual absolute folder path (not a virtual root or folder ID); only trailing slashes are normalized.
+    /// - Throws: `SynologyError.api` 当路径或目标媒体库非法时 / When the path or destination library is invalid.
+    public func createFolderSmart(name: String, folderPath: String, libraryScope: SynologyLibraryScope = .personal) async throws -> PlaylistReference {
+        guard libraryScope != .all else {
+            throw SynologyError.api(code: -1, message: "Invalid playlist library scope")
+        }
+
+        let path = folderPath.dropLast(folderPath.reversed().prefix(while: { $0 == "/" }).count)
+        let components = path.split(separator: "/", omittingEmptySubsequences: false).dropFirst()
+        guard folderPath.hasPrefix("/"),
+              !path.isEmpty,
+              folderPath.rangeOfCharacter(from: .controlCharacters) == nil,
+              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            throw SynologyError.api(code: -1, message: "Invalid folder path")
+        }
+
+        let rules = [FolderSmartRule(tagval: String(path) + "/")]
+        let data = try JSONEncoder().encode(rules)
+        return try await createSmart(
+            name: name,
+            definition: SmartPlaylistDefinition(
+                scope: libraryScope,
+                matchRule: .all,
+                serializedRules: String(decoding: data, as: UTF8.self)
+            )
+        )
+    }
+
+    private struct FolderSmartRule: Encodable {
+        let tag = 4
+        let op = 4
+        let tagval: String
+        let interval = 0
+    }
+
     /// 重命名播放列表
     /// Rename a playlist
     public func rename(id: String, name: String) async throws -> PlaylistReference {
