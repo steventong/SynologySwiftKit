@@ -119,9 +119,9 @@ public struct PlaylistMutationResult: Sendable {
 /// Smart playlist rule match mode
 public enum SmartPlaylistMatchRule: String, Sendable {
     /// 所有规则均需满足（AND）/ All rules must match (AND)
-    case all
+    case all = "and"
     /// 任意规则满足即可（OR）/ Any rule matches (OR)
-    case any
+    case any = "or"
 }
 
 // MARK: - SmartPlaylistDefinition

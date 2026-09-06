@@ -137,6 +137,37 @@ final class FeatureApiHappyPathTests: XCTestCase {
         XCTAssertTrue(deletion.deleted)
     }
 
+    func testPlaylistApiCreateSmartUsesAndOrConjunctionParameters() async throws {
+        let cases: [(SmartPlaylistMatchRule, String)] = [(.all, "and"), (.any, "or")]
+        let rules = #"[{"tag":4,"op":4,"tagval":"/music/收藏/","interval":0}]"#
+
+        for (matchRule, expectedConjunction) in cases {
+            let apiClient = MockApiClient()
+            apiClient.requestHandler = { endpoint in
+                XCTAssertEqual(endpoint.apiName, SynologyApi.AudioStation.PLAYLIST.name)
+                XCTAssertEqual(endpoint.method, "createsmart")
+                XCTAssertEqual(endpoint.parameters["name"]?.stringValue, "Smart")
+                XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "personal")
+                XCTAssertEqual(endpoint.parameters["conj_rule"]?.stringValue, expectedConjunction)
+                XCTAssertEqual(endpoint.parameters["rules_json"]?.stringValue, rules)
+                return PlaylistCreateResult(id: "smart_1")
+            }
+
+            let playlistApi = PlaylistApi(apiClient: apiClient)
+            let playlist = try await playlistApi.createSmart(
+                name: "Smart",
+                definition: SmartPlaylistDefinition(
+                    scope: .personal,
+                    matchRule: matchRule,
+                    serializedRules: rules
+                )
+            )
+
+            XCTAssertEqual(playlist.id, "smart_1")
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        }
+    }
+
     func testPlaylistApiCoversRemainingOperationsAndFallbacks() async throws {
         let apiClient = MockApiClient()
         apiClient.requestHandler = { endpoint in
