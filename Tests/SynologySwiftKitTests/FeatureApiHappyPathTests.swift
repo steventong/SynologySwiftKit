@@ -137,6 +137,166 @@ final class FeatureApiHappyPathTests: XCTestCase {
         XCTAssertTrue(deletion.deleted)
     }
 
+    func testPlaylistApiCreateSmartEncodesStringRulesWithAndOrConjunctions() async throws {
+        let fields: [(SmartPlaylistRule.Field, Int)] = [
+            (.artist, 1), (.album, 2), (.genre, 3), (.path, 4), (.albumArtist, 11), (.composer, 12)
+        ]
+        let comparisons: [(SmartPlaylistRule.Comparison, Int)] = [
+            (.equals, 1), (.notEquals, 2), (.contains, 4), (.notContains, 8)
+        ]
+        let cases: [(SmartPlaylistMatchRule, String)] = [(.all, "and"), (.any, "or")]
+        let value = #"中文 "精选" \ 现场"#
+        let rules = fields.flatMap { field, _ in
+            comparisons.map { comparison, _ in
+                SmartPlaylistRule(field: field, comparison: comparison, value: value)
+            }
+        }
+        let expectedMappings = fields.flatMap { _, tag in
+            comparisons.map { _, op in (tag, op) }
+        }
+
+        for (matchRule, expectedConjunction) in cases {
+            let apiClient = MockApiClient()
+            apiClient.requestHandler = { endpoint in
+                XCTAssertEqual(endpoint.apiName, SynologyApi.AudioStation.PLAYLIST.name)
+                XCTAssertEqual(endpoint.method, "createsmart")
+                XCTAssertEqual(endpoint.version, 2)
+                XCTAssertEqual(endpoint.httpMethod, .post)
+                XCTAssertEqual(Set(endpoint.parameters.keys), Set(["name", "library", "conj_rule", "rules_json"]))
+                XCTAssertEqual(endpoint.parameters["name"]?.stringValue, "Smart")
+                XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "personal")
+                XCTAssertEqual(endpoint.parameters["conj_rule"]?.stringValue, expectedConjunction)
+                let json = try XCTUnwrap(endpoint.parameters["rules_json"]?.stringValue)
+                let encodedRules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]])
+                XCTAssertEqual(encodedRules.count, expectedMappings.count)
+                for (rule, mapping) in zip(encodedRules, expectedMappings) {
+                    XCTAssertEqual(Set(rule.keys), Set(["tag", "op", "tagval", "interval"]))
+                    XCTAssertEqual(rule["tag"] as? Int, mapping.0)
+                    XCTAssertEqual(rule["op"] as? Int, mapping.1)
+                    XCTAssertEqual(rule["tagval"] as? String, value)
+                    XCTAssertEqual(rule["interval"] as? Int, 0)
+                }
+                return PlaylistCreateResult(id: "smart_1")
+            }
+
+            let playlist = try await PlaylistApi(apiClient: apiClient).createSmart(
+                name: "Smart",
+                definition: SmartPlaylistDefinition(scope: .personal, matchRule: matchRule, rules: rules)
+            )
+
+            XCTAssertEqual(playlist.id, "smart_1")
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        }
+    }
+
+    func testPlaylistApiCreateSmartPreservesRuleValues() async throws {
+        let values = [
+            "", "   ", "\t\n", "\u{0}", "  中文 精选  ", #"中文 "精选" \ 现场"#,
+            "100%20Hits", "/music/Albums", "/music/Albums/", "/music/Albums///",
+            "music/Albums", "/music/../Albums", "/music//Albums"
+        ]
+        let fields: [SmartPlaylistRule.Field] = [.artist, .album, .genre, .path, .albumArtist, .composer]
+
+        for field in fields {
+            let apiClient = MockApiClient()
+            apiClient.requestHandler = { endpoint in
+                let json = try XCTUnwrap(endpoint.parameters["rules_json"]?.stringValue)
+                let rules = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [[String: Any]])
+                XCTAssertEqual(rules.count, values.count)
+                for (rule, value) in zip(rules, values) {
+                    let encodedValue = try XCTUnwrap(rule["tagval"] as? String)
+                    XCTAssertEqual(Array(encodedValue.utf8), Array(value.utf8))
+                }
+                return PlaylistCreateResult(id: "smart_1")
+            }
+
+            _ = try await PlaylistApi(apiClient: apiClient).createSmart(
+                name: "Smart",
+                definition: SmartPlaylistDefinition(
+                    scope: .personal,
+                    matchRule: .all,
+                    rules: values.map { SmartPlaylistRule(field: field, comparison: .contains, value: $0) }
+                )
+            )
+
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        }
+    }
+
+    func testPlaylistApiCreateSmartForwardsLibraryScope() async throws {
+        for scope in [SynologyLibraryScope.shared, .personal] {
+            let apiClient = MockApiClient()
+            apiClient.mockResponse = PlaylistCreateResult(id: "smart_1")
+
+            _ = try await PlaylistApi(apiClient: apiClient).createSmart(
+                name: "Smart",
+                definition: SmartPlaylistDefinition(
+                    scope: scope,
+                    matchRule: .all,
+                    rules: [SmartPlaylistRule(field: .artist, comparison: .equals, value: "Artist")]
+                )
+            )
+
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+            XCTAssertEqual(apiClient.requestedEndpoints.first?.parameters["library"]?.stringValue, scope.rawValue)
+        }
+    }
+
+    func testPlaylistApiCreateSmartRejectsAllLibraryWithoutRequests() async throws {
+        let apiClient = MockApiClient()
+
+        do {
+            _ = try await PlaylistApi(apiClient: apiClient).createSmart(
+                name: "Smart",
+                definition: SmartPlaylistDefinition(scope: .all, matchRule: .all, rules: [])
+            )
+            XCTFail("Expected invalid playlist library error")
+        } catch let SynologyError.api(code, message) {
+            XCTAssertEqual(code, -1)
+            XCTAssertEqual(message, "Invalid playlist library scope")
+        }
+
+        XCTAssertTrue(apiClient.requestedEndpoints.isEmpty)
+    }
+
+    func testPlaylistApiCreateSmartPropagatesRequestErrors() async throws {
+        let errors: [SynologyError] = [
+            .api(code: 105, message: "Permission denied"),
+            .network(message: "Connection failed"),
+            .sessionExpired(code: 119, message: "Session expired")
+        ]
+
+        for expectedError in errors {
+            let apiClient = MockApiClient()
+            apiClient.mockError = expectedError
+
+            do {
+                _ = try await PlaylistApi(apiClient: apiClient).createSmart(
+                    name: "Smart",
+                    definition: SmartPlaylistDefinition(
+                        scope: .personal,
+                        matchRule: .all,
+                        rules: [SmartPlaylistRule(field: .artist, comparison: .equals, value: "Artist")]
+                    )
+                )
+                XCTFail("Expected request error")
+            } catch let error as SynologyError {
+                switch (expectedError, error) {
+                case let (.api(expectedCode, expectedMessage), .api(code, message)),
+                     let (.sessionExpired(expectedCode, expectedMessage), .sessionExpired(code, message)):
+                    XCTAssertEqual(code, expectedCode)
+                    XCTAssertEqual(message, expectedMessage)
+                case let (.network(expectedMessage), .network(message)):
+                    XCTAssertEqual(message, expectedMessage)
+                default:
+                    XCTFail("Unexpected error \(error)")
+                }
+            }
+
+            XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        }
+    }
+
     func testPlaylistApiCoversRemainingOperationsAndFallbacks() async throws {
         let apiClient = MockApiClient()
         apiClient.requestHandler = { endpoint in
@@ -145,6 +305,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
                 return PlaylistGetInfoResult(playlists: [])
             case "createsmart":
                 XCTAssertEqual(endpoint.parameters["library"]?.stringValue, "personal")
+                XCTAssertEqual(endpoint.parameters["rules_json"]?.stringValue, "[]")
                 return PlaylistCreateResult(id: "smart_1")
             case "rename":
                 return PlaylistRenameResult(id: "playlist_renamed")
@@ -164,7 +325,7 @@ final class FeatureApiHappyPathTests: XCTestCase {
         let songs = try await playlistApi.getSongs(id: "playlist_1", libraryScope: .shared, limit: 10, offset: 0)
         let smartPlaylist = try await playlistApi.createSmart(
             name: "Smart",
-            definition: SmartPlaylistDefinition(scope: .personal, matchRule: .all, serializedRules: "[]")
+            definition: SmartPlaylistDefinition(scope: .personal, matchRule: .all, rules: [])
         )
         let renamedPlaylist = try await playlistApi.rename(id: "playlist_1", name: "Renamed")
         let removeMissingResult = try await playlistApi.removeMissing(id: "playlist_1")

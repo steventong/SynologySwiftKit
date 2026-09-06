@@ -119,9 +119,52 @@ public struct PlaylistMutationResult: Sendable {
 /// Smart playlist rule match mode
 public enum SmartPlaylistMatchRule: String, Sendable {
     /// 所有规则均需满足（AND）/ All rules must match (AND)
-    case all
+    case all = "and"
     /// 任意规则满足即可（OR）/ Any rule matches (OR)
-    case any
+    case any = "or"
+}
+
+// MARK: - SmartPlaylistRule
+
+/// 智能播放列表字符串规则；值按原样编码，不做校验或规范化。
+/// Smart playlist string rule; values are encoded unchanged, without validation or normalization.
+public struct SmartPlaylistRule: Encodable, Sendable {
+    /// 规则字段 / Rule field
+    public enum Field: Int, Encodable, Sendable {
+        case artist = 1
+        case album = 2
+        case genre = 3
+        case path = 4
+        case albumArtist = 11
+        case composer = 12
+    }
+
+    /// 字符串比较方式 / String comparison
+    public enum Comparison: Int, Encodable, Sendable {
+        case equals = 1
+        case notEquals = 2
+        case contains = 4
+        case notContains = 8
+    }
+
+    public let field: Field
+    public let comparison: Comparison
+    public let value: String
+    /// 字符串规则无日期间隔 / String rules have no date interval
+    private let interval = 0
+
+    public init(field: Field, comparison: Comparison, value: String) {
+        self.field = field
+        self.comparison = comparison
+        self.value = value
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case field = "tag"
+        case comparison = "op"
+        case value = "tagval"
+        case interval
+    }
 }
 
 // MARK: - SmartPlaylistDefinition
@@ -133,13 +176,13 @@ public struct SmartPlaylistDefinition: Sendable {
     public let scope: SynologyLibraryScope
     /// 规则匹配方式（AND/OR）/ Rule match mode (AND/OR)
     public let matchRule: SmartPlaylistMatchRule
-    /// 序列化后的规则 JSON 字符串 / Serialized rules JSON string
-    public let serializedRules: String
+    /// 字符串规则 / String rules
+    public let rules: [SmartPlaylistRule]
 
-    public init(scope: SynologyLibraryScope, matchRule: SmartPlaylistMatchRule, serializedRules: String) {
+    public init(scope: SynologyLibraryScope, matchRule: SmartPlaylistMatchRule, rules: [SmartPlaylistRule]) {
         self.scope = scope
         self.matchRule = matchRule
-        self.serializedRules = serializedRules
+        self.rules = rules
     }
 }
 

@@ -74,8 +74,15 @@ public final class PlaylistApi {
 
     /// 创建智能播放列表
     /// Create a smart playlist
-    /// - Throws: `SynologyError.api` 当操作失败时 / When operation fails
+    /// 目标媒体库仅支持 personal 或 shared。/ Destination library must be personal or shared.
+    /// - Throws: 目标媒体库非法时抛出 `SynologyError.api`；编码与请求错误原样传播。
+    ///   Throws `SynologyError.api` for an invalid destination library; encoding and request errors propagate unchanged.
     public func createSmart(name: String, definition: SmartPlaylistDefinition) async throws -> PlaylistReference {
+        guard definition.scope != .all else {
+            throw SynologyError.api(code: -1, message: "Invalid playlist library scope")
+        }
+
+        let data = try JSONEncoder().encode(definition.rules)
         let result: PlaylistCreateResult = try await apiClient.request(
             ApiEndpoint(
                 api: SynologyApi.AudioStation.PLAYLIST, method: "createsmart", version: 2,
@@ -83,7 +90,7 @@ public final class PlaylistApi {
                     ("name", name)
                     ("library", definition.scope.rawValue)
                     ("conj_rule", definition.matchRule.rawValue)
-                    ("rules_json", definition.serializedRules)
+                    ("rules_json", String(decoding: data, as: UTF8.self))
                 }
         )
         return PlaylistReference(id: result.id)
