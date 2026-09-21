@@ -15,6 +15,7 @@ final class ApiClient: ApiClientProviding {
 
     // MARK: - internal State
 
+    let sessionOperations: SessionOperationCoordinator
     private let state: ApiClientState
     private let executor: ApiRequestExecutor
     private let envelopeDecoder = SynologyEnvelopeDecoder()
@@ -41,6 +42,10 @@ final class ApiClient: ApiClientProviding {
         state.session
     }
 
+    var committedConnection: (type: ConnectionType, url: String)? { state.committedConnection }
+    var committedSession: (sid: String, did: String?)? { state.committedSession }
+    func publishCommittedState() { state.publishCommittedState() }
+
     // MARK: - Initialization
 
     /// 初始化 API 客户端
@@ -53,6 +58,7 @@ final class ApiClient: ApiClientProviding {
         let state = ApiClientState()
         let certificateTrustStore = ServerCertificateTrustStore(storage: keyValueStorage)
         self.state = state
+        sessionOperations = SessionOperationCoordinator(stateDidSettle: { state.publishCommittedState() })
         self.certificateTrustStore = certificateTrustStore
         endpointResolver = ApiEndpointResolver(
             apiInfoProvider: { [weak state] in state?.apiInfoProvider }
@@ -109,6 +115,7 @@ final class ApiClient: ApiClientProviding {
     /// 发送原始 HTTP 请求
     /// Send raw HTTP request (non-DSM API scenarios)
     func request<T: Decodable>(url: URL, httpMethod: HTTPMethod = .get, headers: [String: String]? = nil, body: Data? = nil, timeout: TimeInterval = 10) async throws -> T {
+        let stamp = try await sessionOperations.requestStamp()
         var request = URLRequest(url: url)
         request.httpMethod = httpMethod.rawValue
         request.httpBody = body
@@ -116,38 +123,49 @@ final class ApiClient: ApiClientProviding {
             request.setValue($0.value, forHTTPHeaderField: $0.key)
         }
 
-        return try await executor.execute(
-            T.self,
-            request: request,
-            endpoint: rawEndpoint,
-            timeout: timeout,
-            serverTrustPolicy: serverTrustPolicy(for: url)
-        )
+        return try await sessionOperations.withRequest(stamp: stamp) { [self] in
+            try await executor.execute(
+                T.self,
+                request: request,
+                endpoint: rawEndpoint,
+                timeout: timeout,
+                serverTrustPolicy: serverTrustPolicy(for: url),
+                validateState: { try self.sessionOperations.validateRequest(stamp) }
+            )
+        }
     }
 
     /// 将媒体直接下载到由调用方负责清理的临时文件。
     /// Download media directly to a caller-owned temporary file.
     func downloadMediaFile(url: URL, timeout: TimeInterval = 300) async throws -> URL {
+        let stamp = try await sessionOperations.requestStamp()
         var request = URLRequest(url: url)
         request.httpMethod = HTTPMethod.get.rawValue
-        return try await executor.download(
-            request: request,
-            endpoint: rawEndpoint,
-            timeout: timeout,
-            serverTrustPolicy: serverTrustPolicy(for: url)
-        )
+        return try await sessionOperations.withRequest(stamp: stamp) { [self] in
+            try await executor.download(
+                request: request,
+                endpoint: rawEndpoint,
+                timeout: timeout,
+                serverTrustPolicy: serverTrustPolicy(for: url),
+                validateState: { try self.sessionOperations.validateRequest(stamp) }
+            )
+        }
     }
 
     /// Fetch a small media resource while applying the current DSM trust policy.
     func fetchMediaData(url: URL, timeout: TimeInterval = 30) async throws -> Data {
+        let stamp = try await sessionOperations.requestStamp()
         var request = URLRequest(url: url)
         request.httpMethod = HTTPMethod.get.rawValue
-        let (data, _) = try await executor.executeRaw(
-            request: request,
-            endpoint: rawEndpoint,
-            timeout: timeout,
-            serverTrustPolicy: serverTrustPolicy(for: url)
-        )
+        let (data, _) = try await sessionOperations.withRequest(stamp: stamp) { [self] in
+            try await executor.executeRaw(
+                request: request,
+                endpoint: rawEndpoint,
+                timeout: timeout,
+                serverTrustPolicy: serverTrustPolicy(for: url),
+                validateState: { try self.sessionOperations.validateRequest(stamp) }
+            )
+        }
         return data
     }
 }
@@ -195,22 +213,29 @@ extension ApiClient {
         endpoint: ApiEndpoint,
         resultType: Value.Type = Value.self
     ) async throws -> (Value, URLRequest) {
+        let stamp = try await sessionOperations.requestStamp()
         let resolved = try await endpointResolver.resolve(endpoint)
         let request = try await requestFactory.makeRequest(endpoint: endpoint, resolved: resolved)
-        let value = try await executor.execute(
-            Value.self,
-            request: request,
-            endpoint: endpoint,
-            timeout: endpoint.timeout,
-            serverTrustPolicy: serverTrustPolicy(for: request.url)
-        )
+        let value = try await sessionOperations.withRequest(stamp: stamp) { [self] in
+            try await executor.execute(
+                Value.self,
+                request: request,
+                endpoint: endpoint,
+                timeout: endpoint.timeout,
+                serverTrustPolicy: serverTrustPolicy(for: request.url),
+                validateState: { try self.sessionOperations.validateRequest(stamp) }
+            )
+        }
         return (value, request)
     }
 
     /// 构建带查询参数的 URL
     private func buildApiUrlWithQueryParameters(endpoint: ApiEndpoint) async throws -> URL {
+        let stamp = try await sessionOperations.requestStamp()
         let resolved = try await endpointResolver.resolve(endpoint)
-        return try await requestFactory.makeURL(endpoint: endpoint, resolved: resolved)
+        let url = try await requestFactory.makeURL(endpoint: endpoint, resolved: resolved)
+        try sessionOperations.validateRequest(stamp)
+        return url
     }
 
     private var rawEndpoint: ApiEndpoint {

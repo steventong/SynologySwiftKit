@@ -19,12 +19,14 @@ protocol AuthenticationProviding {
 /// 封装 `SYNO.API.Auth` 登录接口，支持密码登录和 OTP 双验证。
 /// Wraps the `SYNO.API.Auth` login endpoint; supports password login and OTP two-factor authentication.
 public final class AuthClient {
+    private let sessionOperations: SessionOperationCoordinator
     private let apiClient: ApiRequestSending & SessionStateUpdating
     private let keyChainStorage: any SensitiveStorage
 
     /// 初始化登录客户端
     /// Initialize login client
-    init(apiClient: ApiRequestSending & SessionStateUpdating, keyChainStorage: any SensitiveStorage = StorageService()) {
+    init(apiClient: ApiRequestSending & SessionStateUpdating, keyChainStorage: any SensitiveStorage = StorageService(), sessionOperations: SessionOperationCoordinator = SessionOperationCoordinator()) {
+        self.sessionOperations = sessionOperations
         self.apiClient = apiClient
         self.keyChainStorage = keyChainStorage
     }
@@ -40,6 +42,12 @@ public final class AuthClient {
     ///   - `SynologyError.auth`: 登录失败 / Login failed
     ///   - `SynologyError.authError`: API 错误码映射 / API error code mapping
     public func login(username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
+        try await sessionOperations.perform { [self] in
+            try await authenticate(username: username, password: password, otpCode: otpCode)
+        }
+    }
+
+    private func authenticate(username: String, password: String, otpCode: String?) async throws -> AuthResult {
         let deviceInfo = keyChainStorage.getDeviceInfo()
         let normalizedOTPCode = otpCode?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -66,10 +74,12 @@ public final class AuthClient {
 
             // save device id and name
             if let did = authResult.did, !did.isEmpty {
-                keyChainStorage.saveDeviceInfo(did, deviceName)
+                try sessionOperations.commit { keyChainStorage.saveDeviceInfo(did, deviceName) }
             }
 
             return handleAuthResult(authResult: authResult)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let SynologyError.sessionExpired(code, msg) {
             throw SynologyError.auth(code: code, message: msg)
         } catch let SynologyError.api(code, _) {
@@ -84,10 +94,14 @@ public final class AuthClient {
     /// 登出并清除内存和 Keychain 中的会话信息
     /// Logout and clear session info from memory and Keychain
     public func logout() async throws {
-        let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
-        let _: EmptyData = try await apiClient.request(api)
-        apiClient.clearSession()
-        keyChainStorage.removeSessionInfo()
+        try await sessionOperations.perform { [self] in
+            let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "logout", version: 6, timeout: 3)
+            let _: EmptyData = try await apiClient.request(api)
+            try sessionOperations.commitState {
+                apiClient.clearSession()
+                keyChainStorage.removeSessionInfo()
+            }
+        }
     }
 
     /// 读取已保存的登录凭据

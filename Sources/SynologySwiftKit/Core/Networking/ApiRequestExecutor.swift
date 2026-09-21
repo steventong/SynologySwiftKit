@@ -68,13 +68,15 @@ final class ApiRequestExecutor {
         request: URLRequest,
         endpoint: ApiEndpoint,
         timeout: TimeInterval,
-        serverTrustPolicy: ServerTrustPolicy
+        serverTrustPolicy: ServerTrustPolicy,
+        validateState: () throws -> Void = {}
     ) async throws -> Value {
         let (data, response) = try await executeRaw(
             request: request,
             endpoint: endpoint,
             timeout: timeout,
-            serverTrustPolicy: serverTrustPolicy
+            serverTrustPolicy: serverTrustPolicy,
+            validateState: validateState
         )
         return try responseDecoder.decode(Value.self, from: data, response: response)
     }
@@ -85,7 +87,8 @@ final class ApiRequestExecutor {
         request: URLRequest,
         endpoint: ApiEndpoint,
         timeout: TimeInterval,
-        serverTrustPolicy: ServerTrustPolicy
+        serverTrustPolicy: ServerTrustPolicy,
+        validateState: () throws -> Void = {}
     ) async throws -> (Data, URLResponse) {
         var context = RequestContext()
         let currentRequest = try await applyRequestInterceptors(request, endpoint: endpoint, context: &context)
@@ -94,7 +97,9 @@ final class ApiRequestExecutor {
         logRequestStart(requestID: requestID, request: currentRequest, endpoint: endpoint)
 
         do {
+            try validateState()
             let (data, response) = try await httpClient.send(currentRequest)
+            try validateState()
 
             context.duration = Date().timeIntervalSince(context.startTime)
 
@@ -113,12 +118,16 @@ final class ApiRequestExecutor {
             try validateHTTPResponse(processedResponse)
             logRequestSuccess(requestID: requestID, request: currentRequest, response: processedResponse, duration: context.duration)
             return (processedData, processedResponse)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as SynologyError {
+            try validateState()
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
             logRequestFailure(requestID: requestID, request: currentRequest, error: error, duration: context.duration)
             throw error
         } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
+            try validateState()
             context.duration = Date().timeIntervalSince(context.startTime)
             let mappedError = SynologyError.serverCertificateUntrusted(
                 SynologyServerCertificate(
@@ -131,12 +140,14 @@ final class ApiRequestExecutor {
             logRequestFailure(requestID: requestID, request: currentRequest, error: mappedError, duration: context.duration)
             throw mappedError
         } catch let urlError as URLError {
+            try validateState()
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(urlError), endpoint: endpoint, context: &context)
             let mappedError = errorMapper.map(urlError)
             logRequestFailure(requestID: requestID, request: currentRequest, error: mappedError, duration: context.duration)
             throw mappedError
         } catch {
+            try validateState()
             context.duration = Date().timeIntervalSince(context.startTime)
             _ = try await applyResponseInterceptors(.failure(error), endpoint: endpoint, context: &context)
             let wrappedError = SynologyError.network(message: error.localizedDescription)
@@ -151,7 +162,8 @@ final class ApiRequestExecutor {
         request: URLRequest,
         endpoint: ApiEndpoint,
         timeout: TimeInterval,
-        serverTrustPolicy: ServerTrustPolicy
+        serverTrustPolicy: ServerTrustPolicy,
+        validateState: () throws -> Void = {}
     ) async throws -> URL {
         var context = RequestContext()
         let currentRequest = try await applyRequestInterceptors(
@@ -162,17 +174,23 @@ final class ApiRequestExecutor {
         let httpClient = httpClientFactory(timeout, serverTrustPolicy)
 
         do {
+            try validateState()
             let (fileURL, response) = try await httpClient.download(currentRequest)
             do {
+                try validateState()
                 try validateHTTPResponse(response)
                 return fileURL
             } catch {
                 try? FileManager.default.removeItem(at: fileURL)
                 throw error
             }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as SynologyError {
+            try validateState()
             throw error
         } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
+            try validateState()
             throw SynologyError.serverCertificateUntrusted(
                 SynologyServerCertificate(
                     host: certificate.host,
@@ -181,8 +199,10 @@ final class ApiRequestExecutor {
                 )
             )
         } catch let urlError as URLError {
+            try validateState()
             throw errorMapper.map(urlError)
         } catch {
+            try validateState()
             throw SynologyError.network(message: error.localizedDescription)
         }
     }

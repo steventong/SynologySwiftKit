@@ -1,6 +1,7 @@
 import Foundation
 
 final class ConnectionManager: ConnectionManaging {
+    private let sessionOperations: SessionOperationCoordinator
     private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
     private let quickConnectApi: QuickConnectClient
     private let pingpong: PingPongProviding
@@ -20,8 +21,10 @@ final class ConnectionManager: ConnectionManaging {
         authApi: any AuthenticationProviding,
         eventPublisher: any ConnectionManagerEventPublishing = NotificationCenterConnectionManagerEventPublisher(),
         optimizationScheduler: any QuickConnectOptimizationScheduling = QuickConnectOptimizationCoordinator(),
-        keyChainStorage: any SensitiveStorage = StorageService()
+        keyChainStorage: any SensitiveStorage = StorageService(),
+        sessionOperations: SessionOperationCoordinator = SessionOperationCoordinator()
     ) {
+        self.sessionOperations = sessionOperations
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
@@ -34,6 +37,10 @@ final class ConnectionManager: ConnectionManaging {
     }
 
     func recoverConnection() async -> ConnectionRecoveryDecision {
+        (try? await sessionOperations.perform { await self.performRecovery() }) ?? .disconnected
+    }
+
+    private func performRecovery() async -> ConnectionRecoveryDecision {
         guard let credentials = keyChainStorage.getCredentials() else {
             Logger.info("ConnectionManager#recoverConnection, missing credentials")
             return .disconnected
@@ -41,6 +48,13 @@ final class ConnectionManager: ConnectionManaging {
 
         let serverType = resolveServerType(server: credentials.server)
         let currentConnection = restoreCurrentConnectionFromPersistence()
+        do {
+            if let currentConnection {
+                try sessionOperations.commitState {
+                    apiClient.updateConnection(type: currentConnection.type, url: currentConnection.url)
+                }
+            }
+        } catch { return .disconnected }
 
         if await pingCurrentConnection(currentConnection) {
             return await handleReachableConnection(
@@ -57,7 +71,7 @@ final class ConnectionManager: ConnectionManaging {
             guard let self else {
                 return nil
             }
-            return await self.performQuickConnectEndpointRefresh()
+            return try? await self.sessionOperations.perform { await self.performQuickConnectEndpointRefresh() }
         }
     }
 
@@ -105,6 +119,10 @@ final class ConnectionManager: ConnectionManaging {
     }
 
     func switchConnection(to connection: SynologyConnection) async throws -> SynologyConnection {
+        try await sessionOperations.perform { try await self.performSwitch(to: connection) }
+    }
+
+    private func performSwitch(to connection: SynologyConnection) async throws -> SynologyConnection {
         guard try await pingpong.pingpong(url: connection.url) else {
             throw SynologyError.network(message: "Selected endpoint is unreachable")
         }
@@ -125,14 +143,15 @@ private extension ConnectionManager {
     ) async -> ConnectionRecoveryDecision {
         switch await sessionValidator.validateCurrentSession() {
         case .valid:
-            if let currentConnection {
-                eventPublisher.publishOnlineSessionValidated(
-                    SynologyOnlineSessionValidatedEvent(
-                        connection: currentConnection,
-                        serverType: serverType
-                    )
-                )
-            }
+            do {
+                try sessionOperations.commit {
+                    if let currentConnection {
+                        eventPublisher.publishOnlineSessionValidated(
+                            SynologyOnlineSessionValidatedEvent(connection: currentConnection, serverType: serverType)
+                        )
+                    }
+                }
+            } catch { return .disconnected }
 
             if serverType == .quickConnectId {
                 await scheduleBackgroundQuickConnectEndpointRefresh()
@@ -170,7 +189,7 @@ private extension ConnectionManager {
             guard let self else {
                 return nil
             }
-            return await self.performQuickConnectEndpointRefresh()
+            return try? await self.sessionOperations.performAfterCurrent { await self.performQuickConnectEndpointRefresh() }
         }
     }
 
@@ -190,12 +209,14 @@ private extension ConnectionManager {
             )
 
             try await refreshSessionAndSaveConnection(connection)
-            eventPublisher.publishQuickConnectEndpointOptimized(
-                SynologyQuickConnectEndpointOptimizedEvent(
-                    updatedConnection: connection,
-                    previousConnection: previousConnection
+            try sessionOperations.commit {
+                eventPublisher.publishQuickConnectEndpointOptimized(
+                    SynologyQuickConnectEndpointOptimizedEvent(
+                        updatedConnection: connection,
+                        previousConnection: previousConnection
+                    )
                 )
-            )
+            }
             Logger.info("ConnectionManager#refreshQuickConnectEndpoint, refreshed endpoint: \(connection.url)")
             return connection
         } catch {
@@ -217,7 +238,6 @@ private extension ConnectionManager {
             return nil
         }
 
-        apiClient.updateConnection(type: type, url: persisted.url)
         return SynologyConnection(type: type, url: persisted.url)
     }
 
@@ -249,19 +269,24 @@ private extension ConnectionManager {
 
         let previousConnection = restoreCurrentConnectionFromPersistence()
         let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
-        apiClient.updateConnection(type: connection.type, url: connection.url)
+        try sessionOperations.commit {
+            apiClient.updateConnection(type: connection.type, url: connection.url)
+        }
 
         do {
             try await apiInfoApi.refresh()
+            try Task.checkCancellation()
             let authResult = try await authApi.login(
                 username: credentials.username,
                 password: credentials.password,
                 otpCode: nil
             )
 
-            apiClient.updateSession(sid: authResult.sid, did: authResult.did)
-            keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
-            saveConnection(url: connection.url, type: connection.type)
+            try sessionOperations.commitState {
+                apiClient.updateSession(sid: authResult.sid, did: authResult.did)
+                keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+                saveConnection(url: connection.url, type: connection.type)
+            }
         } catch {
             rollbackConnection(to: previousConnection)
             rollbackSession(to: previousSession)
@@ -274,17 +299,18 @@ private extension ConnectionManager {
             return
         }
 
-        saveConnection(url: connection.url, type: connection.type)
+        sessionOperations.rollback { saveConnection(url: connection.url, type: connection.type) }
     }
 
     func rollbackSession(to session: (sid: String, did: String?)?) {
-        guard let session else {
-            apiClient.clearSession()
-            keyChainStorage.removeSessionInfo()
-            return
+        sessionOperations.rollback {
+            guard let session else {
+                apiClient.clearSession()
+                keyChainStorage.removeSessionInfo()
+                return
+            }
+            apiClient.updateSession(sid: session.sid, did: session.did)
+            keyChainStorage.saveSessionInfo(sid: session.sid, did: session.did)
         }
-
-        apiClient.updateSession(sid: session.sid, did: session.did)
-        keyChainStorage.saveSessionInfo(sid: session.sid, did: session.did)
     }
 }
