@@ -18,6 +18,18 @@ final class ApiClientState {
     private let lock = NSLock()
     private var storedConnection: (type: ConnectionType, url: String)?
     private var storedSession: (sid: String, did: String?)?
+    private var visibleConnection: (type: ConnectionType, url: String)?
+    private var visibleSession: (sid: String, did: String?)?
+
+    var committedConnection: (type: ConnectionType, url: String)? { lock.withLock { visibleConnection } }
+    var committedSession: (sid: String, did: String?)? { lock.withLock { visibleSession } }
+
+    func publishCommittedState() {
+        lock.withLock {
+            visibleConnection = storedConnection
+            visibleSession = storedSession
+        }
+    }
     private var storedInterceptors: [RequestInterceptor] = []
     private var storedApiInfoProvider: ApiInfoProviding?
 

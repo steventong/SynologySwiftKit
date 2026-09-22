@@ -30,7 +30,7 @@ public final class TagEditorApi {
         }
         let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
-            throw SynologyError.api(code: -1, message: "query failed")
+            throw SynologyError.api(code: -1, message: result.errorMessage ?? "query failed")
         }
         return TagEditorDocument(
             lyrics: result.lyrics,
@@ -53,7 +53,7 @@ public final class TagEditorApi {
         }
         let result: TagEditorResult = try await apiClient.requestEnvelope(api)
         guard result.success else {
-            throw SynologyError.api(code: -1, message: "update failed")
+            throw SynologyError.api(code: -1, message: result.errorMessage ?? "update failed")
         }
         return TagEditorDocument(
             lyrics: result.lyrics,
@@ -75,7 +75,7 @@ public final class TagEditorApi {
     /// 更新指定文件的歌词，不修改封面
     /// Update lyrics for a file without modifying its artwork
     func saveLyrics(_ lyrics: String, forPath path: String) async throws -> TagEditorDocument {
-        try await saveContent(forPath: path, lyrics: lyrics, artwork: nil)
+        try await saveContent(forPath: path, lyrics: lyrics, artwork: .originalImage)
     }
 
     private func saveContent(

@@ -7,6 +7,51 @@
 
 import Foundation
 
+/// Audio Station 对单首歌曲暴露的功能能力。
+///
+/// 默认值表示普通音乐源支持全部编辑能力；Audio Station 的歌曲模型会根据
+/// 虚拟歌曲 ID、资源类型和文件扩展名覆盖实际能力。
+public struct SongCapabilities: Codable, Equatable, Sendable {
+    public var supportsMetadataEditing: Bool
+    public var supportsLyricsSaving: Bool
+    public var supportsArtworkSaving: Bool
+
+    public init(
+        supportsMetadataEditing: Bool = true,
+        supportsLyricsSaving: Bool = true,
+        supportsArtworkSaving: Bool = true
+    ) {
+        self.supportsMetadataEditing = supportsMetadataEditing
+        self.supportsLyricsSaving = supportsLyricsSaving
+        self.supportsArtworkSaving = supportsArtworkSaving
+    }
+
+    public static let allSupported = SongCapabilities()
+}
+
+enum AudioStationSongCapabilitiesResolver {
+    private static let virtualIDPrefixes = ["music_v_", "music_p_v_"]
+    private static let tagEditableFileExtensions: Set<String> = [
+        "mp3", "ogg", "m4a", "m4p", "flac", "aiff", "aif", "m4b",
+    ]
+
+    static func resolve(id: String, type: String, path: String) -> SongCapabilities {
+        let isVirtual = virtualIDPrefixes.contains { id.hasPrefix($0) }
+        let isLocalFile = type.caseInsensitiveCompare("file") == .orderedSame
+            && !path.lowercased().hasPrefix("http")
+        let fileExtension = URL(fileURLWithPath: path).pathExtension.lowercased()
+        let supportsTagEditing = isLocalFile
+            && !isVirtual
+            && tagEditableFileExtensions.contains(fileExtension)
+
+        return SongCapabilities(
+            supportsMetadataEditing: supportsTagEditing,
+            supportsLyricsSaving: supportsTagEditing,
+            supportsArtworkSaving: supportsTagEditing
+        )
+    }
+}
+
 /// {
 ///         "path": "\/music\/五月天\/五月天专辑\/2007.04-Enrich Your Life\/CDImage.ape",
 ///         "id": "music_v_6503",
@@ -56,6 +101,15 @@ public struct Song: Decodable, Encodable, Sendable {
 
     public var tag: SongTag? {
         additional?.songTag
+    }
+
+    /// 与 Audio Station Web UI `isTagEditableMusic` 保持一致的能力判断。
+    public var capabilities: SongCapabilities {
+        AudioStationSongCapabilitiesResolver.resolve(
+            id: id,
+            type: type,
+            path: path
+        )
     }
 }
 

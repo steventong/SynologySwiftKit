@@ -1,4 +1,5 @@
 import Foundation
+import SwiftHttpClient
 
 // MARK: - SynologyErrorMapper
 
@@ -10,6 +11,22 @@ import Foundation
 /// 业务错误码映射请使用 `SynologyApiError.toSynologyError(from:)`。
 /// For business error code mapping, use `SynologyApiError.toSynologyError(from:)`.
 struct SynologyErrorMapper {
+    func mapTransportError(_ error: Error) -> Error {
+        if error is CancellationError { return CancellationError() }
+        if let error = error as? URLError {
+            return error.code == .cancelled ? CancellationError() : map(error)
+        }
+        if case let HTTPClientError.serverCertificateUntrusted(certificate) = error {
+            return map(certificate)
+        }
+        return error
+    }
+
+    func map(_ certificate: ServerCertificateInfo) -> SynologyError {
+        .serverCertificateUntrusted(SynologyServerCertificate(host: certificate.host, subject: certificate.subject,
+                                                             sha256Fingerprint: certificate.sha256Fingerprint))
+    }
+
     /// 将 URLError 映射为 SynologyError
     /// Map URLError to SynologyError
     /// - Parameter error: Foundation URLError / Foundation URLError

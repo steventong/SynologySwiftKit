@@ -106,8 +106,11 @@ public final class SynologyClient {
 
     /// Configure both endpoint and session when the host app owns persistence.
     public func configureConnection(type: ConnectionType, url: String, sid: String, did: String? = nil) {
-        configureConnection(type: type, url: url)
-        configureSession(sid: sid, did: did)
+        apiClient.sessionOperations.replaceState {
+            apiClient.updateConnection(type: type, url: url)
+            keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
+            apiClient.updateSession(sid: sid, did: did)
+        }
     }
 
     /// 允许当前服务器证书，并在后续请求中校验同一 SHA-256 指纹。
@@ -131,6 +134,12 @@ public final class SynologyClient {
     /// Fetch a small media resource using the current DSM certificate policy.
     public func fetchMediaData(from url: URL) async throws -> Data {
         try await apiClient.fetchMediaData(url: url)
+    }
+
+    /// Create an ordered streaming or durable background media transport with the same certificate policy as login.
+    public func makeMediaTransferSession(configuration: SynologyMediaTransferConfiguration, delegateQueue: OperationQueue,
+                                         delegate: any SynologyMediaTransferSessionDelegate) -> SynologyMediaTransferSession {
+        apiClient.makeMediaTransferSession(configuration: configuration, delegateQueue: delegateQueue, delegate: delegate)
     }
 
     // MARK: - Direct API Entry Points
@@ -180,6 +189,8 @@ private struct SynologyClientContainer {
             keyChainStorage: keyChainStorage
         )
 
+        apiClient.publishCommittedState()
+
         let apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
         let ping = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
         apiClient.apiInfoProvider = apiInfo
@@ -187,7 +198,8 @@ private struct SynologyClientContainer {
         let audioStationClient = AudioStationClient(apiClient: apiClient, keyValueStorage: keyValueStorage)
         self.audioStation = audioStationClient
         self.files = FileStationClient(apiClient: apiClient)
-        let authClient = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage)
+        let sessionOperations = apiClient.sessionOperations
+        let authClient = AuthClient(apiClient: apiClient, keyChainStorage: keyChainStorage, sessionOperations: sessionOperations)
         self.auth = authClient
 
         let quickConnect = QuickConnectClient(
@@ -217,7 +229,8 @@ private struct SynologyClientContainer {
             audioStationApi: audioStationClient,
             apiInfoApi: apiInfo,
             authApi: authClient,
-            keyChainStorage: keyChainStorage
+            keyChainStorage: keyChainStorage,
+            sessionOperations: sessionOperations
         )
         let userLogin = SynologyUserLogin(
             apiInfoApi: apiInfo,
@@ -225,7 +238,8 @@ private struct SynologyClientContainer {
             authApi: authClient,
             audioStationApi: audioStationClient,
             connectionChecker: checkConnection,
-            keyChainStorage: keyChainStorage
+            keyChainStorage: keyChainStorage,
+            sessionOperations: sessionOperations
         )
         let queryAllSongs = QueryAllSongs(apiClient: apiClient)
         let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
@@ -239,49 +253,29 @@ private struct SynologyClientContainer {
             queryAllSongs: queryAllSongsFlow
         )
         self.session = SessionClient(
-            connectionProvider: { [weak apiClient, weak keyChainStorage] in
-                if let connection = apiClient?.connection {
-                    return SynologyConnection(type: connection.type, url: connection.url)
-                }
-
-                if let persisted = keyChainStorage?.getConnectionInfo(),
-                   let type = ConnectionType(rawValue: persisted.typeString)
-                {
-                    apiClient?.updateConnection(type: type, url: persisted.url)
-                    return SynologyConnection(type: type, url: persisted.url)
-                }
-
-                return nil
+            connectionProvider: { [weak apiClient] in
+                apiClient?.committedConnection.map { SynologyConnection(type: $0.type, url: $0.url) }
             },
-            sessionProvider: { [weak apiClient, weak keyChainStorage] in
-                if let current = apiClient?.session, !current.sid.isEmpty {
-                    return SynologySession(sid: current.sid, did: current.did)
-                }
-
-                if let persisted = keyChainStorage?.getSessionInfo(), !persisted.sid.isEmpty {
-                    apiClient?.updateSession(sid: persisted.sid, did: persisted.did)
-                    return SynologySession(sid: persisted.sid, did: persisted.did)
-                }
-
-                return nil
+            sessionProvider: { [weak apiClient] in
+                guard let current = apiClient?.committedSession, !current.sid.isEmpty else { return nil }
+                return SynologySession(sid: current.sid, did: current.did)
             },
             connectionUpdater: { [weak apiClient, weak keyChainStorage] type, url in
-                apiClient?.updateConnection(type: type, url: url)
-                keyChainStorage?.saveConnectionInfo(url: url, typeString: type.rawValue)
+                sessionOperations.replaceState {
+                    apiClient?.updateConnection(type: type, url: url)
+                    keyChainStorage?.saveConnectionInfo(url: url, typeString: type.rawValue)
+                }
             },
             sessionUpdater: { [weak apiClient] sid, did in
-                apiClient?.updateSession(sid: sid, did: did)
+                sessionOperations.replaceState { apiClient?.updateSession(sid: sid, did: did) }
             },
             sessionClearer: { [weak apiClient, weak keyChainStorage] in
-                apiClient?.clearSession()
-                keyChainStorage?.removeSessionInfo()
+                sessionOperations.replaceState {
+                    apiClient?.clearSession()
+                    keyChainStorage?.removeSessionInfo()
+                }
             }
         )
-
-        // Warm up persisted connection/session eagerly so first API call does not
-        // race with lazy restoration from host-side storage.
-        _ = session.connection
-        _ = session.current
 
         if autoRegisterAuthInterceptor {
             apiClient.addInterceptor(AuthInterceptor(
@@ -289,8 +283,10 @@ private struct SynologyClientContainer {
                     apiClient?.session
                 },
                 onSessionExpired: { [weak apiClient, weak keyChainStorage] in
-                    apiClient?.clearSession()
-                    keyChainStorage?.removeSessionInfo()
+                    sessionOperations.mutateForCurrentRequest {
+                        apiClient?.clearSession()
+                        keyChainStorage?.removeSessionInfo()
+                    }
                 }
             ))
         }

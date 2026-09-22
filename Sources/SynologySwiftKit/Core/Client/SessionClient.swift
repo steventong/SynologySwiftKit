@@ -72,13 +72,13 @@ public final class SessionClient {
     }
 
     /// 当前连接信息（连接类型 + 服务器地址）
-    /// Current connection info (type + URL)
+    /// Last committed connection (type + URL); in-flight authentication endpoints remain private.
     public var connection: SynologyConnection? {
         connectionProvider()
     }
 
-    /// 当前会话（SID + DID）；优先从内存读取，其次尝试从 Keychain 恢复
-    /// Current session (SID + DID); reads from memory first, falls back to Keychain
+    /// 当前会话（SID + DID）；持久化状态在创建客户端时恢复，读取不会重新激活已清理的会话。
+    /// Last committed session (SID + DID). Persisted state is restored at client initialization, never by a getter.
     public var current: SynologySession? {
         sessionProvider()
     }

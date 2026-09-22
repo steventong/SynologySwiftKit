@@ -1,13 +1,12 @@
 {
-  "originHash" : "9cd4f0025c6f956e12d442cb9cd6ea31cb8298b1668ce66406c46de247d7f90a",
+  "originHash" : "c79f31b6020fd2fc55f2487ef9d57b89bb2be82a10d4eda4e774236a3a4c42da",
   "pins" : [
     {
       "identity" : "swifthttpclient",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/steventong/SwiftHttpClient",
       "state" : {
-        "branch" : "main",
-        "revision" : "1d583d6d64ba84f3ac669498b596727619eb60aa"
+        "revision" : "cffc6bcf1e0e2a8cbe8307aa7e0a4d10b877ab9f"
       }
     }
   ],

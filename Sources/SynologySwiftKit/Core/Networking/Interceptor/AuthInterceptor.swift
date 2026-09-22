@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftHttpClient
 
 /// 认证拦截器
 ///
@@ -117,7 +118,7 @@ extension AuthInterceptor {
                 return request
             }
 
-            let sidPair = "_sid=\(UrlUtils.urlEncode(sid))"
+            let sidPair = "_sid=\(URLCoding.encode(sid))"
             let updatedBodyString = bodyString.isEmpty ? sidPair : "\(bodyString)&\(sidPair)"
             updatedRequest.httpBody = updatedBodyString.data(using: .utf8)
         }
