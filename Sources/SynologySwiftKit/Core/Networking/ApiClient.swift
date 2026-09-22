@@ -135,6 +135,14 @@ final class ApiClient: ApiClientProviding {
         }
     }
 
+    func makeMediaTransferSession(configuration: SynologyMediaTransferConfiguration, delegateQueue: OperationQueue,
+                                  delegate: any SynologyMediaTransferSessionDelegate,
+                                  factory: MediaTransferFactory = defaultMediaTransferFactory) -> SynologyMediaTransferSession {
+        SynologyMediaTransferSession(configuration: configuration, delegateQueue: delegateQueue, policy: { [certificateTrustStore] host in
+            .userApprovedCertificate(host: host, sha256Fingerprint: certificateTrustStore.approvedFingerprint(forHost: host))
+        }, delegate: delegate, factory: factory)
+    }
+
     /// 将媒体直接下载到由调用方负责清理的临时文件。
     /// Download media directly to a caller-owned temporary file.
     func downloadMediaFile(url: URL, timeout: TimeInterval = 300) async throws -> URL {

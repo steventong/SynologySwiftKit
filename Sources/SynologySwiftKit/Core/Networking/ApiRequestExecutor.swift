@@ -129,13 +129,7 @@ final class ApiRequestExecutor {
         } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
             try validateState()
             context.duration = Date().timeIntervalSince(context.startTime)
-            let mappedError = SynologyError.serverCertificateUntrusted(
-                SynologyServerCertificate(
-                    host: certificate.host,
-                    subject: certificate.subject,
-                    sha256Fingerprint: certificate.sha256Fingerprint
-                )
-            )
+            let mappedError = errorMapper.map(certificate)
             _ = try await applyResponseInterceptors(.failure(mappedError), endpoint: endpoint, context: &context)
             logRequestFailure(requestID: requestID, request: currentRequest, error: mappedError, duration: context.duration)
             throw mappedError
@@ -191,13 +185,7 @@ final class ApiRequestExecutor {
             throw error
         } catch let HTTPClientError.serverCertificateUntrusted(certificate) {
             try validateState()
-            throw SynologyError.serverCertificateUntrusted(
-                SynologyServerCertificate(
-                    host: certificate.host,
-                    subject: certificate.subject,
-                    sha256Fingerprint: certificate.sha256Fingerprint
-                )
-            )
+            throw errorMapper.map(certificate)
         } catch let urlError as URLError {
             try validateState()
             throw errorMapper.map(urlError)

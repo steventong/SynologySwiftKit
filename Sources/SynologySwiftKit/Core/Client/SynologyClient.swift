@@ -136,6 +136,12 @@ public final class SynologyClient {
         try await apiClient.fetchMediaData(url: url)
     }
 
+    /// Create an ordered streaming or durable background media transport with the same certificate policy as login.
+    public func makeMediaTransferSession(configuration: SynologyMediaTransferConfiguration, delegateQueue: OperationQueue,
+                                         delegate: any SynologyMediaTransferSessionDelegate) -> SynologyMediaTransferSession {
+        apiClient.makeMediaTransferSession(configuration: configuration, delegateQueue: delegateQueue, delegate: delegate)
+    }
+
     // MARK: - Direct API Entry Points
 
     public var quickConnect: QuickConnectClient { system.connection.quickConnect }
