@@ -7,11 +7,36 @@
 
 import Foundation
 
+public enum PlaylistRole: Sendable {
+    case regular
+    case sharedSongs
+}
+
+/// Intrinsic editing capabilities of the Audio Station playlist kind.
+/// The server still enforces the current account's permissions when a mutation is requested.
+public struct PlaylistCapabilities: Equatable, Sendable {
+    public let canAddSongs: Bool
+    public let canDelete: Bool
+    public let canRename: Bool
+}
+
 // MARK: - Playlist
 
 /// 播放列表数据模型
 /// Playlist data model
 public struct Playlist: Decodable, Sendable {
+    private static let sharedSongsID = "playlist_personal_normal/__SYNO_AUDIO_SHARED_SONGS__"
+
+    public var role: PlaylistRole {
+        id == Self.sharedSongsID ? .sharedSongs : .regular
+    }
+
+    public var capabilities: PlaylistCapabilities {
+        let editable = role != .sharedSongs
+        return PlaylistCapabilities(canAddSongs: editable && type == "normal",
+                                    canDelete: editable, canRename: editable)
+    }
+
     /// 播放列表 ID / Playlist ID
     public var id: String
     /// 所属媒体库（"shared" 或 "personal"）/ Library ("shared" or "personal")

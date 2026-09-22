@@ -15,6 +15,7 @@ import OSLog
 final class SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
+    private let sessionOperations: SessionOperationCoordinator
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
     private let audioStationApi: AudioStationClient
@@ -35,7 +36,9 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
          authApi: AuthClient,
          audioStationApi: AudioStationClient,
          connectionChecker: any ConnectionChecking,
-         keyChainStorage: any SensitiveStorage = StorageService()) {
+         keyChainStorage: any SensitiveStorage = StorageService(),
+         sessionOperations: SessionOperationCoordinator = SessionOperationCoordinator()) {
+        self.sessionOperations = sessionOperations
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.authApi = authApi
@@ -48,12 +51,17 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// Login with password (AsyncStream version)
     func login(server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
-            let task = Task {
+            let task = sessionOperations.start { [self] in
                 Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
                 await self.performPasswordLogin(server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, attemptSliceLogin: false, continuation: continuation)
             }
+            let completion = Task {
+                _ = try? await task.value
+                continuation.finish()
+            }
             continuation.onTermination = { _ in
                 task.cancel()
+                completion.cancel()
             }
         }
     }
@@ -62,7 +70,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// Silent resume: try slice login (validates cached SID); on failure fall back to full password login.
     func login() -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
-            let task = Task {
+            let task = sessionOperations.start { [self] in
                 guard let credentials = keyChainStorage.getCredentials() else {
                     Logger.warn("SynologyUserLogin#login(resume), abort: no saved credentials")
                     continuation.yield(.invalidSession(message: "No saved credentials found"))
@@ -84,8 +92,13 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                     continuation: continuation
                 )
             }
+            let completion = Task {
+                _ = try? await task.value
+                continuation.finish()
+            }
             continuation.onTermination = { _ in
                 task.cancel()
+                completion.cancel()
             }
         }
     }
@@ -97,7 +110,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// 避免在已知一定失败的场景下浪费一次 slice 校验的 round-trip。
     func relogin() -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
-            let task = Task {
+            let task = sessionOperations.start { [self] in
                 guard let credentials = keyChainStorage.getCredentials() else {
                     Logger.warn("SynologyUserLogin#login(relogin), abort: no saved credentials")
                     continuation.yield(.invalidSession(message: "No saved credentials found"))
@@ -119,8 +132,13 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                     continuation: continuation
                 )
             }
+            let completion = Task {
+                _ = try? await task.value
+                continuation.finish()
+            }
             continuation.onTermination = { _ in
                 task.cancel()
+                completion.cancel()
             }
         }
     }
@@ -206,7 +224,11 @@ private extension SynologyUserLogin {
 
         let previousConnection = currentConnection()
         let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
-        apiClient.updateConnection(type: connection.type, url: connection.url)
+        do {
+            try sessionOperations.commit {
+                apiClient.updateConnection(type: connection.type, url: connection.url)
+            }
+        } catch { continuation.finish(); return }
 
         // 更新 API 信息 + 认证
         // Update API info + authenticate
@@ -253,7 +275,8 @@ private extension SynologyUserLogin {
             case .failed(let reason):
                 Logger.warn("SynologyUserLogin#performPasswordLogin, slice failed, reason=\(reason), proceeding to full login")
                 // slice 校验失败说明缓存 SID 不可用，清掉后续 authApi.login 用不到的脏 cookie
-                apiClient.clearSession()
+                do { try sessionOperations.commit { apiClient.clearSession() } }
+                catch { continuation.finish(); return }
             }
         }
 
@@ -266,16 +289,18 @@ private extension SynologyUserLogin {
 
             // 登录成功，保存会话
             // Login succeeded, save session
-            apiClient.updateSession(sid: authResult.sid, did: authResult.did)
-            keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
-            saveConnection(url: connection.url, type: connection.type)
-            commitCredentials(
-                server: server,
-                usesHTTPS: connection.url.lowercased().hasPrefix("https://"),
-                username: username,
-                password: password,
-                shouldSavePassword: shouldSavePassword
-            )
+            try sessionOperations.commitState {
+                apiClient.updateSession(sid: authResult.sid, did: authResult.did)
+                keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+                saveConnection(url: connection.url, type: connection.type)
+                commitCredentials(
+                    server: server,
+                    usesHTTPS: connection.url.lowercased().hasPrefix("https://"),
+                    username: username,
+                    password: password,
+                    shouldSavePassword: shouldSavePassword
+                )
+            }
 
             Logger.info("SynologyUserLogin#performPasswordLogin, full login success, didExists=\(authResult.did != nil)")
             let loginResult = SynologyUserLoginResult(
@@ -356,7 +381,9 @@ private extension SynologyUserLogin {
                 connection: connection,
                 serverType: serverType
             )
-            saveConnection(url: connection.url, type: connection.type)
+            try sessionOperations.commitState {
+                saveConnection(url: connection.url, type: connection.type)
+            }
 
             Logger.info("SynologyUserLogin#attemptSliceValidation, hit, sid=\(Logger.maskedSessionValue(sessionInfo.sid))")
             continuation.yield(.completed(result: loginResult))
@@ -415,15 +442,15 @@ private extension SynologyUserLogin {
             return
         }
 
-        apiClient.updateConnection(type: connection.type, url: connection.url)
+        sessionOperations.rollback {
+            apiClient.updateConnection(type: connection.type, url: connection.url)
+        }
     }
 
     func rollbackSession(to session: (sid: String, did: String?)?) {
-        guard let session else {
-            apiClient.clearSession()
-            return
+        sessionOperations.rollback {
+            guard let session else { apiClient.clearSession(); return }
+            apiClient.updateSession(sid: session.sid, did: session.did)
         }
-
-        apiClient.updateSession(sid: session.sid, did: session.did)
     }
 }

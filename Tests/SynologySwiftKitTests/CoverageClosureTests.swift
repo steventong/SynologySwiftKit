@@ -270,7 +270,7 @@ final class CoverageClosureTests: XCTestCase {
         XCTAssertNil(client.session.connection)
         XCTAssertFalse(client.session.hasValidSession)
 
-        client.apiClient.updateConnection(type: .lan, url: "https://nas.local")
+        client.session.updateConnection(type: .lan, url: "https://nas.local")
         XCTAssertEqual(client.session.connection?.type, .lan)
 
         client.session.update(sid: "sid-1", did: "did-1")
