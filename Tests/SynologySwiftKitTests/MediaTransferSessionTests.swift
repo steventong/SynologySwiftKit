@@ -4,6 +4,23 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class MediaTransferSessionTests: XCTestCase {
+    func testOpenEndedAndSuffixRangesAreNotReplacedByTheDefaultRange() async throws {
+        for value in ["bytes=100-", "bytes=-32"] {
+            let done = expectation(description: value)
+            let client = ApiClient(keyValueStorage: MockKeyValueStorage())
+            let probe = MediaProbe()
+            let transport = client.makeMediaTransferSession(configuration: .streaming, delegateQueue: queue(), delegate: probe, factory: testTransport)
+            MediaProtocol.handler = { request in
+                XCTAssertEqual(request.value(forHTTPHeaderField: "Range"), value)
+                return (206, Data([1, 2]))
+            }
+            probe.completed = { _, error in XCTAssertNil(error); done.fulfill() }
+            try transport.streamTask(url: URL(string: "https://nas.invalid/media")!, headers: ["Range": value]).resume()
+            await fulfillment(of: [done], timeout: 3)
+            transport.invalidateAndCancel()
+        }
+    }
+
     override func tearDown() { MediaProtocol.handler = nil; super.tearDown() }
 
     func testTransportUsesTheSameApprovedCertificateStoreAsAPIRequests() {
@@ -12,6 +29,7 @@ final class MediaTransferSessionTests: XCTestCase {
         let probe = MediaProbe()
         var policy: (@Sendable (String) -> ServerTrustPolicy)?
         let transport = client.makeMediaTransferSession(configuration: .streaming, delegateQueue: queue(), delegate: probe, factory: { config, queue, resolver, delegate in
+            XCTAssertEqual(config.networkServiceType, .avStreaming)
             policy = resolver
             return self.testTransport(config, queue, resolver, delegate)
         })

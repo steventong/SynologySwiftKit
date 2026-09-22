@@ -20,7 +20,7 @@ let package = Package(
             targets: ["SynologySwiftKit"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/steventong/SwiftHttpClient", revision: "1ab87b6d4a74b823f315943a7bcdcfe21a5cde56")
+        .package(url: "https://github.com/steventong/SwiftHttpClient", revision: "eeefb657547679e359e88a9009dc2a3a3b4f98d4")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.

@@ -53,6 +53,7 @@ public final class SynologyMediaTransferSession: HTTPTransferSessionDelegate {
             isBackground = false
             native = .default
             native.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            native.networkServiceType = .avStreaming
         case let .background(identifier):
             isBackground = true
             native = .background(withIdentifier: identifier)
@@ -73,7 +74,9 @@ public final class SynologyMediaTransferSession: HTTPTransferSessionDelegate {
                 throw SynologyError.network(message: "Invalid media byte range")
             }
             request.setValue("bytes=\(range.lowerBound)-\(range.upperBound - 1)", forHTTPHeaderField: "Range")
-        } else { request.setValue("bytes=0-", forHTTPHeaderField: "Range") }
+        } else if request.value(forHTTPHeaderField: "Range") == nil {
+            request.setValue("bytes=0-", forHTTPHeaderField: "Range")
+        }
         return transport.dataTask(for: request)
     }
     public func downloadTask(url: URL) throws -> SynologyMediaTransferTask {
