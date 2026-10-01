@@ -6,7 +6,6 @@ final class ConnectionManager: ConnectionManaging {
     private let pingpong: PingPongProviding
     private let sessionValidator: any ConnectionSessionValidating
     private let apiInfoApi: any ApiInfoProviding
-    private let authApi: any AuthenticationProviding
     private let eventPublisher: any ConnectionManagerEventPublishing
     private let optimizationScheduler: any QuickConnectOptimizationScheduling
     private let keyChainStorage: any SensitiveStorage
@@ -17,7 +16,6 @@ final class ConnectionManager: ConnectionManaging {
         pingpong: PingPongProviding,
         audioStationApi: AudioStationClient,
         apiInfoApi: any ApiInfoProviding,
-        authApi: any AuthenticationProviding,
         eventPublisher: any ConnectionManagerEventPublishing = NotificationCenterConnectionManagerEventPublisher(),
         optimizationScheduler: any QuickConnectOptimizationScheduling = QuickConnectOptimizationCoordinator(),
         keyChainStorage: any SensitiveStorage = StorageService()
@@ -27,7 +25,6 @@ final class ConnectionManager: ConnectionManaging {
         self.pingpong = pingpong
         self.sessionValidator = AudioStationSessionValidator(audioStationApi: audioStationApi)
         self.apiInfoApi = apiInfoApi
-        self.authApi = authApi
         self.eventPublisher = eventPublisher
         self.optimizationScheduler = optimizationScheduler
         self.keyChainStorage = keyChainStorage
@@ -41,6 +38,11 @@ final class ConnectionManager: ConnectionManaging {
 
         let serverType = resolveServerType(server: credentials.server)
         let currentConnection = restoreCurrentConnectionFromPersistence()
+        // 恢复网络必须沿用已有会话；没有 SID 不代表服务器已判定会话过期。
+        guard let session = apiClient.session ?? keyChainStorage.getSessionInfo(), !session.sid.isEmpty else {
+            return .disconnected
+        }
+        apiClient.updateSession(sid: session.sid, did: session.did)
 
         if await pingCurrentConnection(currentConnection) {
             return await handleReachableConnection(
@@ -53,9 +55,17 @@ final class ConnectionManager: ConnectionManaging {
     }
 
     func refreshQuickConnectEndpoint() async -> SynologyConnection? {
+        if case let .updated(connection) = await runQuickConnectEndpointRefresh() {
+            return connection
+        }
+        return nil
+    }
+
+    /// 调度器共享完整结果，使重发现后的明确 SID 失效能够交给登录流程处理。
+    private func runQuickConnectEndpointRefresh() async -> QuickConnectEndpointRefreshOutcome {
         await optimizationScheduler.run { [weak self] in
             guard let self else {
-                return nil
+                return .unavailable
             }
             return await self.performQuickConnectEndpointRefresh()
         }
@@ -145,20 +155,23 @@ private extension ConnectionManager {
             return .requiresRelogin
         case .validationFailed:
             Logger.warn("ConnectionManager#recoverConnection, reachable endpoint but session validation failed")
-            return .requiresRelogin
+            return .disconnected
         }
     }
 
     func handleUnreachableConnection(serverType: ServerType) async -> ConnectionRecoveryDecision {
         switch serverType {
         case .quickConnectId:
-            if await refreshQuickConnectEndpoint() != nil {
+            switch await runQuickConnectEndpointRefresh() {
+            case .updated:
                 Logger.info("ConnectionManager#recoverConnection, refreshed QuickConnect endpoint")
                 return .connected
+            case .requiresRelogin:
+                return .requiresRelogin
+            case .unavailable:
+                Logger.info("ConnectionManager#recoverConnection, QuickConnect refresh failed")
+                return .disconnected
             }
-
-            Logger.info("ConnectionManager#recoverConnection, QuickConnect refresh failed")
-            return .requiresRelogin
         case .customDomain:
             Logger.info("ConnectionManager#recoverConnection, cached custom domain endpoint unreachable")
             return .disconnected
@@ -168,18 +181,18 @@ private extension ConnectionManager {
     func scheduleBackgroundQuickConnectEndpointRefresh() async {
         await optimizationScheduler.schedule { [weak self] in
             guard let self else {
-                return nil
+                return .unavailable
             }
             return await self.performQuickConnectEndpointRefresh()
         }
     }
 
-    func performQuickConnectEndpointRefresh() async -> SynologyConnection? {
+    func performQuickConnectEndpointRefresh() async -> QuickConnectEndpointRefreshOutcome {
         guard let credentials = keyChainStorage.getCredentials(),
               QuickConnectUtils.isQuickConnectId(server: credentials.server)
         else {
             Logger.info("ConnectionManager#refreshQuickConnectEndpoint, skip non-QuickConnect credentials")
-            return nil
+            return .unavailable
         }
 
         do {
@@ -197,10 +210,13 @@ private extension ConnectionManager {
                 )
             )
             Logger.info("ConnectionManager#refreshQuickConnectEndpoint, refreshed endpoint: \(connection.url)")
-            return connection
+            return .updated(connection)
+        } catch let error as SynologyError where error.isServerSessionExpired {
+            Logger.info("ConnectionManager#refreshQuickConnectEndpoint, server confirmed expired session")
+            return .requiresRelogin
         } catch {
             Logger.error("ConnectionManager#refreshQuickConnectEndpoint failed: \(error)")
-            return nil
+            return .unavailable
         }
     }
 }
@@ -242,25 +258,35 @@ private extension ConnectionManager {
         return lhs.url < rhs.url
     }
 
+    /// 换地址先复用原 SID，校验成功才保存地址；弱网失败回滚但不清会话。
+    /// 明确会话失效向上抛出，认证与凭据拒绝的终态统一交给登录流程处理。
     func refreshSessionAndSaveConnection(_ connection: SynologyConnection) async throws {
-        guard let credentials = keyChainStorage.getCredentials() else {
+        guard keyChainStorage.getCredentials() != nil else {
             throw SynologyError.network(message: "Missing saved credentials")
+        }
+        guard let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo(), !previousSession.sid.isEmpty else {
+            throw SynologyError.network(message: "Missing saved session")
         }
 
         let previousConnection = restoreCurrentConnectionFromPersistence()
-        let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
+        apiClient.updateSession(sid: previousSession.sid, did: previousSession.did)
         apiClient.updateConnection(type: connection.type, url: connection.url)
 
         do {
+            try Task.checkCancellation()
             try await apiInfoApi.refresh()
-            let authResult = try await authApi.login(
-                username: credentials.username,
-                password: credentials.password,
-                otpCode: nil
-            )
+            let outcome = await sessionValidator.validateCurrentSession()
+            try Task.checkCancellation()
 
-            apiClient.updateSession(sid: authResult.sid, did: authResult.did)
-            keyChainStorage.saveSessionInfo(sid: authResult.sid, did: authResult.did)
+            switch outcome {
+            case .valid:
+                break
+            case .invalidSession(let code):
+                throw SynologyError.sessionExpired(code: code, message: "Server rejected session at selected endpoint")
+            case .validationFailed:
+                throw SynologyError.network(message: "Session validation failed at selected endpoint")
+            }
+
             saveConnection(url: connection.url, type: connection.type)
         } catch {
             rollbackConnection(to: previousConnection)
@@ -277,13 +303,7 @@ private extension ConnectionManager {
         saveConnection(url: connection.url, type: connection.type)
     }
 
-    func rollbackSession(to session: (sid: String, did: String?)?) {
-        guard let session else {
-            apiClient.clearSession()
-            keyChainStorage.removeSessionInfo()
-            return
-        }
-
+    func rollbackSession(to session: (sid: String, did: String?)) {
         apiClient.updateSession(sid: session.sid, did: session.did)
         keyChainStorage.saveSessionInfo(sid: session.sid, did: session.did)
     }

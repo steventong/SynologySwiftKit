@@ -216,7 +216,6 @@ private struct SynologyClientContainer {
             pingpong: ping,
             audioStationApi: audioStationClient,
             apiInfoApi: apiInfo,
-            authApi: authClient,
             keyChainStorage: keyChainStorage
         )
         let userLogin = SynologyUserLogin(
