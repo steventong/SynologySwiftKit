@@ -228,7 +228,6 @@ private struct SynologyClientContainer {
             pingpong: ping,
             audioStationApi: audioStationClient,
             apiInfoApi: apiInfo,
-            authApi: authClient,
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations
         )
