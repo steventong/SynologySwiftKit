@@ -166,7 +166,7 @@ private extension ConnectionManager {
             } catch { return .disconnected }
 
             if serverType == .quickConnectId {
-                await scheduleBackgroundQuickConnectEndpointRefresh()
+                await scheduleBackgroundQuickConnectEndpointRefresh(validatedConnection: currentConnection)
             }
 
             Logger.info("ConnectionManager#recoverConnection, reachable endpoint with valid session")
@@ -199,16 +199,16 @@ private extension ConnectionManager {
         }
     }
 
-    func scheduleBackgroundQuickConnectEndpointRefresh() async {
+    func scheduleBackgroundQuickConnectEndpointRefresh(validatedConnection: SynologyConnection?) async {
         await optimizationScheduler.schedule { [weak self] in
             guard let self else {
                 return .unavailable
             }
-            return (try? await self.sessionOperations.performAfterCurrent { await self.performQuickConnectEndpointRefresh() }) ?? .unavailable
+            return (try? await self.sessionOperations.performAfterCurrent { await self.performQuickConnectEndpointRefresh(validatedConnection: validatedConnection) }) ?? .unavailable
         }
     }
 
-    func performQuickConnectEndpointRefresh() async -> QuickConnectEndpointRefreshOutcome {
+    func performQuickConnectEndpointRefresh(validatedConnection: SynologyConnection? = nil) async -> QuickConnectEndpointRefreshOutcome {
         guard let credentials = keyChainStorage.getCredentials(),
               QuickConnectUtils.isQuickConnectId(server: credentials.server)
         else {
@@ -223,14 +223,22 @@ private extension ConnectionManager {
                 usesHTTPS: credentials.usesHTTPS
             )
 
-            try await refreshSessionAndSaveConnection(connection)
-            try sessionOperations.commit {
-                eventPublisher.publishQuickConnectEndpointOptimized(
-                    SynologyQuickConnectEndpointOptimizedEvent(
-                        updatedConnection: connection,
-                        previousConnection: previousConnection
+            // 恢复时已验证过的地址没有变化，无需再次刷新 API、校验 SID 或切换会话。
+            if connection.url == validatedConnection?.url, connection.type == validatedConnection?.type {
+                return .updated(connection)
+            }
+
+            // 地址发现不锁住普通请求；只在实际切换端点时协调会话写入。
+            try await sessionOperations.perform {
+                try await self.refreshSessionAndSaveConnection(connection)
+                try self.sessionOperations.commit {
+                    self.eventPublisher.publishQuickConnectEndpointOptimized(
+                        SynologyQuickConnectEndpointOptimizedEvent(
+                            updatedConnection: connection,
+                            previousConnection: previousConnection
+                        )
                     )
-                )
+                }
             }
             Logger.info("ConnectionManager#refreshQuickConnectEndpoint, refreshed endpoint: \(connection.url)")
             return .updated(connection)

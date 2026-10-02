@@ -91,13 +91,38 @@ final class SessionOperationOwnershipTests: XCTestCase {
         let state = TestState()
         try await owner.perform {
             let task = Task {
-                try await owner.performAfterCurrent { try owner.commit { state.events.append("child") } }
+                try await owner.performAfterCurrent {
+                    try await owner.perform { try owner.commit { state.events.append("child") } }
+                }
             }
             await child.set(task)
             try owner.commit { state.events.append("parent") }
         }
         try await child.finish()
         XCTAssertEqual(state.events, ["parent", "child"])
+    }
+
+    func testBackgroundDiscoveryDoesNotBlockOrdinaryRequests() async throws {
+        let owner = SessionOperationCoordinator()
+        let child = ChildOperation()
+        let started = expectation(description: "Background discovery started")
+        let pause = IgnoringCancellationGate(started: started)
+        try await owner.perform {
+            let task = Task {
+                try await owner.performAfterCurrent { await pause.wait() }
+            }
+            await child.set(task)
+        }
+        await fulfillment(of: [started], timeout: 2)
+        let completed = expectation(description: "Request proceeds during discovery")
+        let request = Task {
+            _ = try await owner.requestStamp()
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 2)
+        await pause.release()
+        try await child.finish()
+        try await request.value
     }
 
     func testLateLogoutResponseCannotClearAnExternallyReplacedSession() async throws {

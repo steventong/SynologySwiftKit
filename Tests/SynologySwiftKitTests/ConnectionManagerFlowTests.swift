@@ -282,6 +282,33 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.AudioStation.INFO.name }.count, 2)
     }
 
+    func testBackgroundOptimizationKeepsValidatedEndpointWithoutAnotherSessionRequest() async {
+        let apiClient = MockApiClient()
+        let keychain = makeRecoveryStorage(apiClient: apiClient)
+        apiClient.mockResponse = makeSessionValidationInfo()
+        apiClient.rawRequestHandler = { _, _, _, _, _ in
+            try makeQuickConnectServerInfo(ip: "192.168.1.10", port: 5001)
+        }
+        let scheduler = BackgroundRecoveryOptimizationScheduler()
+        let manager = makeRecoveryManager(
+            apiClient: apiClient,
+            keychain: keychain,
+            pingpong: RecordingPingPong(firstResult: .init(type: .lan, url: "https://192.168.1.10:5001"), singleURLReachable: true),
+            scheduler: scheduler
+        )
+
+        let decision = await manager.recoverConnection()
+        await scheduler.waitForCompletion()
+
+        XCTAssertEqual(decision.status, .connected)
+        XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+        XCTAssertEqual(apiClient.clearSessionCount, 0)
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.10:5001")
+        XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.AudioStation.INFO.name }.count, 1)
+    }
+
     func testRecoverConnectionWithoutCredentialsDisconnects() async {
         let apiClient = MockApiClient()
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
