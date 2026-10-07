@@ -3,6 +3,7 @@ import Foundation
 enum SessionValidationOutcome: Sendable, Equatable {
     case valid
     case invalidSession(code: Int)
+    case unreachable
     case validationFailed
 }
 
@@ -12,14 +13,16 @@ protocol ConnectionSessionValidating {
 
 struct DSMSessionValidator: ConnectionSessionValidating {
     private let dsmInfoApi: DSMInfoClient
+    private let timeout: TimeInterval
 
-    init(dsmInfoApi: DSMInfoClient) {
+    init(dsmInfoApi: DSMInfoClient, timeout: TimeInterval = 3.6) {
         self.dsmInfoApi = dsmInfoApi
+        self.timeout = timeout
     }
 
     func checkCurrentSession() async throws {
         try Task.checkCancellation()
-        _ = try await dsmInfoApi.query()
+        _ = try await dsmInfoApi.query(timeout: timeout)
         try Task.checkCancellation()
     }
 
@@ -31,6 +34,10 @@ struct DSMSessionValidator: ConnectionSessionValidating {
         } catch let SynologyError.sessionExpired(code, message) where SynologyError.sessionExpired(code: code, message: message).isServerSessionExpired {
             Logger.info("DSMSessionValidator#validateCurrentSession invalid session: \(code), \(message)")
             return .invalidSession(code: code)
+        } catch SynologyError.network {
+            return .unreachable
+        } catch let error as URLError where error.code != .cancelled {
+            return .unreachable
         } catch {
             Logger.warn("DSMSessionValidator#validateCurrentSession failed: \(error)")
             return .validationFailed

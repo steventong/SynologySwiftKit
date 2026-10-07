@@ -15,6 +15,7 @@ import OSLog
 final class SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
+    private var pendingOTP: (server: String, username: String, connection: SynologyConnection)?
     private let sessionOperations: SessionOperationCoordinator
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
@@ -35,6 +36,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
          apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
          authApi: AuthClient,
          dsmInfoApi: DSMInfoClient,
+         sessionValidationTimeout: TimeInterval = 3.6,
          connectionChecker: any ConnectionChecking,
          keyChainStorage: any SensitiveStorage = StorageService(),
          sessionOperations: SessionOperationCoordinator = SessionOperationCoordinator()) {
@@ -42,7 +44,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.authApi = authApi
-        self.sessionValidator = DSMSessionValidator(dsmInfoApi: dsmInfoApi)
+        self.sessionValidator = DSMSessionValidator(dsmInfoApi: dsmInfoApi, timeout: sessionValidationTimeout)
         self.connectionChecker = connectionChecker
         self.keyChainStorage = keyChainStorage
     }
@@ -53,7 +55,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
-                await self.performPasswordLogin(server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, attemptSliceLogin: false, continuation: continuation)
+                await self.performPasswordLogin(server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, attemptSliceLogin: false, continuation: continuation)
             }
             let completion = Task {
                 _ = try? await task.value
@@ -90,7 +92,6 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                     password: credentials.password,
                     otpCode: nil,
                     shouldSavePassword: true,
-                    fetchApiList: true,
                     attemptSliceLogin: true,
                     continuation: continuation
                 )
@@ -133,7 +134,6 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                     password: credentials.password,
                     otpCode: nil,
                     shouldSavePassword: true,
-                    fetchApiList: true,
                     attemptSliceLogin: false,
                     isSessionRenewal: true,
                     continuation: continuation
@@ -157,14 +157,23 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
 // MARK: - Private Support
 
 private extension SynologyUserLogin {
-    /// 执行显式密码登录或静默恢复，解析地址并刷新 API 列表后再处理认证。
+    /// 密码登录刷新服务器路由；静默恢复优先复用路由和现有连接。
     /// 静默恢复只要有 SID，就在解析出的地址上校验原会话，不受地址是否命中缓存影响。
     /// 校验成功直接完成；网络故障与取消回滚地址并结束；只有服务器明确失效才清理旧 SID 并全量登录。
-    func performPasswordLogin(server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+    func performPasswordLogin(server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         guard !Task.isCancelled else {
             continuation.finish()
             return
         }
+
+        let previousRouteServer = apiInfoApi.serverIdentity
+        let otpConnection = otpCode != nil && pendingOTP?.server == server && pendingOTP?.username == username ? pendingOTP?.connection : nil
+        let reusesOTPRoutes = otpConnection != nil
+        pendingOTP = nil
+        var completed = false
+        defer { if !completed { sessionOperations.rollback { apiInfoApi.selectServer(previousRouteServer) } } }
+        apiInfoApi.selectServer(server)
+        var refreshedRoutes = false
 
         // 连接检查
         continuation.yield(.connecting)
@@ -173,47 +182,23 @@ private extension SynologyUserLogin {
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // 显式域名登录直接发现 API；恢复与 QuickConnect 沿用连接检查。
-        // Direct domain login discovers APIs; recovery and QuickConnect use the connection checker.
-        let connection: SynologyConnection
+        // OTP 复用本轮地址；恢复先验证旧地址；首次域名登录通过 API 发现连接。
+        // Reuse the OTP endpoint and saved session endpoint before discovering a new connection.
+        var connection: SynologyConnection
         let previousConnection = currentConnection()
+        let usesSavedConnection = attemptSliceLogin && previousConnection != nil
         let discoversDomainAPIs = !isQuickConnectID && usesHTTPS == nil
 
         do {
-            if discoversDomainAPIs {
+            if let otpConnection {
+                connection = otpConnection
+            } else if usesSavedConnection, let previousConnection {
+                connection = previousConnection
+            } else if discoversDomainAPIs {
                 connection = try await discoverDomainConnection(server: server)
+                refreshedRoutes = true
             } else {
-                var resolvedConnection: SynologyConnection?
-                let progressStream = if let usesHTTPS {
-                    connectionChecker.check(server: server, usesHTTPS: usesHTTPS)
-                } else {
-                    connectionChecker.check(server: server)
-                }
-                for await progress in progressStream {
-                    guard !Task.isCancelled else {
-                        continuation.finish()
-                        return
-                    }
-
-                    switch progress {
-                    case .checking:
-                        break
-                    case let .success(connection, _):
-                        resolvedConnection = connection
-                    case let .serverCertificateUntrusted(certificate):
-                        continuation.yield(.serverCertificateUntrusted(certificate))
-                        continuation.finish()
-                        return
-                    case let .failed(message):
-                        Logger.warn("SynologyUserLogin#performPasswordLogin, connection check failed: \(message)")
-                    }
-                }
-
-                guard let resolvedConnection else {
-                    throw SynologyError.network(message: "Connection resolution failed")
-                }
-
-                connection = resolvedConnection
+                connection = try await resolveConnection(server: server, usesHTTPS: usesHTTPS)
             }
         } catch let SynologyError.serverCertificateUntrusted(certificate) {
             rollbackConnection(to: previousConnection)
@@ -253,8 +238,13 @@ private extension SynologyUserLogin {
 
         do {
             // 刷新 Api 列表
-            if fetchApiList && !discoversDomainAPIs {
-                try await apiInfoApi.refresh()
+            if !discoversDomainAPIs {
+                if (attemptSliceLogin && previousSession != nil) || reusesOTPRoutes {
+                    try await apiInfoApi.loadFromCacheOrRefresh()
+                } else {
+                    try await apiInfoApi.refresh()
+                    refreshedRoutes = true
+                }
             }
             try Task.checkCancellation()
         } catch let SynologyError.serverCertificateUntrusted(certificate) {
@@ -278,14 +268,29 @@ private extension SynologyUserLogin {
         var renewingExpiredSession = isSessionRenewal
         // 先校验原 SID；无法确认有效性不等于失效，禁止因弱网进入密码登录。
         if attemptSliceLogin {
-            let sliceOutcome = await attemptSliceValidation(
+            var sliceOutcome = await attemptSliceValidation(
                 connection: connection,
                 serverType: serverType,
                 continuation: continuation
             )
 
+            if usesSavedConnection, case let .failed(error) = sliceOutcome, isConnectionUnavailable(error) {
+                do {
+                    let discovered = try await resolveConnection(server: server, usesHTTPS: usesHTTPS)
+                    if discovered.url != connection.url || discovered.type != connection.type {
+                        connection = discovered
+                        try sessionOperations.commit { apiClient.updateConnection(type: connection.type, url: connection.url) }
+                        sliceOutcome = await attemptSliceValidation(connection: connection, serverType: serverType, continuation: continuation)
+                    }
+                } catch is CancellationError {
+                    sliceOutcome = .cancelled
+                } catch {
+                    sliceOutcome = .failed(error)
+                }
+            }
             switch sliceOutcome {
             case .completed:
+                completed = true
                 // 成功已经提交地址并结束流，不能再因完成后的取消信号回滚。
                 return
             case .skipped:
@@ -321,6 +326,9 @@ private extension SynologyUserLogin {
         do {
             try Task.checkCancellation()
 
+            if !refreshedRoutes && !reusesOTPRoutes {
+                try await apiInfoApi.refresh()
+            }
             let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
             try Task.checkCancellation()
 
@@ -346,6 +354,7 @@ private extension SynologyUserLogin {
                 serverType: serverType
             )
 
+            completed = true
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
         } catch let SynologyError.serverCertificateUntrusted(certificate) {
@@ -359,6 +368,7 @@ private extension SynologyUserLogin {
             // 需要或需重新输入 OTP 验证码（不算终止失败，需要用户输入）
             // OTP required or invalid (not a terminal failure; prompt the user again)
             Logger.info("SynologyUserLogin#performPasswordLogin, OTP input required, code=\(code), message: \(msg)")
+            pendingOTP = (server, username, connection)
             continuation.yield(.otpRequired)
             continuation.finish()
         } catch let SynologyError.auth(code, message) where
@@ -385,6 +395,29 @@ private extension SynologyUserLogin {
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
         }
+    }
+
+    private func isConnectionUnavailable(_ error: Error) -> Bool {
+        if case SynologyError.network = error { return true }
+        if let urlError = error as? URLError { return urlError.code != .cancelled }
+        return false
+    }
+
+    func resolveConnection(server: String, usesHTTPS: Bool?) async throws -> SynologyConnection {
+        let stream = if let usesHTTPS { connectionChecker.check(server: server, usesHTTPS: usesHTTPS) }
+                     else { connectionChecker.check(server: server) }
+        var resolved: SynologyConnection?
+        for await progress in stream {
+            try Task.checkCancellation()
+            switch progress {
+            case let .success(connection, _): resolved = connection
+            case let .serverCertificateUntrusted(certificate): throw SynologyError.serverCertificateUntrusted(certificate)
+            case .checking, .failed: break
+            }
+        }
+        try Task.checkCancellation()
+        guard let resolved else { throw SynologyError.network(message: "Connection resolution failed") }
+        return resolved
     }
 
     /// 首次域名登录以 API 路由发现验证候选地址，不额外发送 Ping。

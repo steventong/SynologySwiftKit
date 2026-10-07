@@ -410,6 +410,8 @@ final class CoverageClosureTests: XCTestCase {
         XCTAssertTrue(message.contains("No saved credentials"))
 
         struct FailingApiInfoProvider: ApiInfoProviding {
+    var serverIdentity: String? { nil }
+    func selectServer(_ server: String?) {}
             func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
                 ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
             }

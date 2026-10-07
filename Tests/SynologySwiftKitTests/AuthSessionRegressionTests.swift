@@ -90,7 +90,10 @@ final class AuthSessionRegressionTests: XCTestCase {
                 guard case .failed = events.last else {
                     return XCTFail("Expected unavailable validation to end resume without login")
                 }
-                XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+                let networkFailure: Bool
+                if case SynologyError.network = failure { networkFailure = true }
+                else { networkFailure = failure is URLError }
+                XCTAssertEqual(apiClient.requestedEndpoints.count, networkFailure ? 2 : 1)
                 XCTAssertEqual(apiClient.clearSessionCount, 0)
                 XCTAssertEqual(apiClient.session?.sid, "old-sid")
                 XCTAssertEqual(apiClient.session?.did, "old-did")
@@ -109,6 +112,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.session = nil
         apiClient.requestHandler = { endpoint in
             XCTAssertEqual(endpoint.apiName, SynologyApi.Core.DSM_INFO.name)
+            if apiClient.connection?.url == "https://old.local" { throw SynologyError.network(message: "old address unreachable") }
             XCTAssertEqual(apiClient.connection?.url, "https://new.local")
             XCTAssertEqual(apiClient.session?.sid, "old-sid")
             return makeResumeValidationInfo()
@@ -123,7 +127,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         XCTAssertEqual(result.session.sid, "old-sid")
         XCTAssertEqual(result.session.did, "old-did")
         XCTAssertEqual(result.connection.url, "https://new.local")
-        XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
+        XCTAssertEqual(apiClient.requestedEndpoints.count, 2)
         XCTAssertEqual(apiClient.clearSessionCount, 0)
         XCTAssertEqual(apiClient.session?.sid, "old-sid")
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
@@ -192,7 +196,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             apiClient: apiClient,
             keychain: keychain,
             usedCachedConnection: false,
-            apiInfo: TestApiInfoProvider(onRefresh: { throw SynologyError.network(message: "API discovery timeout") })
+            apiInfo: TestApiInfoProvider(onLoad: { throw SynologyError.network(message: "API discovery timeout") })
         )
 
         let events = await collectResumeEvents(login.login())
@@ -450,6 +454,8 @@ private func makeResumeValidationInfo() -> DsmInfo {
 }
 
 private struct MockApiInfoProvider: ApiInfoProviding {
+    var serverIdentity: String? { nil }
+    func selectServer(_ server: String?) {}
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
         ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
     }

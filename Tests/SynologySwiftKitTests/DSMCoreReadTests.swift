@@ -28,7 +28,7 @@ final class DSMCoreReadTests: XCTestCase {
         }
         transport.handler = { _, _ in throw URLError(.timedOut) }
         let outcome = await validator.validateCurrentSession()
-        XCTAssertEqual(outcome, .validationFailed)
+        XCTAssertEqual(outcome, .unreachable)
         XCTAssertEqual(client.session?.sid, "current-sid")
     }
 

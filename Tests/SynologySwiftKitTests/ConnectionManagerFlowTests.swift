@@ -34,6 +34,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRecoverConnectionWithUnreachableQuickConnectEndpointDisconnectsAndKeepsSession() async {
         let apiClient = MockApiClient()
+        apiClient.mockError = SynologyError.network(message: "unreachable")
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://cached.local", typeString: ConnectionType.lan.rawValue)
@@ -61,6 +62,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
 
     func testRecoverConnectionWithUnreachableCustomDomainDisconnects() async {
         let apiClient = MockApiClient()
+        apiClient.mockError = SynologyError.network(message: "unreachable")
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://nas.example.com", typeString: ConnectionType.custom_domain.rawValue)
@@ -133,6 +135,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
         }
         apiClient.requestHandler = { _ in
+            if apiClient.connection?.url != refreshed.url { throw SynologyError.network(message: "unreachable") }
             XCTAssertEqual(apiClient.connection?.url, refreshed.url)
             XCTAssertEqual(apiClient.session?.sid, "old-sid")
             return makeSessionValidationInfo()
@@ -379,7 +382,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .connected)
-        XCTAssertEqual(pingpong.singleURLPings.first, "https://192.168.1.10:5001")
+        XCTAssertTrue(pingpong.singleURLPings.isEmpty)
         XCTAssertFalse(pingpong.didRunBestConnectionSelection)
         XCTAssertEqual(apiClient.session?.sid, "old-sid")
         XCTAssertEqual(apiClient.session?.did, "old-did")
@@ -416,7 +419,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .requiresRelogin)
-        XCTAssertEqual(pingpong.singleURLPings.first, "https://192.168.1.10:5001")
+        XCTAssertTrue(pingpong.singleURLPings.isEmpty)
     }
 
     func testOptimizeQuickConnectEndpointDoesNotPersistRefreshedConnectionWhenValidationFails() async throws {
@@ -591,7 +594,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             )
             XCTFail("Expected unreachable endpoint failure")
         } catch let SynologyError.network(message) {
-            XCTAssertEqual(message, "Selected endpoint is unreachable")
+            XCTAssertEqual(message, "Missing saved session")
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -612,7 +615,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
             dsmInfoApi: DSMInfoClient(apiClient: apiClient),
-            apiInfoApi: TestApiInfoProvider(onRefresh: {
+            apiInfoApi: TestApiInfoProvider(onLoad: {
                 throw SynologyError.network(message: "refresh failed")
             }),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
@@ -650,7 +653,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
             dsmInfoApi: DSMInfoClient(apiClient: apiClient),
-            apiInfoApi: TestApiInfoProvider(onRefresh: {
+            apiInfoApi: TestApiInfoProvider(onLoad: {
                 throw SynologyError.network(message: "refresh failed")
             }),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),

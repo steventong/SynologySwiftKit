@@ -31,9 +31,9 @@ public final class DSMInfoClient {
     /// Query DSM information
     /// - Returns: DSM 信息
     /// Uses the current SID without ambient cookies. Preserves cancellation and underlying errors.
-    public func query() async throws -> DsmInfo {
+    public func query(timeout: TimeInterval = 10) async throws -> DsmInfo {
         do {
-            let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2,
+            let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2, timeout: timeout,
                                           sidOnQuery: true, sidOnCookie: false)
             let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint)
 

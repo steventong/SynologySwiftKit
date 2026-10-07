@@ -214,8 +214,11 @@ func XCTAssertURL(_ url: URL, contains queryItems: [String: String], file: Stati
 }
 
 struct TestApiInfoProvider: ApiInfoProviding {
+    var serverIdentity: String? { nil }
+    func selectServer(_ server: String?) {}
     var nodes: [String: ApiInfoNode] = [:]
     var onRefresh: (@Sendable () throws -> Void)?
+    var onLoad: (@Sendable () throws -> Void)?
 
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
         if let node = nodes[apiName] {
@@ -228,7 +231,7 @@ struct TestApiInfoProvider: ApiInfoProviding {
         try onRefresh?()
     }
 
-    func loadFromCacheOrRefresh() async throws {}
+    func loadFromCacheOrRefresh() async throws { try onLoad?() }
 }
 
 struct TestAuthProvider: AuthenticationProviding {

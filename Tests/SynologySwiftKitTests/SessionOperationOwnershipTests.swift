@@ -309,6 +309,8 @@ private final class DeferredSessionAPI: ApiRequestSending, ConnectionStateProvid
     func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL { URL(string: "https://fixture.invalid")! }
 }
 private struct NoopAPIInfo: ApiInfoProviding {
+    var serverIdentity: String? { nil }
+    func selectServer(_ server: String?) {}
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode { ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil) }
     func refresh() async throws {}
     func loadFromCacheOrRefresh() async throws {}

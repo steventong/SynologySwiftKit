@@ -130,6 +130,8 @@ final class DomainLoginDiscoveryTests: XCTestCase {
 }
 
 private final class FailingDiscovery: ApiInfoProviding {
+    var serverIdentity: String? { nil }
+    func selectServer(_ server: String?) {}
     let api: MockApiClient
     let error: Error
     var addresses: [String] = []

@@ -16,6 +16,7 @@ final class ConnectionManager: ConnectionManaging {
         quickConnectApi: QuickConnectClient,
         pingpong: PingPongProviding,
         dsmInfoApi: DSMInfoClient,
+        sessionValidationTimeout: TimeInterval = 3.6,
         apiInfoApi: any ApiInfoProviding,
         eventPublisher: any ConnectionManagerEventPublishing = NotificationCenterConnectionManagerEventPublisher(),
         optimizationScheduler: any QuickConnectOptimizationScheduling = QuickConnectOptimizationCoordinator(),
@@ -26,7 +27,7 @@ final class ConnectionManager: ConnectionManaging {
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
-        self.sessionValidator = DSMSessionValidator(dsmInfoApi: dsmInfoApi)
+        self.sessionValidator = DSMSessionValidator(dsmInfoApi: dsmInfoApi, timeout: sessionValidationTimeout)
         self.apiInfoApi = apiInfoApi
         self.eventPublisher = eventPublisher
         self.optimizationScheduler = optimizationScheduler
@@ -43,6 +44,7 @@ final class ConnectionManager: ConnectionManaging {
             return .disconnected
         }
 
+        apiInfoApi.selectServer(credentials.server)
         let serverType = resolveServerType(server: credentials.server)
         let currentConnection = restoreCurrentConnectionFromPersistence()
         // 恢复网络必须沿用已有会话；没有 SID 不代表服务器已判定会话过期。
@@ -60,8 +62,8 @@ final class ConnectionManager: ConnectionManaging {
             }
         } catch { return .disconnected }
 
-        if await pingCurrentConnection(currentConnection) {
-            return await handleReachableConnection(
+        if currentConnection != nil {
+            return await handleCurrentConnection(
                 currentConnection,
                 serverType: serverType
             )
@@ -135,10 +137,6 @@ final class ConnectionManager: ConnectionManaging {
     }
 
     private func performSwitch(to connection: SynologyConnection) async throws -> SynologyConnection {
-        guard try await pingpong.pingpong(url: connection.url) else {
-            throw SynologyError.network(message: "Selected endpoint is unreachable")
-        }
-
         try await refreshSessionAndSaveConnection(connection)
         return connection
     }
@@ -149,7 +147,7 @@ private extension ConnectionManager {
         QuickConnectUtils.isQuickConnectId(server: server) ? .quickConnectId : .customDomain
     }
 
-    func handleReachableConnection(
+    func handleCurrentConnection(
         _ currentConnection: SynologyConnection?,
         serverType: ServerType
     ) async -> ConnectionRecoveryDecision {
@@ -174,6 +172,8 @@ private extension ConnectionManager {
         case .invalidSession:
             Logger.info("ConnectionManager#recoverConnection, reachable endpoint but session invalid")
             return .requiresRelogin
+        case .unreachable:
+            return await handleUnreachableConnection(serverType: serverType)
         case .validationFailed:
             Logger.warn("ConnectionManager#recoverConnection, reachable endpoint but session validation failed")
             return .disconnected
@@ -267,13 +267,6 @@ private extension ConnectionManager {
         return SynologyConnection(type: type, url: persisted.url)
     }
 
-    func pingCurrentConnection(_ connection: SynologyConnection?) async -> Bool {
-        guard let connection else {
-            return false
-        }
-        return (try? await pingpong.pingpong(url: connection.url)) ?? false
-    }
-
     func saveConnection(url: String, type: ConnectionType) {
         apiClient.updateConnection(type: type, url: url)
         keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
@@ -291,9 +284,10 @@ private extension ConnectionManager {
     /// 换地址先复用原 SID，校验成功才保存地址；弱网失败回滚但不清会话。
     /// 明确会话失效向上抛出，认证与凭据拒绝的终态统一交给登录流程处理。
     func refreshSessionAndSaveConnection(_ connection: SynologyConnection) async throws {
-        guard keyChainStorage.getCredentials() != nil else {
+        guard let credentials = keyChainStorage.getCredentials() else {
             throw SynologyError.network(message: "Missing saved credentials")
         }
+        apiInfoApi.selectServer(credentials.server)
         guard let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo(), !previousSession.sid.isEmpty else {
             throw SynologyError.network(message: "Missing saved session")
         }
@@ -306,7 +300,7 @@ private extension ConnectionManager {
 
         do {
             try Task.checkCancellation()
-            try await apiInfoApi.refresh()
+            try await apiInfoApi.loadFromCacheOrRefresh()
             let outcome = await sessionValidator.validateCurrentSession()
             try Task.checkCancellation()
 
@@ -315,7 +309,7 @@ private extension ConnectionManager {
                 break
             case .invalidSession(let code):
                 throw SynologyError.sessionExpired(code: code, message: "Server rejected session at selected endpoint")
-            case .validationFailed:
+            case .unreachable, .validationFailed:
                 throw SynologyError.network(message: "Session validation failed at selected endpoint")
             }
 

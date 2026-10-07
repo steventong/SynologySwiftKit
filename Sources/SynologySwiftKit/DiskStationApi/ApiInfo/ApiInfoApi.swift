@@ -1,150 +1,120 @@
-//
-//  ApiInfoApi.swift
-//  SynologySwiftKit
-//
-//  Created by Steven on 2024/4/27.
-//
-
 import Foundation
 
-// MARK: - ApiInfoApi
-
-/// API 信息管理类
-/// API information manager
+/// Server-scoped route discovery. Password login refreshes routes; other requests reuse them.
 final class ApiInfoApi: ApiInfoProviding {
-    /// `SYNO.API.Info` 的协议引导入口。获取服务器路由表前无法通过路由表解析自身。
-    /// Protocol bootstrap endpoint for `SYNO.API.Info`; its route cannot be resolved before the server route table is fetched.
-    private static let bootstrapPath = "/webapi/query.cgi"
-
-    // MARK: - Dependencies & State
-
-    /// API 客户端
-    private let apiClient: ApiRequestSending
-
-    /// 键值存储 (用于持久化缓存)
+    private let apiClient: ApiRequestSending & ConnectionStateProviding
     private let keyValueStorage: KeyValueStorage
+    private let lock = NSLock()
+    private var selectedServer: String?
+    private var nodes: [String: [String: ApiInfoNode]] = [:]
+    private var pending: [String: (UUID, Task<[String: ApiInfoNode], Error>)] = [:]
 
-    private let cache = ApiInfoCache()
-
-    /// API 缓存有效期 (秒)
-    private let cacheValidity: Int32
-
-    // MARK: - Initialization
-
-    /// 初始化 API 信息管理器
-    /// Initialize API information manager
-    init(apiClient: ApiRequestSending,
-                keyValueStorage: KeyValueStorage = StorageService(),
-                cacheValidity: Int32 = SynologyConfig.default.apiInfoCacheValidity) {
+    init(apiClient: ApiRequestSending & ConnectionStateProviding, keyValueStorage: KeyValueStorage = StorageService()) {
         self.apiClient = apiClient
         self.keyValueStorage = keyValueStorage
-        self.cacheValidity = cacheValidity
     }
 
-    /// 根据 API 名称获取 API 节点信息
-    /// Get API node info by API name
-    func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
-        if cache.isEmpty, let cached = getApiInfoFromStorage() {
-            cache.replace(with: cached)
-            Logger.debug("ApiInfoApi#getApiInfoByApiName load from cache: \(cached.count)")
-        }
+    var serverIdentity: String? { locked { selectedServer } }
 
-        guard let apiInfo = cache.node(for: apiName) else {
-            Logger.warn("ApiInfoApi#getApiInfoByApiName api not found: \(apiName)")
+    func selectServer(_ server: String?) {
+        let identity = server.map(Self.identity)
+        let cancelled = locked { () -> [Task<[String: ApiInfoNode], Error>] in
+            guard selectedServer != identity else { return [] }
+            selectedServer = identity
+            let tasks = pending.values.map { $0.1 }
+            pending.removeAll()
+            return tasks
+        }
+        cancelled.forEach { $0.cancel() }
+    }
+
+    private static func identity(_ server: String) -> String {
+        let value = server.trimmingCharacters(in: .whitespacesAndNewlines)
+        if QuickConnectUtils.isQuickConnectId(server: value) { return value.lowercased() }
+        let address = (try? LoginServerAddressResolver.automaticAttempts(for: value).first?.server) ?? value
+        guard var url = URLComponents(string: address) else { return address }
+        url.scheme = url.scheme?.lowercased()
+        url.host = url.host?.lowercased()
+        url.user = nil
+        url.password = nil
+        url.query = nil
+        url.fragment = nil
+        if url.path == "/" { url.path = "" }
+        return url.string ?? address
+    }
+
+    private func scope() throws -> String {
+        if let identity = serverIdentity { return identity }
+        guard let connection = apiClient.connection else { throw SynologyError.network(message: "Host not configured") }
+        return Self.identity(connection.url)
+    }
+
+    private func storageKey(_ scope: String) -> String {
+        "synology.api.routes." + Data(scope.utf8).base64EncodedString()
+    }
+
+    func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
+        let routes = try await load(force: false)
+        guard let node = routes[apiName] else {
             throw SynologyError.api(code: 102, message: "API not found: \(apiName)")
         }
-
-        return apiInfo
+        return node
     }
 
-    /// 优先从缓存加载，缓存过期或不存在时回源刷新
-    /// Load from cache first; refresh from remote if cache is expired or unavailable
-    func loadFromCacheOrRefresh() async throws {
-        if isApiInfoCacheValid(validTime: cacheValidity), let cached = getApiInfoFromStorage() {
-            Logger.debug("ApiInfoApi#loadFromCacheOrRefresh from cache: \(cached.count)")
-            cache.replace(with: cached)
-            return
+    func loadFromCacheOrRefresh() async throws { _ = try await load(force: false) }
+    func refresh() async throws { _ = try await load(force: true) }
+
+    private func load(force: Bool) async throws -> [String: ApiInfoNode] {
+        try Task.checkCancellation()
+        let scope = try scope()
+        let result: (UUID, Task<[String: ApiInfoNode], Error>) = locked {
+            if let task = pending[scope] { return task }
+            if !force {
+                if let cached = nodes[scope] { return (UUID(), Task { cached }) }
+                if let cached: [String: ApiInfoNode] = keyValueStorage.codable(forKey: storageKey(scope)), !cached.isEmpty {
+                    nodes[scope] = cached
+                    return (UUID(), Task { cached })
+                }
+            }
+            let id = UUID()
+            let task = Task { [self] in
+                let endpoint = ApiEndpoint(api: SynologyApi.Core.INFO, fullPath: "/webapi/query.cgi", httpMethod: .get) {
+                    ("api", SynologyApi.Core.INFO.name)
+                    ("version", 1)
+                    ("method", "query")
+                    ("query", "all")
+                }
+                let routes: [String: ApiInfoNode] = try await apiClient.request(endpoint)
+                try Task.checkCancellation()
+                guard !routes.isEmpty else { throw SynologyError.api(code: 102, message: "Empty API route table") }
+                return routes
+            }
+            pending[scope] = (id, task)
+            return (id, task)
         }
-
-        try await refresh()
-    }
-
-    /// 从 DSM 刷新 API 信息列表并更新内存/持久化缓存
-    /// Refresh API info list from DSM and update memory/persistent cache
-    func refresh() async throws {
-        let apiInfo = try await queryApiInfoFromDsm()
-        cache.replace(with: apiInfo)
-        Logger.debug("ApiInfoApi#refresh from api: \(apiInfo.count)")
-
-        if apiInfo.isEmpty == false {
-            keyValueStorage.setCodable(apiInfo, forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName)
-            keyValueStorage.setDate(Date(), forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName)
-        }
-    }
-}
-
-extension ApiInfoApi {
-    /// 向 DSM 发起 `SYNO.API.Info query` 请求，获取全量 API 信息
-    /// Send `SYNO.API.Info query` request to DSM to get all API info
-    private func queryApiInfoFromDsm() async throws -> [String: ApiInfoNode] {
-        let api = ApiEndpoint(api: SynologyApi.Core.INFO, fullPath: Self.bootstrapPath, httpMethod: .get) {
-            ("api", SynologyApi.Core.INFO.name)
-            ("version", 1)
-            ("method", "query")
-            ("query", "all")
-        }
-        let apiInfo: [String: ApiInfoNode] = try await apiClient.request(api)
-        return apiInfo
-    }
-
-    /// 从 UserDefaults 读取持久化的 API 信息字典
-    /// Read persisted API info dictionary from UserDefaults
-    private func getApiInfoFromStorage() -> [String: ApiInfoNode]? {
-        if let apiInfo: [String: ApiInfoNode] = keyValueStorage.codable(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO.keyName) {
-            return apiInfo
-        }
-
-        return nil
-    }
-
-    /// 检查 API 信息缓存是否在有效期内
-    /// Check whether the API info cache is within its validity period
-    private func isApiInfoCacheValid(validTime: Int32?) -> Bool {
-        if let lastUpdateTime = keyValueStorage.date(forKey: KeyValueStorageKeys.DISK_STATION_API_INFO_UPDATE_TIME.keyName) {
-            return Int32(Date().timeIntervalSince(lastUpdateTime)) < (validTime ?? 24 * 60 * 60)
-        }
-        return false
-    }
-}
-
-/// 线程安全的 API 信息内存缓存
-/// Thread-safe in-memory cache for API info
-private final class ApiInfoCache {
-    private let lock = NSLock()
-    private var nodes: [String: ApiInfoNode] = [:]
-
-    /// 缓存是否为空 / Whether the cache is empty
-    var isEmpty: Bool {
-        lock.withLock { nodes.isEmpty }
-    }
-
-    /// 根据 API 名称获取节点 / Get node by API name
-    func node(for apiName: String) -> ApiInfoNode? {
-        lock.withLock { nodes[apiName] }
-    }
-
-    /// 替换所有缓存节点 / Replace all cached nodes
-    func replace(with nodes: [String: ApiInfoNode]) {
-        lock.withLock {
-            self.nodes = nodes
+        do {
+            let routes = try await withTaskCancellationHandler {
+                try await result.1.value
+            } onCancel: { result.1.cancel() }
+            try Task.checkCancellation()
+            guard try self.scope() == scope else { throw CancellationError() }
+            locked {
+                if pending[scope]?.0 == result.0 {
+                    nodes[scope] = routes
+                    keyValueStorage.setCodable(routes, forKey: storageKey(scope))
+                    pending[scope] = nil
+                }
+            }
+            return routes
+        } catch {
+            locked { if pending[scope]?.0 == result.0 { pending[scope] = nil } }
+            throw error
         }
     }
-}
 
-private extension NSLock {
-    func withLock<Value>(_ body: () throws -> Value) rethrows -> Value {
-        lock()
-        defer { unlock() }
+    private func locked<T>(_ body: () throws -> T) rethrows -> T {
+        lock.lock()
+        defer { lock.unlock() }
         return try body()
     }
 }

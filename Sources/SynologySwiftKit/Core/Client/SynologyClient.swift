@@ -107,6 +107,7 @@ public final class SynologyClient {
     /// Configure both endpoint and session when the host app owns persistence.
     public func configureConnection(type: ConnectionType, url: String, sid: String, did: String? = nil) {
         apiClient.sessionOperations.replaceState {
+            apiClient.apiInfoProvider?.selectServer(url)
             apiClient.updateConnection(type: type, url: url)
             keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
             apiClient.updateSession(sid: sid, did: did)
@@ -179,8 +180,9 @@ private struct SynologyClientContainer {
 
         apiClient.publishCommittedState()
 
-        let apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
+        let apiInfo = ApiInfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
         let ping = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
+        apiInfo.selectServer(keyChainStorage.getCredentials()?.server)
         apiClient.apiInfoProvider = apiInfo
 
         let audioStationClient = AudioStationClient(apiClient: apiClient, keyValueStorage: keyValueStorage)
@@ -217,6 +219,7 @@ private struct SynologyClientContainer {
             quickConnectApi: quickConnect,
             pingpong: ping,
             dsmInfoApi: dsmInfo,
+            sessionValidationTimeout: config.pingpongTimeout,
             apiInfoApi: apiInfo,
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations
@@ -226,6 +229,7 @@ private struct SynologyClientContainer {
             apiClient: apiClient,
             authApi: authClient,
             dsmInfoApi: dsmInfo,
+            sessionValidationTimeout: config.pingpongTimeout,
             connectionChecker: checkConnection,
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations
@@ -248,6 +252,7 @@ private struct SynologyClientContainer {
             },
             connectionUpdater: { [weak apiClient, weak keyChainStorage] type, url in
                 sessionOperations.replaceState {
+                    apiClient?.apiInfoProvider?.selectServer(url)
                     apiClient?.updateConnection(type: type, url: url)
                     keyChainStorage?.saveConnectionInfo(url: url, typeString: type.rawValue)
                 }

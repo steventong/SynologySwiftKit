@@ -96,15 +96,26 @@ final class ApiClient: ApiClientProviding {
 
     /// 默认请求（解包数据）
     func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
-        let (response, request): (SynologyResponse<T>, URLRequest) = try await sendApiRequestWithRequest(
-            endpoint: endpoint,
-            resultType: SynologyResponse<T>.self
-        )
-        if let errorCode = envelopeDecoder.errorCode(response) {
-            logApiErrorResponse(code: errorCode, response: response, request: request, endpoint: endpoint)
-            throw SynologyApiError.toSynologyError(from: errorCode)
+        let stamp = try await sessionOperations.requestStamp()
+        var refreshedRoutes = false
+        while true {
+            do {
+                let (response, request): (SynologyResponse<T>, URLRequest) = try await sendApiRequestWithRequest(
+                    endpoint: endpoint, resultType: SynologyResponse<T>.self, expectedStamp: stamp
+                )
+                if let code = envelopeDecoder.errorCode(response) {
+                    logApiErrorResponse(code: code, response: response, request: request, endpoint: endpoint)
+                    throw SynologyApiError.toSynologyError(from: code)
+                }
+                return try envelopeDecoder.unwrap(response)
+            } catch let SynologyError.api(code, _) where !endpoint.isCustomPath && !refreshedRoutes && [102, 103, 104].contains(code) {
+                guard let provider = apiInfoProvider else { throw SynologyError.network(message: "Host not configured") }
+                try sessionOperations.validateRequest(stamp)
+                refreshedRoutes = true
+                try await provider.refresh()
+                try sessionOperations.validateRequest(stamp)
+            }
         }
-        return try envelopeDecoder.unwrap(response)
     }
 
     /// Send request and decode the Synology response envelope without unwrapping data.
@@ -219,9 +230,11 @@ extension ApiClient {
     /// 发送 API 请求，并保留原始 URLRequest 供错误诊断使用。
     private func sendApiRequestWithRequest<Value: Decodable>(
         endpoint: ApiEndpoint,
-        resultType: Value.Type = Value.self
+        resultType: Value.Type = Value.self,
+        expectedStamp: UInt64? = nil
     ) async throws -> (Value, URLRequest) {
-        let stamp = try await sessionOperations.requestStamp()
+        let stamp = if let expectedStamp { expectedStamp } else { try await sessionOperations.requestStamp() }
+        try sessionOperations.validateRequest(stamp)
         let resolved = try await endpointResolver.resolve(endpoint)
         let request = try await requestFactory.makeRequest(endpoint: endpoint, resolved: resolved)
         let value = try await sessionOperations.withRequest(stamp: stamp) { [self] in

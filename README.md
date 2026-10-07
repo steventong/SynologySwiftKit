@@ -132,6 +132,14 @@ client.session.clear()
 
 `SynologyClient` restores persisted session state when available. `client.session.clear()` clears both in-memory and persisted session state.
 
+API routes are persisted per login server identity (QuickConnect ID or normalized server address),
+not in a global or time-expiring cache. Each password login refreshes routes once; OTP continuation
+reuses the discovered endpoint and routes. Session resume and connection recovery reuse cached
+routes and validate the SID with `SYNO.DSM.Info.getinfo`, without a preliminary Ping. Missing
+routes are discovered on demand; ordinary API requests rejected with 102/103/104 refresh routes
+and retry at most once. Diagnostic envelope requests preserve the original response instead.
+QuickConnect candidate priority and racing behavior are unchanged.
+
 ## Entrypoints
 
 Use one naming system only:
