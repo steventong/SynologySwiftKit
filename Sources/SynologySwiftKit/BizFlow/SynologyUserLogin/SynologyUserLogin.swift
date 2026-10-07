@@ -173,43 +173,59 @@ private extension SynologyUserLogin {
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // 解析可用连接 (使用 ConnectionChecker)
-        // Resolve available connection (using ConnectionChecker)
+        // 显式域名登录直接发现 API；恢复与 QuickConnect 沿用连接检查。
+        // Direct domain login discovers APIs; recovery and QuickConnect use the connection checker.
         let connection: SynologyConnection
+        let previousConnection = currentConnection()
+        let discoversDomainAPIs = !isQuickConnectID && usesHTTPS == nil
 
         do {
-            var resolvedConnection: SynologyConnection?
-            let progressStream = if let usesHTTPS {
-                connectionChecker.check(server: server, usesHTTPS: usesHTTPS)
+            if discoversDomainAPIs {
+                connection = try await discoverDomainConnection(server: server)
             } else {
-                connectionChecker.check(server: server)
-            }
-            for await progress in progressStream {
-                guard !Task.isCancelled else {
-                    continuation.finish()
-                    return
+                var resolvedConnection: SynologyConnection?
+                let progressStream = if let usesHTTPS {
+                    connectionChecker.check(server: server, usesHTTPS: usesHTTPS)
+                } else {
+                    connectionChecker.check(server: server)
+                }
+                for await progress in progressStream {
+                    guard !Task.isCancelled else {
+                        continuation.finish()
+                        return
+                    }
+
+                    switch progress {
+                    case .checking:
+                        break
+                    case let .success(connection, _):
+                        resolvedConnection = connection
+                    case let .serverCertificateUntrusted(certificate):
+                        continuation.yield(.serverCertificateUntrusted(certificate))
+                        continuation.finish()
+                        return
+                    case let .failed(message):
+                        Logger.warn("SynologyUserLogin#performPasswordLogin, connection check failed: \(message)")
+                    }
                 }
 
-                switch progress {
-                case .checking:
-                    break
-                case let .success(connection, _):
-                    resolvedConnection = connection
-                case let .serverCertificateUntrusted(certificate):
-                    continuation.yield(.serverCertificateUntrusted(certificate))
-                    continuation.finish()
-                    return
-                case let .failed(message):
-                    Logger.warn("SynologyUserLogin#performPasswordLogin, connection check failed: \(message)")
+                guard let resolvedConnection else {
+                    throw SynologyError.network(message: "Connection resolution failed")
                 }
-            }
 
-            guard let resolvedConnection else {
-                throw SynologyError.network(message: "Connection resolution failed")
+                connection = resolvedConnection
             }
-
-            connection = resolvedConnection
+        } catch let SynologyError.serverCertificateUntrusted(certificate) {
+            rollbackConnection(to: previousConnection)
+            continuation.yield(.serverCertificateUntrusted(certificate))
+            continuation.finish()
+            return
+        } catch is CancellationError {
+            rollbackConnection(to: previousConnection)
+            continuation.finish()
+            return
         } catch {
+            rollbackConnection(to: previousConnection)
             Logger.error("SynologyUserLogin#performPasswordLogin, connection resolution failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
@@ -221,7 +237,6 @@ private extension SynologyUserLogin {
             return
         }
 
-        let previousConnection = currentConnection()
         let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
         do {
             try sessionOperations.commit {
@@ -238,7 +253,7 @@ private extension SynologyUserLogin {
 
         do {
             // 刷新 Api 列表
-            if fetchApiList {
+            if fetchApiList && !discoversDomainAPIs {
                 try await apiInfoApi.refresh()
             }
             try Task.checkCancellation()
@@ -370,6 +385,34 @@ private extension SynologyUserLogin {
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
         }
+    }
+
+    /// 首次域名登录以 API 路由发现验证候选地址，不额外发送 Ping。
+    /// 沿用地址解析器的 HTTPS 优先顺序；证书错误和取消不得继续尝试其他协议。
+    func discoverDomainConnection(server: String) async throws -> SynologyConnection {
+        let attempts = try LoginServerAddressResolver.automaticAttempts(for: server)
+        var lastError: Error = SynologyError.network(message: "Connection resolution failed")
+        for attempt in attempts {
+            try Task.checkCancellation()
+            let connection = SynologyConnection(type: .custom_domain, url: attempt.server)
+            try sessionOperations.commit {
+                apiClient.updateConnection(type: connection.type, url: connection.url)
+            }
+            do {
+                try await apiInfoApi.refresh()
+                try Task.checkCancellation()
+                return connection
+            } catch let SynologyError.serverCertificateUntrusted(certificate) {
+                throw SynologyError.serverCertificateUntrusted(certificate)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as URLError where error.code == .cancelled {
+                throw CancellationError()
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
     }
 
     /// 区分服务器明确失效与校验不可用，避免恢复流程误清仍然有效的 SID。
