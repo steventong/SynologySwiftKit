@@ -2,6 +2,36 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class DSMCoreReadTests: XCTestCase {
+    func testSessionValidationUsesDSMOnlyAndClassifiesServerResponses() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = makeClient(transport)
+        client.addInterceptor(AuthInterceptor(sessionProvider: { client.session }))
+        let validator = DSMSessionValidator(dsmInfoApi: DSMInfoClient(apiClient: client))
+        for code in [0, 105, 106, 107, 119, 102] {
+            transport.handler = { request, _ in
+                let items = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems)
+                XCTAssertEqual(items.first { $0.name == "api" }?.value, "SYNO.DSM.Info")
+                XCTAssertEqual(items.first { $0.name == "method" }?.value, "getinfo")
+                XCTAssertEqual(items.first { $0.name == "version" }?.value, "2")
+                XCTAssertEqual(items.filter { $0.name == "_sid" }.map(\.value), ["current-sid"])
+                XCTAssertFalse(request.httpShouldHandleCookies)
+                XCTAssertNil(request.value(forHTTPHeaderField: "Cookie"))
+                let payload: [String: Any] = code == 0
+                    ? ["success": true, "data": ["model": "DS920+"]]
+                    : ["success": false, "error": ["code": code]]
+                return (try makeJSONData(payload), makeHTTPURLResponse(url: request.url!))
+            }
+            let outcome = await validator.validateCurrentSession()
+            let expected: SessionValidationOutcome = code == 0 ? .valid
+                : [106, 107, 119].contains(code) ? .invalidSession(code: code) : .validationFailed
+            XCTAssertEqual(outcome, expected)
+        }
+        transport.handler = { _, _ in throw URLError(.timedOut) }
+        let outcome = await validator.validateCurrentSession()
+        XCTAssertEqual(outcome, .validationFailed)
+        XCTAssertEqual(client.session?.sid, "current-sid")
+    }
+
     func testDSMInfoDiagnosticIsolatesSIDAndPreservesResponseAndSession() async throws {
         let transport = HTTPClientFactorySpy()
         let client = makeClient(transport)

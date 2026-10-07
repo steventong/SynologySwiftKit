@@ -18,7 +18,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     private let sessionOperations: SessionOperationCoordinator
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
-    private let audioStationApi: AudioStationClient
+    private let sessionValidator: DSMSessionValidator
     private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
     private let connectionChecker: any ConnectionChecking
     private let keyChainStorage: any SensitiveStorage
@@ -34,7 +34,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     init(apiInfoApi: ApiInfoProviding,
          apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
          authApi: AuthClient,
-         audioStationApi: AudioStationClient,
+         dsmInfoApi: DSMInfoClient,
          connectionChecker: any ConnectionChecking,
          keyChainStorage: any SensitiveStorage = StorageService(),
          sessionOperations: SessionOperationCoordinator = SessionOperationCoordinator()) {
@@ -42,7 +42,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.authApi = authApi
-        self.audioStationApi = audioStationApi
+        self.sessionValidator = DSMSessionValidator(dsmInfoApi: dsmInfoApi)
         self.connectionChecker = connectionChecker
         self.keyChainStorage = keyChainStorage
     }
@@ -392,7 +392,7 @@ private extension SynologyUserLogin {
         Logger.info("SynologyUserLogin#attemptSliceValidation, start, sid=\(Logger.maskedSessionValue(sessionInfo.sid))")
 
         do {
-            _ = try await audioStationApi.info.query()
+            try await sessionValidator.checkCurrentSession()
             try Task.checkCancellation()
 
             // slice 命中：缓存 SID 仍然有效，直接构造结果

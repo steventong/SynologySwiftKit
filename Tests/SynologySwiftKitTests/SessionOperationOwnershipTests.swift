@@ -165,7 +165,7 @@ final class SessionOperationOwnershipTests: XCTestCase {
         let login = SynologyUserLogin(
             apiInfoApi: NoopAPIInfo(), apiClient: api,
             authApi: AuthClient(apiClient: api, keyChainStorage: storage, sessionOperations: owner),
-            audioStationApi: AudioStationClient(apiClient: api),
+            dsmInfoApi: DSMInfoClient(apiClient: api),
             connectionChecker: TestConnectionChecker(), keyChainStorage: storage,
             sessionOperations: owner
         )

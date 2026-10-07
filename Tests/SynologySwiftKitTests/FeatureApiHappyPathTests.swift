@@ -600,16 +600,15 @@ final class FeatureApiHappyPathTests: XCTestCase {
         XCTAssertEqual(encryption.cipherkey, "key")
     }
 
-    func testDSMInfoClientMapsUnknownErrorsToNetworkError() async {
+    func testDSMInfoClientPreservesUnderlyingError() async {
         let apiClient = MockApiClient()
         struct Dummy: Error {}
         apiClient.mockError = Dummy()
 
         do {
             _ = try await DSMInfoClient(apiClient: apiClient).query()
-            XCTFail("Expected mapped network error")
-        } catch let SynologyError.network(message) {
-            XCTAssertEqual(message, "request failed")
+            XCTFail("Expected original error")
+        } catch is Dummy {
         } catch {
             XCTFail("Unexpected error \(error)")
         }

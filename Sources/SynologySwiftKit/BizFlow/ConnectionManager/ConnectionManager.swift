@@ -15,7 +15,7 @@ final class ConnectionManager: ConnectionManaging {
         apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
         quickConnectApi: QuickConnectClient,
         pingpong: PingPongProviding,
-        audioStationApi: AudioStationClient,
+        dsmInfoApi: DSMInfoClient,
         apiInfoApi: any ApiInfoProviding,
         eventPublisher: any ConnectionManagerEventPublishing = NotificationCenterConnectionManagerEventPublisher(),
         optimizationScheduler: any QuickConnectOptimizationScheduling = QuickConnectOptimizationCoordinator(),
@@ -26,7 +26,7 @@ final class ConnectionManager: ConnectionManaging {
         self.apiClient = apiClient
         self.quickConnectApi = quickConnectApi
         self.pingpong = pingpong
-        self.sessionValidator = AudioStationSessionValidator(audioStationApi: audioStationApi)
+        self.sessionValidator = DSMSessionValidator(dsmInfoApi: dsmInfoApi)
         self.apiInfoApi = apiInfoApi
         self.eventPublisher = eventPublisher
         self.optimizationScheduler = optimizationScheduler

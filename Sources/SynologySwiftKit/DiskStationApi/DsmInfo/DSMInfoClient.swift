@@ -30,20 +30,18 @@ public final class DSMInfoClient {
     /// 查询 DSM 信息
     /// Query DSM information
     /// - Returns: DSM 信息
-    /// - Throws: SynologyError
+    /// Uses the current SID without ambient cookies. Preserves cancellation and underlying errors.
     public func query() async throws -> DsmInfo {
         do {
-            let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2)
+            let apiEndpoint = ApiEndpoint(api: SynologyApi.Core.DSM_INFO, method: "getinfo", version: 2,
+                                          sidOnQuery: true, sidOnCookie: false)
             let dsmInfo: DsmInfo = try await apiClient.request(apiEndpoint)
 
             Logger.info("DSMInfoClient#query result: \(dsmInfo.model ?? "unknown")")
             return dsmInfo
-        } catch let error as SynologyError {
-            Logger.error("DSMInfoClient#query, error: \(error)")
-            throw error
         } catch {
             Logger.error("DSMInfoClient#query, error: \(error)")
-            throw SynologyError.network(message: "request failed")
+            throw error
         }
     }
 }

@@ -13,7 +13,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
 
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
-        let audioStationApi = AudioStationClient(apiClient: apiClient)
+        let dsmInfoApi = DSMInfoClient(apiClient: apiClient)
         let connectionChecker = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong(singleURLReachable: true)),
@@ -24,7 +24,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
             apiInfoApi: TestApiInfoProvider(),
             apiClient: apiClient,
             authApi: authApi,
-            audioStationApi: audioStationApi,
+            dsmInfoApi: dsmInfoApi,
             connectionChecker: connectionChecker,
             keyChainStorage: keychain
         )

@@ -216,7 +216,7 @@ private struct SynologyClientContainer {
             apiClient: apiClient,
             quickConnectApi: quickConnect,
             pingpong: ping,
-            audioStationApi: audioStationClient,
+            dsmInfoApi: dsmInfo,
             apiInfoApi: apiInfo,
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations
@@ -225,7 +225,7 @@ private struct SynologyClientContainer {
             apiInfoApi: apiInfo,
             apiClient: apiClient,
             authApi: authClient,
-            audioStationApi: audioStationClient,
+            dsmInfoApi: dsmInfo,
             connectionChecker: checkConnection,
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations

@@ -9,30 +9,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
         keychain.saveConnectionInfo(url: "https://cached.local", typeString: ConnectionType.lan.rawValue)
         keychain.saveSessionInfo(sid: "sid", did: "did")
         apiClient.requestHandler = { endpoint in
-            if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                return AudioStationInfo(
-                    enable_equalizer: false,
-                    playing_queue_max: 0,
-                    same_subnet: false,
-                    enable_user_home: false,
-                    has_aac: false,
-                    support_bluetooth: false,
-                    version_string: nil,
-                    has_music_share: false,
-                    version: nil,
-                    sid: "sid",
-                    enable_personal_library: false,
-                    settings: AudioStationInfoSettings(disable_upnp: false, enable_download: false, transcode_to_mp3: false, prefer_using_html5: false, audio_show_virtual_library: false),
-                    support_usb: false,
-                    dsd_decode_capability: false,
-                    browse_personal_library: nil,
-                    serial_number: nil,
-                    privilege: AudioStationInfoPrivilege(tag_edit: false, sharing: false, upnp_browse: false, playlist_edit: false, remote_player: false),
-                    support_virtual_library: false,
-                    remote_controller: false,
-                    transcode_capability: [],
-                    is_manager: false
-                )
+            if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
+                return DsmInfo(model: "DS920+")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
@@ -41,7 +19,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -68,7 +46,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -92,7 +70,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -279,7 +257,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(apiClient.session?.sid, "old-sid")
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
         XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.20:5001")
-        XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.AudioStation.INFO.name }.count, 2)
+        XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.Core.DSM_INFO.name }.count, 2)
     }
 
     func testBackgroundOptimizationKeepsValidatedEndpointWithoutAnotherSessionRequest() async {
@@ -306,7 +284,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(apiClient.session?.sid, "old-sid")
         XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
         XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.10:5001")
-        XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.AudioStation.INFO.name }.count, 1)
+        XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.Core.DSM_INFO.name }.count, 1)
     }
 
     func testRecoverConnectionWithoutCredentialsDisconnects() async {
@@ -317,7 +295,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -347,7 +325,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -385,37 +363,15 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
 
         apiClient.requestHandler = { endpoint in
-            if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                return AudioStationInfo(
-                    enable_equalizer: false,
-                    playing_queue_max: 0,
-                    same_subnet: false,
-                    enable_user_home: false,
-                    has_aac: false,
-                    support_bluetooth: false,
-                    version_string: nil,
-                    has_music_share: false,
-                    version: nil,
-                    sid: "old-sid",
-                    enable_personal_library: false,
-                    settings: AudioStationInfoSettings(disable_upnp: false, enable_download: false, transcode_to_mp3: false, prefer_using_html5: false, audio_show_virtual_library: false),
-                    support_usb: false,
-                    dsd_decode_capability: false,
-                    browse_personal_library: nil,
-                    serial_number: nil,
-                    privilege: AudioStationInfoPrivilege(tag_edit: false, sharing: false, upnp_browse: false, playlist_edit: false, remote_player: false),
-                    support_virtual_library: false,
-                    remote_controller: false,
-                    transcode_capability: [],
-                    is_manager: false
-                )
+            if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
+                return DsmInfo(model: "DS920+")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
@@ -444,14 +400,14 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
 
         apiClient.requestHandler = { endpoint in
-            if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
+            if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
                 throw SynologyError.sessionExpired(code: 106, message: "expired")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
@@ -483,7 +439,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -515,7 +471,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -541,7 +497,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -566,7 +522,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -593,7 +549,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -623,7 +579,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -655,7 +611,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(onRefresh: {
                 throw SynologyError.network(message: "refresh failed")
             }),
@@ -693,7 +649,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(onRefresh: {
                 throw SynologyError.network(message: "refresh failed")
             }),
@@ -724,7 +680,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -744,7 +700,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -767,7 +723,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
@@ -803,7 +759,7 @@ private func makeRecoveryManager(
         apiClient: apiClient,
         quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
         pingpong: pingpong,
-        audioStationApi: AudioStationClient(apiClient: apiClient),
+        dsmInfoApi: DSMInfoClient(apiClient: apiClient),
         apiInfoApi: TestApiInfoProvider(),
         optimizationScheduler: scheduler,
         keyChainStorage: keychain
@@ -825,30 +781,8 @@ private actor BackgroundRecoveryOptimizationScheduler: QuickConnectOptimizationS
     }
 }
 
-private func makeSessionValidationInfo() -> AudioStationInfo {
-    AudioStationInfo(
-        enable_equalizer: false,
-        playing_queue_max: 0,
-        same_subnet: false,
-        enable_user_home: false,
-        has_aac: false,
-        support_bluetooth: false,
-        version_string: nil,
-        has_music_share: false,
-        version: nil,
-        sid: "old-sid",
-        enable_personal_library: false,
-        settings: AudioStationInfoSettings(disable_upnp: false, enable_download: false, transcode_to_mp3: false, prefer_using_html5: false, audio_show_virtual_library: false),
-        support_usb: false,
-        dsd_decode_capability: false,
-        browse_personal_library: nil,
-        serial_number: nil,
-        privilege: AudioStationInfoPrivilege(tag_edit: false, sharing: false, upnp_browse: false, playlist_edit: false, remote_player: false),
-        support_virtual_library: false,
-        remote_controller: false,
-        transcode_capability: [],
-        is_manager: false
-    )
+private func makeSessionValidationInfo() -> DsmInfo {
+    DsmInfo(model: "DS920+")
 }
 
 private final class RecordingPingPong: PingPongProviding, @unchecked Sendable {

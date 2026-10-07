@@ -7,7 +7,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.connection = (.custom_domain, "https://nas.local")
         apiClient.session = ("expired-sid", nil)
         apiClient.requestHandler = { endpoint in
-            if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
+            if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
                 throw SynologyError.sessionExpired(code: 106, message: "expired")
             }
             if endpoint.apiName == SynologyApi.Core.AUTH.name {
@@ -21,7 +21,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         keychain.saveSessionInfo(sid: "expired-sid", did: nil)
 
         let authApi = AuthClient(apiClient: apiClient, keyChainStorage: keychain)
-        let audioStationApi = AudioStationClient(apiClient: apiClient)
+        let dsmInfoApi = DSMInfoClient(apiClient: apiClient)
         let connectionChecker = ConnectionChecker(
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: MockPingPong(singleURLReachable: true)),
@@ -33,7 +33,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             apiInfoApi: MockApiInfoProvider(),
             apiClient: apiClient,
             authApi: authApi,
-            audioStationApi: audioStationApi,
+            dsmInfoApi: dsmInfoApi,
             connectionChecker: connectionChecker,
             keyChainStorage: keychain
         )
@@ -57,7 +57,7 @@ final class AuthSessionRegressionTests: XCTestCase {
 
         // slice 校验确实发生过（缓存 SID 被验证并判定失效）
         // slice validation did happen (cached SID was checked and found invalid)
-        XCTAssertTrue(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.AudioStation.INFO.name })
+        XCTAssertTrue(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.DSM_INFO.name })
         // 全量登录成功后会话被刷新
         // session refreshed after successful full login
         XCTAssertEqual(apiClient.session?.sid, "new-sid")
@@ -78,7 +78,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 let apiClient = MockApiClient()
                 let keychain = makeResumeStorage(apiClient: apiClient)
                 apiClient.requestHandler = { endpoint in
-                    XCTAssertEqual(endpoint.apiName, SynologyApi.AudioStation.INFO.name)
+                    XCTAssertEqual(endpoint.apiName, SynologyApi.Core.DSM_INFO.name)
                     XCTAssertEqual(apiClient.session?.sid, "old-sid")
                     throw failure
                 }
@@ -108,7 +108,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         // 只有持久化 SID 的恢复也必须先把它加载到请求上下文，不能因换地址直接登录。
         apiClient.session = nil
         apiClient.requestHandler = { endpoint in
-            XCTAssertEqual(endpoint.apiName, SynologyApi.AudioStation.INFO.name)
+            XCTAssertEqual(endpoint.apiName, SynologyApi.Core.DSM_INFO.name)
             XCTAssertEqual(apiClient.connection?.url, "https://new.local")
             XCTAssertEqual(apiClient.session?.sid, "old-sid")
             return makeResumeValidationInfo()
@@ -212,7 +212,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             let apiClient = MockApiClient()
             let keychain = makeResumeStorage(apiClient: apiClient)
             apiClient.requestHandler = { endpoint in
-                if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
+                if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
                     XCTAssertEqual(apiClient.session?.sid, "old-sid")
                     throw SynologyError.sessionExpired(code: code, message: "expired")
                 }
@@ -228,7 +228,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 return XCTFail("Expected explicit expiry to permit password login, code=\(code)")
             }
             XCTAssertEqual(result.session.sid, "new-sid")
-            XCTAssertEqual(apiClient.requestedEndpoints.map(\.apiName), [SynologyApi.AudioStation.INFO.name, SynologyApi.Core.AUTH.name])
+            XCTAssertEqual(apiClient.requestedEndpoints.map(\.apiName), [SynologyApi.Core.DSM_INFO.name, SynologyApi.Core.AUTH.name])
             XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
         }
     }
@@ -261,7 +261,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 let apiClient = MockApiClient()
                 let keychain = makeResumeStorage(apiClient: apiClient)
                 apiClient.requestHandler = { endpoint in
-                    if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
+                    if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
                         throw SynologyError.sessionExpired(code: 119, message: "expired")
                     }
                     throw SynologyError.auth(code: code, message: "credentials rejected")
@@ -306,7 +306,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 let apiClient = MockApiClient()
                 let keychain = makeResumeStorage(apiClient: apiClient)
                 apiClient.requestHandler = { endpoint in
-                    if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
+                    if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
                         throw SynologyError.sessionExpired(code: 106, message: "expired")
                     }
                     throw failure
@@ -340,7 +340,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 let apiClient = MockApiClient()
                 let keychain = makeResumeStorage(apiClient: apiClient)
                 apiClient.requestHandler = { endpoint in
-                    if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
+                    if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
                         throw SynologyError.sessionExpired(code: 107, message: "expired")
                     }
                     throw SynologyError.auth(code: code, message: "OTP required")
@@ -417,7 +417,7 @@ private func makeResumeLogin(
         apiInfoApi: apiInfo,
         apiClient: apiClient,
         authApi: AuthClient(apiClient: apiClient, keyChainStorage: keychain),
-        audioStationApi: AudioStationClient(apiClient: apiClient),
+        dsmInfoApi: DSMInfoClient(apiClient: apiClient),
         connectionChecker: ResumeConnectionChecker(usedCachedConnection: usedCachedConnection),
         keyChainStorage: keychain
     )
@@ -445,30 +445,8 @@ private struct ResumeConnectionChecker: ConnectionChecking {
     func check(server: String, usesHTTPS: Bool) -> AsyncStream<ConnectionCheckProgress> { check() }
 }
 
-private func makeResumeValidationInfo() -> AudioStationInfo {
-    AudioStationInfo(
-        enable_equalizer: false,
-        playing_queue_max: 0,
-        same_subnet: false,
-        enable_user_home: false,
-        has_aac: false,
-        support_bluetooth: false,
-        version_string: nil,
-        has_music_share: false,
-        version: nil,
-        sid: "old-sid",
-        enable_personal_library: false,
-        settings: AudioStationInfoSettings(disable_upnp: false, enable_download: false, transcode_to_mp3: false, prefer_using_html5: false, audio_show_virtual_library: false),
-        support_usb: false,
-        dsd_decode_capability: false,
-        browse_personal_library: nil,
-        serial_number: nil,
-        privilege: AudioStationInfoPrivilege(tag_edit: false, sharing: false, upnp_browse: false, playlist_edit: false, remote_player: false),
-        support_virtual_library: false,
-        remote_controller: false,
-        transcode_capability: [],
-        is_manager: false
-    )
+private func makeResumeValidationInfo() -> DsmInfo {
+    DsmInfo(model: "DS920+")
 }
 
 private struct MockApiInfoProvider: ApiInfoProviding {
