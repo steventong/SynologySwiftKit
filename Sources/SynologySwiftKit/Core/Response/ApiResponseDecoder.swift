@@ -32,7 +32,8 @@ struct ApiResponseDecoder {
         do {
             return try JSONDecoderProvider.shared.decode(Value.self, from: data)
         } catch {
-            Logger.error("JSON decode error: \(error), data: \(String(data: data, encoding: .utf8) ?? "nil")")
+            // Malformed response bodies and decoder details may contain session credentials.
+            Logger.error("JSON decoding failed, responseBytes=\(data.count)")
             throw SynologyError.network(message: "Decoding failed: \(error.localizedDescription)")
         }
     }

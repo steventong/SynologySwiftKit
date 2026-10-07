@@ -72,6 +72,33 @@ final class DSMCoreReadTests: XCTestCase {
         }
     }
 
+    func testMalformedResponseThrowsAndDoesNotLogPayload() async throws {
+        let oldEnabled = Logger.isEnabled
+        let oldDestination = Logger.destination
+        let oldHandler = Logger.handler
+        defer {
+            Logger.isEnabled = oldEnabled
+            Logger.destination = oldDestination
+            Logger.handler = oldHandler
+        }
+        Logger.isEnabled = true
+        Logger.destination = .handler
+        Logger.handler = { record in
+            XCTAssertFalse(record.message.contains("echoed-secret-sid"))
+        }
+        let transport = HTTPClientFactorySpy()
+        let client = makeClient(transport)
+        transport.handler = { request, _ in
+            (Data("{invalid echoed-secret-sid".utf8), makeHTTPURLResponse(url: request.url!))
+        }
+        do {
+            _ = try await NormalUserClient(apiClient: client).get(sid: "current-sid")
+            XCTFail("Expected decoding failure")
+        } catch {
+            XCTAssertEqual(client.session?.sid, "current-sid")
+        }
+    }
+
     private func makeClient(_ transport: HTTPClientFactorySpy) -> ApiClient {
         let client = ApiClient(httpClientFactory: transport.makeFactory(), keyValueStorage: MockKeyValueStorage())
         client.apiInfoProvider = TestApiInfoProvider(nodes: [
