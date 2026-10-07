@@ -2,6 +2,49 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class DSMCoreReadTests: XCTestCase {
+    func testDocumentedReadAPIsIsolateSIDAndPreserveRejectedSession() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = makeClient(transport)
+        client.addInterceptor(AuthInterceptor(sessionProvider: { client.session }, onSessionExpired: {
+            XCTFail("Diagnostic requests must not expire the live session")
+            client.clearSession()
+        }))
+        let auth = AuthClient(apiClient: client, keyChainStorage: makeKeyChainStorage(service: "DSMCoreReadTests"))
+        let files = FileStationClient(apiClient: client)
+        for code in [105, 106, 107, 119, 102] {
+            transport.handler = { request, _ in
+                XCTAssertEqual(request.httpMethod, "GET")
+                XCTAssertFalse(request.httpShouldHandleCookies)
+                XCTAssertNil(request.value(forHTTPHeaderField: "Cookie"))
+                let items = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems)
+                XCTAssertEqual(items.filter { $0.name == "_sid" }.map(\.value), ["current-siX"])
+                let isAuth = items.first { $0.name == "api" }?.value == "SYNO.API.Auth"
+                XCTAssertEqual(items.first { $0.name == "method" }?.value, isAuth ? "token" : "get")
+                XCTAssertEqual(items.first { $0.name == "version" }?.value, isAuth ? "6" : "2")
+                return (try makeJSONData(["success": false, "error": ["code": code]]), makeHTTPURLResponse(url: request.url!))
+            }
+            let responses = [try await auth.token(sid: "current-siX"), try await files.info(sid: "current-siX")]
+            for response in responses {
+                XCTAssertFalse(response.success)
+                XCTAssertEqual(response.error?.code, code)
+            }
+            XCTAssertEqual(client.session?.sid, "current-sid")
+        }
+        transport.handler = { request, _ in
+            let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!
+            XCTAssertEqual(items.filter { $0.name == "_sid" }.map(\.value), ["current-sid"])
+            XCTAssertFalse(request.httpShouldHandleCookies)
+            XCTAssertNil(request.value(forHTTPHeaderField: "Cookie"))
+            return (try makeJSONData(["success": true, "data": ["synotoken": "returned-token", "is_manager": false]]),
+                    makeHTTPURLResponse(url: request.url!))
+        }
+        let token = try await auth.token()
+        XCTAssertEqual(token.data?["synotoken"], .string("returned-token"))
+        let info = try await files.info()
+        XCTAssertEqual(info.data?["is_manager"], .bool(false))
+        XCTAssertEqual(client.session?.sid, "current-sid")
+    }
+
     func testBothAPIsUseExplicitSIDWithoutAmbientCookiesAndPreserveSessionOnRejection() async throws {
         let transport = HTTPClientFactorySpy()
         let client = makeClient(transport)
@@ -102,6 +145,8 @@ final class DSMCoreReadTests: XCTestCase {
     private func makeClient(_ transport: HTTPClientFactorySpy) -> ApiClient {
         let client = ApiClient(httpClientFactory: transport.makeFactory(), keyValueStorage: MockKeyValueStorage())
         client.apiInfoProvider = TestApiInfoProvider(nodes: [
+            "SYNO.API.Auth": ApiInfoNode(path: "entry.cgi", minVersion: 3, maxVersion: 7, requestFormat: nil),
+            "SYNO.FileStation.Info": ApiInfoNode(path: "entry.cgi", minVersion: 2, maxVersion: 2, requestFormat: nil),
             "SYNO.Core.Desktop.Timeout": ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil),
             "SYNO.Core.NormalUser": ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
         ])

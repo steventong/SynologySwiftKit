@@ -156,6 +156,7 @@ enum SynologyApi {
 
     /// FileStation API
     enum FileStation {
+        static let INFO = ApiDefinition(name: "SYNO.FileStation.Info")
         /// 删除
         static let DELETE = ApiDefinition(name: "SYNO.FileStation.Delete")
     }

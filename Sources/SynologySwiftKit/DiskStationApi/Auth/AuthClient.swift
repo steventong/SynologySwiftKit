@@ -104,6 +104,18 @@ public final class AuthClient {
         }
     }
 
+    /// Queries SYNO.API.Auth.token (v6), documented in the DSM Login Web API Guide.
+    /// Returns the API envelope without changing the session or storing the returned SynoToken.
+    /// An explicit SID is sent without ambient cookies. This is not a guaranteed SID validation API.
+    public func token(sid: String? = nil) async throws -> DSMReadResponse {
+        try await apiClient.requestEnvelope(ApiEndpoint(
+            api: SynologyApi.Core.AUTH, method: "token", version: 6,
+            httpMethod: .get, sidOnQuery: sid == nil, sidOnCookie: false
+        ) {
+            if let sid { ("_sid", sid) }
+        })
+    }
+
     /// 读取已保存的登录凭据
     /// Read saved login credentials
     public func getCredentials() -> SynologyCredentials? {

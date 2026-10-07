@@ -21,6 +21,18 @@ public final class FileStationClient {
         self.apiClient = apiClient
     }
 
+    /// Gets SYNO.FileStation.Info (v2), documented in the File Station API Guide.
+    /// Requires File Station access; a permission failure alone does not indicate an invalid SID.
+    /// Returns the API envelope without invalidating the session. An explicit SID excludes ambient cookies.
+    public func info(sid: String? = nil) async throws -> DSMReadResponse {
+        try await apiClient.requestEnvelope(ApiEndpoint(
+            api: SynologyApi.FileStation.INFO, method: "get", version: 2,
+            httpMethod: .get, sidOnQuery: sid == nil, sidOnCookie: false
+        ) {
+            if let sid { ("_sid", sid) }
+        })
+    }
+
     /// 删除文件
     /// Delete file
     /// - Parameter path: 文件路径
