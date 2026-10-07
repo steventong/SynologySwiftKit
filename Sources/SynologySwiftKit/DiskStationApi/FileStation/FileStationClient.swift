@@ -12,13 +12,25 @@ import Foundation
 public final class FileStationClient {
     /// API 客户端（internal 以便 extension 使用）
     /// API client (internal for extension access)
-    let apiClient: ApiRequestSending
+    let apiClient: ApiEndpointClient
 
     /// 初始化 FileStation API
     /// Initialize FileStation API
     /// - Parameter apiClient: API 客户端
-    init(apiClient: ApiRequestSending) {
+    init(apiClient: ApiEndpointClient) {
         self.apiClient = apiClient
+    }
+
+    /// Authenticated original-file URL for streaming. Contains a session token; do not log or persist it.
+    public func playbackURL(path: String) async throws -> URL {
+        let paths = try ApiParameterValue.jsonEncoded([path])
+        return try await apiClient.buildUrl(ApiEndpoint(
+            api: ApiDefinition(name: "SYNO.FileStation.Download"),
+            method: "download", version: 2, sidOnQuery: true, sidOnCookie: false
+        ) {
+            ("path", paths)
+            ("mode", "open")
+        })
     }
 
     /// Gets SYNO.FileStation.Info (v2), documented in the File Station API Guide.
