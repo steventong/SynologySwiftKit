@@ -20,7 +20,7 @@ final class QuickConnectClientHappyPathTests: XCTestCase {
             let parameters = try XCTUnwrap(
                 JSONSerialization.jsonObject(with: body) as? [String: Any]
             )
-            XCTAssertEqual(parameters["id"] as? String, "audio_https")
+            XCTAssertEqual(parameters["id"] as? String, "dsm_https")
             XCTAssertNil(parameters["stop_when_success"])
             XCTAssertNil(parameters["stop_when_error"])
             if url.host == SynologySwiftKitConstant.GLOBAL_SYNOLOGY_CONNECT_SERVER {
@@ -183,7 +183,7 @@ final class QuickConnectClientHappyPathTests: XCTestCase {
                 let parameters = try XCTUnwrap(
                     JSONSerialization.jsonObject(with: body) as? [String: Any]
                 )
-                XCTAssertEqual(parameters["id"] as? String, "audio_https")
+                XCTAssertEqual(parameters["id"] as? String, "dsm_https")
                 if parameters["command"] as? String == "request_tunnel" {
                     XCTAssertNotNil(parameters["location"] as? String)
                     XCTAssertTrue((parameters["platform"] as? String)?.isEmpty == false)

@@ -63,22 +63,22 @@ for await progress in client.flows.userLogin.login(
 ## Audio Station
 
 ```swift
-let albums = try await client.albums.list(limit: 20)
-let songs = try await client.songs.list(limit: 100, libraryScope: .shared)
-let playlists = try await client.playlists.list(limit: 50, offset: 0)
-let searchResults = try await client.search.list(keyword: "Miles")
+let albums = try await client.audioStation.albums.list(limit: 20)
+let songs = try await client.audioStation.songs.list(limit: 100, libraryScope: .shared)
+let playlists = try await client.audioStation.playlists.list(limit: 50, offset: 0)
+let searchResults = try await client.audioStation.search.list(keyword: "Miles")
 ```
 
 ## Playlists
 
 ```swift
-let playlist = try await client.playlists.create(
+let playlist = try await client.audioStation.playlists.create(
     name: "Favorites",
     libraryScope: .personal,
     songIDs: ["music_1", "music_2"]
 )
 
-try await client.playlists.addSongs(
+try await client.audioStation.playlists.addSongs(
     id: playlist.id,
     songIDs: ["music_3"]
 )
@@ -87,12 +87,12 @@ try await client.playlists.addSongs(
 ## Covers And Playback
 
 ```swift
-let coverURL = try await client.covers.songCoverURL(
+let coverURL = try await client.audioStation.covers.songCoverURL(
     songID: "music_1",
     libraryScope: .shared
 )
 
-let playbackURL = try await client.stream.playbackURL(
+let playbackURL = try await client.audioStation.stream.playbackURL(
     for: SongPlaybackSource(
         id: "music_1",
         path: "/music/demo.mp3",
@@ -137,8 +137,10 @@ client.session.clear()
 Use one naming system only:
 
 - grouped modules: `client.auth`, `client.system`, `client.audioStation`, `client.files`, `client.session`, `client.flows`
-- direct API names: `client.quickConnect`, `client.dsmInfo`, `client.encryption`, `client.songs`, `client.albums`, `client.artists`, `client.composers`, `client.genres`, `client.folders`, `client.playlists`, `client.pins`, `client.lyrics`, `client.search`, `client.covers`, `client.stream`, `client.tagEditor`
-- task flows: `client.flows.userLogin`, `client.flows.checkDeviceConnection`, `client.flows.queryAllSongs`
+- direct system API names: `client.quickConnect`, `client.dsmInfo`, `client.encryption`
+- Audio Station APIs: `client.audioStation.songs`, `client.audioStation.albums`, `client.audioStation.folders`, `client.audioStation.search`, and other music APIs
+- music batch queries: `client.audioStation.queryAllSongs(batchSize:concurrency:)`, `client.audioStation.queryTotalSongsCount()`
+- task flows: `client.flows.userLogin`, `client.flows.connectionCheck`, `client.flows.connection`
 - `client.files`: File Station file operations
 
 ## Request Interceptors
@@ -203,8 +205,9 @@ Use `.system` to keep only OS logging, `.handler` to forward only to the host ap
 | Area | APIs |
 | --- | --- |
 | Grouped modules | `auth`, `system`, `audioStation`, `files`, `session`, `flows` |
-| Direct API names | `quickConnect`, `dsmInfo`, `encryption`, `songs`, `albums`, `artists`, `composers`, `genres`, `folders`, `playlists`, `pins`, `lyrics`, `search`, `covers`, `stream`, `tagEditor` |
-| Task flows | `userLogin`, `checkDeviceConnection`, `queryAllSongs` |
+| Direct system API names | `quickConnect`, `dsmInfo`, `encryption` |
+| Audio Station | `audioStation.songs`, `audioStation.albums`, `audioStation.folders`, `audioStation.search`, and other music APIs |
+| Task flows | `userLogin`, `connectionCheck`, `connection` |
 
 ## Development
 
@@ -233,3 +236,21 @@ classified as authentication failures, and do not clear the active session.
 Transport, API-discovery and decoding failures throw. `success: true` without
 `data` is supported. The response is Codable for display; callers should redact
 credentials and personal fields before exporting diagnostics.
+
+## Audio Station namespace migration
+
+All music APIs now live under `client.audioStation`. Root music aliases and
+`client.flows.queryAllSongs` have been removed without compatibility shims.
+
+```swift
+let songs = try await client.audioStation.songs.list(limit: 100)
+let total = await client.audioStation.queryTotalSongsCount()
+for await progress in client.audioStation.queryAllSongs(batchSize: 500, concurrency: 3) {
+    // Consume the existing QueryAllSongsProgress events.
+    print(progress)
+}
+```
+
+Move `client.<music API>` to `client.audioStation.<music API>`.
+Move `client.flows.queryAllSongs.queryAllSongs(...)` to `client.audioStation.queryAllSongs(...)`,
+and `client.flows.queryAllSongs.queryTotalSongsCount()` to `client.audioStation.queryTotalSongsCount()`.

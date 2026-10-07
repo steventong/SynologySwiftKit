@@ -52,14 +52,14 @@ public final class AuthClient {
         let normalizedOTPCode = otpCode?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty
-        let deviceName = deviceInfo?.1 ?? "Apple Device - DS Music"
+        let deviceName = deviceInfo?.1 ?? "SynologySwiftKit"
 
         do {
             let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post, timeout: 10) {
                 ("account", username)
                 ("passwd", password)
                 ("format", "cookie")
-                ("session", "AudioStation")
+                ("session", "SynologySwiftKit")
                 ("client_time", String(Int(Date().timeIntervalSince1970)))
                 if let normalizedOTPCode {
                     ("otp_code", normalizedOTPCode)

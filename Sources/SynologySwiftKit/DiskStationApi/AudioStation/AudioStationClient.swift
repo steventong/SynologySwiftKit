@@ -33,6 +33,8 @@ public final class AudioStationClient {
     /// API client (internal for extension access)
     let apiClient: ApiEndpointClient
 
+    private let songQuery: any QueryAllSongsProviding
+
     // MARK: - API Modules
 
     /// 固定 API
@@ -77,6 +79,16 @@ public final class AudioStationClient {
     /// 标签编辑器 API
     public let tagEditor: TagEditorApi
 
+    /// Query the music library count; returns -1 when the query fails.
+    public func queryTotalSongsCount() async -> Int {
+        await songQuery.queryTotalSongsCount()
+    }
+
+    /// Stream all song batches using the Audio Station module.
+    public func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
+        songQuery.queryAllSongs(batchSize: batchSize, concurrency: concurrency)
+    }
+
     // MARK: - Initialization
 
     /// 初始化 AudioStation API
@@ -84,6 +96,7 @@ public final class AudioStationClient {
     /// - Parameter apiClient: API 客户端
     init(apiClient: ApiEndpointClient, keyValueStorage: KeyValueStorage = StorageService()) {
         self.apiClient = apiClient
+        songQuery = QueryAllSongs(apiClient: apiClient)
 
         let info = InfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
         pins = PinApi(apiClient: apiClient)

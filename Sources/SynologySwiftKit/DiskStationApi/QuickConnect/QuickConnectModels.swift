@@ -28,13 +28,13 @@ extension QuickConnectClient {
     /// QuickConnect 服务类型 ID
     /// QuickConnect service type ID
     enum QuickConnectServerId: String, Encodable {
-        /// HTTPS 模式的 Audio Station 服务
-        /// Audio Station service in HTTPS mode
-        case audio_https
+        /// HTTPS 模式的 DSM 服务
+        /// DSM service in HTTPS mode
+        case dsm_https
 
-        /// HTTP 模式的 Audio Station 服务
-        /// Audio Station service in HTTP mode
-        case audio_http
+        /// HTTP 模式的 DSM 服务
+        /// DSM service in HTTP mode
+        case dsm
     }
 
     // MARK: - SynoGetServerInfoRequest

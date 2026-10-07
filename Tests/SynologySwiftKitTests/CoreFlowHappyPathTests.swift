@@ -79,7 +79,9 @@ final class CoreFlowHappyPathTests: XCTestCase {
             }
         }
 
-        let query = QueryAllSongs(apiClient: apiClient)
+        let query = AudioStationClient(apiClient: apiClient)
+        let count = await query.queryTotalSongsCount()
+        XCTAssertEqual(count, 3)
         var events: [QueryAllSongsProgress] = []
         for await progress in query.queryAllSongs(batchSize: 2, concurrency: 1) {
             events.append(progress)
@@ -136,9 +138,6 @@ final class CoreFlowHappyPathTests: XCTestCase {
         XCTAssertEqual(client.session.current?.sid, "sid-123")
         XCTAssertEqual(client.session.current?.did, "did-123")
         XCTAssertTrue(client.quickConnect === client.system.connection.quickConnect)
-        XCTAssertTrue(client.songs === client.audioStation.songs)
-        XCTAssertTrue(client.stream === client.audioStation.stream)
-        XCTAssertTrue(client.lyrics === client.audioStation.lyrics)
         XCTAssertTrue(client.dsmInfo === client.system.dsmInfo)
         XCTAssertTrue(client.encryption === client.system.encryption)
     }

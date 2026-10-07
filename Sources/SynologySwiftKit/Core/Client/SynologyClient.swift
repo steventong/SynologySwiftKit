@@ -148,19 +148,7 @@ public final class SynologyClient {
     public var dsmInfo: DSMInfoClient { system.dsmInfo }
     public var encryption: EncryptionClient { system.encryption }
 
-    public var pins: PinApi { audioStation.pins }
-    public var folders: FolderApi { audioStation.folders }
-    public var albums: AlbumApi { audioStation.albums }
-    public var artists: ArtistApi { audioStation.artists }
-    public var composers: ComposerApi { audioStation.composers }
-    public var genres: GenreApi { audioStation.genres }
-    public var songs: SongApi { audioStation.songs }
-    public var playlists: PlaylistApi { audioStation.playlists }
-    public var lyrics: LyricsApi { audioStation.lyrics }
-    public var search: SearchApi { audioStation.search }
-    public var covers: CoverApi { audioStation.covers }
-    public var stream: StreamApi { audioStation.stream }
-    public var tagEditor: TagEditorApi { audioStation.tagEditor }
+
 }
 
 private struct SynologyClientContainer {
@@ -242,16 +230,13 @@ private struct SynologyClientContainer {
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations
         )
-        let queryAllSongs = QueryAllSongs(apiClient: apiClient)
         let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
         let connectionCheckFlow = ConnectionCheckFlowClient(connectionCheck: checkConnection)
         let connectionFlow = ConnectionManagerFlowClient(connectionManager: connectionManager)
-        let queryAllSongsFlow = QueryAllSongsFlowClient(queryFlow: queryAllSongs)
         self.flows = FlowClient(
             userLogin: userLoginFlow,
             connectionCheck: connectionCheckFlow,
-            connection: connectionFlow,
-            queryAllSongs: queryAllSongsFlow
+            connection: connectionFlow
         )
         self.session = SessionClient(
             connectionProvider: { [weak apiClient] in

@@ -216,7 +216,7 @@ final class CoverageClosureTests: XCTestCase {
             XCTAssertNil(endpoint.parameters["otp_code"])
             XCTAssertNil(endpoint.parameters["enable_device_token"])
             XCTAssertEqual(endpoint.parameters["device_id"]?.stringValue, "device-1")
-            XCTAssertEqual(endpoint.parameters["device_name"]?.stringValue, "Apple Device - DS Music")
+            XCTAssertEqual(endpoint.parameters["device_name"]?.stringValue, "SynologySwiftKit")
             return AuthResult(did: nil, isPortalPort: false, sid: "sid-2", synotoken: nil)
         }
         _ = try await AuthClient(
