@@ -93,10 +93,8 @@ final class ApiInfoApi: ApiInfoProviding {
             return (id, task)
         }
         do {
-            let routes = try await withTaskCancellationHandler {
-                try await result.1.value
-            } onCancel: { result.1.cancel() }
-            try Task.checkCancellation()
+            // 路由发现由服务器身份管理；单个调用者结束不能取消其他调用者共用的查询。
+            let routes = try await result.1.value
             guard try self.scope() == scope else { throw CancellationError() }
             locked {
                 if pending[scope]?.0 == result.0 {
@@ -105,6 +103,7 @@ final class ApiInfoApi: ApiInfoProviding {
                     pending[scope] = nil
                 }
             }
+            try Task.checkCancellation()
             return routes
         } catch {
             locked { if pending[scope]?.0 == result.0 { pending[scope] = nil } }

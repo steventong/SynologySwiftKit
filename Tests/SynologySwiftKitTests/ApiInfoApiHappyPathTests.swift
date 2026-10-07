@@ -2,6 +2,21 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class ApiInfoApiHappyPathTests: XCTestCase {
+    func testCancelledWaiterDoesNotCancelSharedDiscovery() async throws {
+        let started = expectation(description: "Discovery suspended")
+        let gate = RouteDiscoveryGate(started: started)
+        let provider = ApiInfoApi(apiClient: SuspendedRouteClient(gate: gate), keyValueStorage: MockKeyValueStorage())
+        provider.selectServer("nas-a.local")
+        let first = Task { try await provider.refresh() }
+        await fulfillment(of: [started], timeout: 2)
+        first.cancel()
+        let second = Task { try await provider.refresh() }
+        await gate.release()
+        do { try await first.value; XCTFail("Cancelled waiter must not receive the result") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        try await second.value
+    }
+
     func testSwitchingServersRejectsLateDiscoveryEvenWhenSwitchingBack() async throws {
         let started = expectation(description: "Discovery suspended")
         let gate = RouteDiscoveryGate(started: started)

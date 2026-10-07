@@ -2,6 +2,39 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class SessionOperationOwnershipTests: XCTestCase {
+    func testRecoveryPreservesAnInFlightRouteQuery() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory(), keyValueStorage: MockKeyValueStorage())
+        client.updateConnection(type: .custom_domain, url: "https://nas.invalid")
+        let routes = ApiInfoApi(apiClient: client, keyValueStorage: MockKeyValueStorage())
+        routes.selectServer("https://nas.invalid")
+        client.apiInfoProvider = routes
+        let started = expectation(description: "Artwork route discovery started")
+        let recovering = expectation(description: "Recovery started")
+        let release = DispatchSemaphore(value: 0)
+        transport.handler = { request, _ in
+            started.fulfill()
+            guard release.wait(timeout: .now() + 5) == .success else {
+                throw SynologyError.network(message: "Fixture timed out")
+            }
+            let data = Data(#"{"success":true,"data":{"SYNO.DSM.Info":{"path":"entry.cgi","minVersion":1,"maxVersion":2}}}"#.utf8)
+            return (data, makeHTTPURLResponse(url: request.url!))
+        }
+        let artwork = Task { try await routes.getApiInfoByApiName(apiName: "SYNO.DSM.Info") }
+        await fulfillment(of: [started], timeout: 2)
+        let recovery = client.sessionOperations.start(invalidatesRequests: false) {
+            recovering.fulfill()
+            return try await routes.getApiInfoByApiName(apiName: "SYNO.DSM.Info")
+        }
+        await fulfillment(of: [recovering], timeout: 2)
+        release.signal()
+        let artworkRoute = try await artwork.value
+        let recoveryRoute = try await recovery.value
+        XCTAssertEqual(artworkRoute.path, "entry.cgi")
+        XCTAssertEqual(recoveryRoute.path, "entry.cgi")
+        XCTAssertEqual(transport.requests.count, 1)
+    }
+
     func testNewOperationWaitsForCancelledOperationsRollback() async throws {
         let owner = SessionOperationCoordinator()
         let started = expectation(description: "Old operation suspended")

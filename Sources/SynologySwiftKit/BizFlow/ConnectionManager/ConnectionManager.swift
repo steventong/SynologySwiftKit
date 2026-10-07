@@ -1,6 +1,8 @@
 import Foundation
 
 final class ConnectionManager: ConnectionManaging {
+    private let recoveryLock = NSLock()
+    private var recovery: (id: UUID, task: Task<ConnectionRecoveryDecision, Error>)?
     private let sessionOperations: SessionOperationCoordinator
     private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
     private let quickConnectApi: QuickConnectClient
@@ -35,7 +37,20 @@ final class ConnectionManager: ConnectionManaging {
     }
 
     func recoverConnection() async -> ConnectionRecoveryDecision {
-        (try? await sessionOperations.perform { await self.performRecovery() }) ?? .disconnected
+        // 自动恢复共享一次检查，不取消同账号已有请求，也不随某个等待者取消。
+        let pending = recoveryLock.withLock {
+            if let recovery { return recovery }
+            let pending = (id: UUID(), task: sessionOperations.start(invalidatesRequests: false) {
+                await self.performRecovery()
+            })
+            recovery = pending
+            return pending
+        }
+        let decision = (try? await pending.task.value) ?? .disconnected
+        recoveryLock.withLock {
+            if recovery?.id == pending.id { recovery = nil }
+        }
+        return decision
     }
 
     private func performRecovery() async -> ConnectionRecoveryDecision {

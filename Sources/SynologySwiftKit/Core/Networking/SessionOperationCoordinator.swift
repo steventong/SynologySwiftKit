@@ -28,13 +28,13 @@ final class SessionOperationCoordinator: @unchecked Sendable {
     private var tail: Task<Void, Never>?
     private var completions: [UUID: Task<Void, Never>] = [:]
 
-    func start<Value>(_ work: @escaping () async throws -> Value) -> Task<Value, Error> {
+    func start<Value>(invalidatesRequests: Bool = true, _ work: @escaping () async throws -> Value) -> Task<Value, Error> {
         locked {
             let predecessor = tail
             let id = UUID()
             let revision = externalRevision
             latestID = id
-            requestRevision &+= 1
+            if invalidatesRequests { requestRevision &+= 1 }
             cancelActive?()
             let requestRevision = requestRevision
             let task = Task<Value, Error> { [self] in
