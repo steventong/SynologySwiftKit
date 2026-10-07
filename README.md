@@ -212,3 +212,24 @@ Use `.system` to keep only OS logging, `.handler` to forward only to the host ap
 swift build
 swift test
 ```
+
+## DSM Core Read APIs
+
+These internal DSM APIs are exposed independently; they do not replace the existing
+session-validation flow. Availability and semantics must be verified against the NAS.
+
+```swift
+let timeout = try await client.system.desktopTimeout.check()
+let user = try await client.system.normalUser.get()
+
+// Explicit SID requests use only the supplied SID, without ambient session cookies.
+let check = try await client.system.desktopTimeout.check(sid: sid)
+let profile = try await client.system.normalUser.get(sid: sid)
+```
+
+Both return `DSMReadResponse` with `success`, optional `data` (JSON fields), and
+optional `error.code` / `error.errors`. API failures are returned, not automatically
+classified as authentication failures, and do not clear the active session.
+Transport, API-discovery and decoding failures throw. `success: true` without
+`data` is supported. The response is Codable for display; callers should redact
+credentials and personal fields before exporting diagnostics.

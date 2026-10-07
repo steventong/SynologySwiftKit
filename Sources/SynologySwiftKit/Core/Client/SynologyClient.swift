@@ -213,7 +213,9 @@ private struct SynologyClientContainer {
         self.system = SystemClient(
             dsmInfo: dsmInfo,
             encryption: encryption,
-            connection: ConnectionClient(quickConnect: quickConnect, ping: ping)
+            connection: ConnectionClient(quickConnect: quickConnect, ping: ping),
+            desktopTimeout: DesktopTimeoutClient(apiClient: apiClient),
+            normalUser: NormalUserClient(apiClient: apiClient)
         )
 
         let checkConnection = ConnectionChecker(
