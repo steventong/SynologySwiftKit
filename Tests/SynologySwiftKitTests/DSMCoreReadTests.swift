@@ -2,6 +2,40 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class DSMCoreReadTests: XCTestCase {
+    func testDSMInfoDiagnosticIsolatesSIDAndPreservesResponseAndSession() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = makeClient(transport)
+        client.addInterceptor(AuthInterceptor(sessionProvider: { client.session }, onSessionExpired: {
+            XCTFail("Diagnostic rejection must not expire the session")
+            client.clearSession()
+        }))
+        let info = DSMInfoClient(apiClient: client)
+        for sid in ["current-sid", "current-siX"] {
+            transport.handler = { request, _ in
+                XCTAssertEqual(request.httpMethod, "GET")
+                XCTAssertFalse(request.httpShouldHandleCookies)
+                XCTAssertNil(request.value(forHTTPHeaderField: "Cookie"))
+                let items = try XCTUnwrap(URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems)
+                XCTAssertEqual(items.filter { $0.name == "_sid" }.map(\.value), [sid])
+                XCTAssertEqual(items.first { $0.name == "api" }?.value, "SYNO.DSM.Info")
+                XCTAssertEqual(items.first { $0.name == "method" }?.value, "getinfo")
+                XCTAssertEqual(items.first { $0.name == "version" }?.value, "2")
+                let payload: [String: Any] = sid == "current-sid"
+                    ? ["success": true, "data": ["model": "DS920+", "ram": 4096]]
+                    : ["success": false, "error": ["code": 119]]
+                return (try makeJSONData(payload), makeHTTPURLResponse(url: request.url!))
+            }
+            let response = try await info.queryEnvelope(sid: sid)
+            XCTAssertEqual(response.success, sid == "current-sid")
+            if response.success {
+                XCTAssertEqual(response.data?["model"], .string("DS920+"))
+            } else {
+                XCTAssertEqual(response.error?.code, 119)
+            }
+            XCTAssertEqual(client.session?.sid, "current-sid")
+        }
+    }
+
     func testDocumentedReadAPIsIsolateSIDAndPreserveRejectedSession() async throws {
         let transport = HTTPClientFactorySpy()
         let client = makeClient(transport)
@@ -145,6 +179,7 @@ final class DSMCoreReadTests: XCTestCase {
     private func makeClient(_ transport: HTTPClientFactorySpy) -> ApiClient {
         let client = ApiClient(httpClientFactory: transport.makeFactory(), keyValueStorage: MockKeyValueStorage())
         client.apiInfoProvider = TestApiInfoProvider(nodes: [
+            "SYNO.DSM.Info": ApiInfoNode(path: "entry.cgi", minVersion: 2, maxVersion: 2, requestFormat: nil),
             "SYNO.API.Auth": ApiInfoNode(path: "entry.cgi", minVersion: 3, maxVersion: 7, requestFormat: nil),
             "SYNO.FileStation.Info": ApiInfoNode(path: "entry.cgi", minVersion: 2, maxVersion: 2, requestFormat: nil),
             "SYNO.Core.Desktop.Timeout": ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil),
