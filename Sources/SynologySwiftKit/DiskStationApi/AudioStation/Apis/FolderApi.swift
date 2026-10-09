@@ -22,17 +22,20 @@ public final class FolderApi {
     /// Query folder content list
     /// - Parameters:
     ///   - id: 文件夹 ID，为 nil 时查询根目录 / Folder ID, nil for root directory
+    ///   - recursive: 由服务端展开所有子目录歌曲（v3），结果仍支持分页。
     ///   - limit: 每页数量 / Page size
     ///   - offset: 起始偏移量 / Start offset
     public func list(
         id: String?,
         limit: Int = 200,
-        offset: Int = 0
+        offset: Int = 0,
+        recursive: Bool = false
     ) async throws -> SynologyPage<Folder> {
         let result: FolderListResult = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.AudioStation.FOLDER, method: "list") {
                 ("version", 3)
                 ("id", id ?? "")
+                ("recursive", recursive ? "true" : "false")
                 ("library", "all")
                 ("additional", "song_tag,song_audio,song_rating")
                 ("limit", limit)
