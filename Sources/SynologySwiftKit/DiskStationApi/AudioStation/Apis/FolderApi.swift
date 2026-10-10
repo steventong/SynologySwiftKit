@@ -45,47 +45,32 @@ public final class FolderApi {
         return SynologyPage(total: result.total, items: result.items)
     }
 
-    /// 获取完整文件夹内容。递归获取使用一次原生全量请求，不遍历子文件夹。
-    /// 根目录通过 Song.list 查询所有媒体库；具体目录通过 Folder.list 的 recursive 展开。
-    /// pageSize 仅用于普通（非递归）浏览。
+    /// 按页获取完整内容，不遍历子文件夹。
+    /// 根目录递归通过 Song.list 查询所有媒体库；具体目录由 Folder.list 的 recursive 展开。
     public func allItems(id: String?, recursive: Bool = false, pageSize: Int = 200) async throws -> [Folder] {
-        try Task.checkCancellation()
-        guard recursive else {
-            precondition(pageSize > 0)
-            return try await collectPages(id: id, recursive: false, pageSize: pageSize)
-        }
-
-        let items: [Folder]
-        let total: Int
-        if id?.isEmpty != false {
-            let page = try await SongApi(apiClient: apiClient).list(limit: -1, offset: 0, libraryScope: .all)
-            total = page.total
-            items = page.items.map {
-                Folder(id: $0.id, path: $0.path, title: $0.title, type: $0.type, additional: $0.additional)
-            }
-        } else {
-            let page = try await list(id: id, limit: -1, offset: 0, recursive: true)
-            total = page.total
-            items = page.items
-        }
-        try Task.checkCancellation()
-        guard items.count >= total else {
-            throw SynologyError.api(code: -1, message: "Audio Station returned an incomplete song list (\(items.count)/\(total)).")
-        }
-        return items
-    }
-
-    private func collectPages(id: String?, recursive: Bool, pageSize: Int) async throws -> [Folder] {
+        precondition(pageSize > 0)
         var items: [Folder] = []
         var offset = 0
         while true {
             try Task.checkCancellation()
-            let page = try await list(id: id, limit: pageSize, offset: offset, recursive: recursive)
+            let page: SynologyPage<Folder>
+            if recursive && id?.isEmpty != false {
+                let songs = try await SongApi(apiClient: apiClient).list(
+                    limit: pageSize, offset: offset, libraryScope: .all
+                )
+                page = SynologyPage(total: songs.total, items: songs.items.map {
+                    Folder(id: $0.id, path: $0.path, title: $0.title, type: $0.type, additional: $0.additional)
+                })
+            } else {
+                page = try await list(id: id, limit: pageSize, offset: offset, recursive: recursive)
+            }
             try Task.checkCancellation()
             items += page.items
             offset += page.items.count
-            if page.items.isEmpty || offset >= page.total { return items }
+            if offset >= page.total { return items }
+            guard !page.items.isEmpty else {
+                throw SynologyError.api(code: -1, message: "Audio Station returned an incomplete song list (\(offset)/\(page.total)).")
+            }
         }
     }
-
 }
