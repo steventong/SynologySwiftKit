@@ -78,10 +78,7 @@ final class ApiInfoApi: ApiInfoProviding {
             }
             let id = UUID()
             let task = Task { [self] in
-                let endpoint = ApiEndpoint(api: SynologyApi.Core.INFO, fullPath: "/webapi/query.cgi", httpMethod: .get) {
-                    ("api", SynologyApi.Core.INFO.name)
-                    ("version", 1)
-                    ("method", "query")
+                let endpoint = ApiEndpoint(api: SynologyApi.Core.INFO, fullPath: "/webapi/query.cgi", method: "query", version: 1, httpMethod: .get) {
                     ("query", "all")
                 }
                 let routes: [String: ApiInfoNode] = try await apiClient.request(endpoint)

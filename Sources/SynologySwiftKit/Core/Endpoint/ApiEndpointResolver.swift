@@ -32,6 +32,9 @@ final class ApiEndpointResolver {
     /// - Returns: 可执行的解析端点（含路径、版本、参数）/ Executable resolved endpoint (path, version, parameters)
     /// - Throws: `SynologyError.network` 如果 Host 未配置或 API 信息拉取失败 / if host is not configured or API info fetch fails
     func resolve(_ endpoint: ApiEndpoint) async throws -> ResolvedApiEndpoint {
+        guard endpoint.parameters["version"] == nil else {
+            throw SynologyError.api(code: -1, message: "Declare the API version using ApiEndpoint.version, not parameters[\"version\"].")
+        }
         if endpoint.isCustomPath {
             return ResolvedApiEndpoint(
                 name: endpoint.apiName,
