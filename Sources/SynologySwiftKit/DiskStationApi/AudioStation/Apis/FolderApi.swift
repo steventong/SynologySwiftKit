@@ -40,8 +40,7 @@ public final class FolderApi {
             })
         }
         let result: FolderListResult = try await apiClient.request(
-            ApiEndpoint(api: SynologyApi.AudioStation.FOLDER, method: "list") {
-                ("version", 3)
+            ApiEndpoint(api: SynologyApi.AudioStation.FOLDER, method: "list", version: 3) {
                 ("id", id ?? "")
                 ("recursive", recursive ? "true" : "false")
                 ("library", "all")

@@ -8,7 +8,7 @@ final class FolderApiTests: XCTestCase {
         let api = FolderApi(apiClient: client)
         let page = try await api.list(id: "dir_42", limit: 200, offset: 200, recursive: true)
         let endpoint = try XCTUnwrap(client.requestedEndpoints.last)
-        XCTAssertEqual(endpoint.parameters["version"]?.stringValue, "3")
+        XCTAssertEqual(endpoint.version, 3)
         XCTAssertEqual(endpoint.parameters["id"]?.stringValue, "dir_42")
         XCTAssertEqual(endpoint.parameters["recursive"]?.stringValue, "true")
         XCTAssertEqual(endpoint.parameters["limit"]?.stringValue, "200")
@@ -73,4 +73,31 @@ final class FolderApiTests: XCTestCase {
         }
         XCTAssertEqual(client.requestedEndpoints.count, 1)
     }
+
+    func testEveryConcreteFolderSendsV3RecursionInFinalRequest() async throws {
+        let provider = TestApiInfoProvider(nodes: [
+            SynologyApi.AudioStation.FOLDER.name: ApiInfoNode(
+                path: "AudioStation/folder.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil
+            )
+        ])
+        let resolver = ApiEndpointResolver(apiInfoProvider: { provider })
+        let factory = ApiRequestFactory(connectionProvider: { (.lan, "https://nas.invalid") }, sessionProvider: { nil })
+        for id in ["dir_42", "dir_4242", "dir_p_88"] {
+            let client = MockApiClient()
+            client.mockResponse = FolderListResult(id: id, items: [], offset: 0, total: 0, folderTotal: 0)
+            _ = try await FolderApi(apiClient: client).list(id: id, limit: 1000, recursive: true)
+            let endpoint = try XCTUnwrap(client.requestedEndpoints.first)
+            let resolved = try await resolver.resolve(endpoint)
+            let request = try await factory.makeRequest(endpoint: endpoint, resolved: resolved)
+            let url = try XCTUnwrap(request.url)
+            let query = Dictionary(uniqueKeysWithValues: (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+            XCTAssertEqual(query["version"], "3")
+            XCTAssertEqual(query["recursive"], "true")
+            XCTAssertEqual(query["id"], id)
+            XCTAssertEqual(query["limit"], "1000")
+            XCTAssertEqual(query["offset"], "0")
+            XCTAssertEqual(client.requestedEndpoints.count, 1)
+        }
+    }
+
 }
