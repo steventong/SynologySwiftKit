@@ -169,14 +169,6 @@ enum KeyValueStorageKeys {
     /// QuickConnect ID -> resolved server URL
     case SYNOLOGY_SERVER_URL(String)
 
-    /// DSM API 信息缓存
-    /// DSM API info cache
-    case DISK_STATION_API_INFO
-
-    /// DSM API 信息最后更新时间
-    /// DSM API info last update time
-    case DISK_STATION_API_INFO_UPDATE_TIME
-
     /// AudioStation 系统信息缓存
     /// AudioStation system info cache
     case DISK_STATION_AUDIO_STATION_INFO
@@ -195,10 +187,6 @@ enum KeyValueStorageKeys {
         switch self {
         case let .SYNOLOGY_SERVER_URL(quickConnectId):
             return "SynologySwiftKit_SynologyServer_\(quickConnectId)"
-        case .DISK_STATION_API_INFO:
-            return "SynologySwiftKit_DiskStation_ApiInfo"
-        case .DISK_STATION_API_INFO_UPDATE_TIME:
-            return "SynologySwiftKit_DiskStation_ApiInfo_updateTime"
         case .DISK_STATION_AUDIO_STATION_INFO:
             return "SynologySwiftKit_DiskStation_AudioStation_Info"
         case .DISK_STATION_AUDIO_STATION_INFO_UPDATE_TIME:

@@ -277,7 +277,7 @@ private extension QuickConnectClient {
         }
 
         let requestParams = SynoGetServerInfoRequest(
-            id: usesHTTPS ? .audio_https : .audio_http,
+            id: usesHTTPS ? .dsm_https : .dsm,
             command: command,
             serverID: quickConnectId,
             location: command == .request_tunnel ? quickConnectLocation : nil,

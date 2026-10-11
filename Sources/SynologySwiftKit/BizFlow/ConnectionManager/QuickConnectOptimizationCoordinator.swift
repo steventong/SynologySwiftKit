@@ -1,11 +1,11 @@
 import Foundation
 
 actor QuickConnectOptimizationCoordinator: QuickConnectOptimizationScheduling {
-    private var activeTask: Task<SynologyConnection?, Never>?
+    private var activeTask: Task<QuickConnectEndpointRefreshOutcome, Never>?
 
     func run(
-        operation: @escaping @Sendable () async -> SynologyConnection?
-    ) async -> SynologyConnection? {
+        operation: @escaping @Sendable () async -> QuickConnectEndpointRefreshOutcome
+    ) async -> QuickConnectEndpointRefreshOutcome {
         if let activeTask {
             return await activeTask.value
         }
@@ -21,7 +21,7 @@ actor QuickConnectOptimizationCoordinator: QuickConnectOptimizationScheduling {
     }
 
     func schedule(
-        operation: @escaping @Sendable () async -> SynologyConnection?
+        operation: @escaping @Sendable () async -> QuickConnectEndpointRefreshOutcome
     ) {
         guard activeTask == nil else {
             return

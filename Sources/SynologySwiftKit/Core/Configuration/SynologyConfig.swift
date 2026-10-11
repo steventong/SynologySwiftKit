@@ -37,10 +37,6 @@ public struct SynologyConfig: Sendable {
     /// Optional host application log handler
     public let logHandler: SynologyLogHandler?
 
-    /// API 信息缓存有效期 (秒，默认 24 小时)
-    /// API info cache validity (seconds, default: 24 hours)
-    public let apiInfoCacheValidity: Int32
-
     /// 初始化全局配置
     /// Initialize global configuration
     /// - Parameters:
@@ -50,15 +46,13 @@ public struct SynologyConfig: Sendable {
     ///   - enableNetworkLogging: 是否启用详细网络日志（默认 true）/ Enable verbose network logging (default: true)
     ///   - logDestination: 日志输出目的地，默认 `.system` / Logging destination, default: `.system`
     ///   - logHandler: 可选日志处理器，默认 `nil` / Optional log handler, default: `nil`
-    ///   - apiInfoCacheValidity: API 信息缓存有效期（秒，默认 86400s = 24h）/ API info cache validity (seconds, default: 86400s = 24h)
     public init(
         timeoutInterval: TimeInterval = 10,
         quickConnectTimeout: TimeInterval = 10,
         pingpongTimeout: TimeInterval = 3.6,
         enableNetworkLogging: Bool = true,
         logDestination: SynologyLogDestination = .system,
-        logHandler: SynologyLogHandler? = nil,
-        apiInfoCacheValidity: Int32 = 86400
+        logHandler: SynologyLogHandler? = nil
     ) {
         self.timeoutInterval = timeoutInterval
         self.quickConnectTimeout = quickConnectTimeout
@@ -66,6 +60,5 @@ public struct SynologyConfig: Sendable {
         self.enableNetworkLogging = enableNetworkLogging
         self.logDestination = logDestination
         self.logHandler = logHandler
-        self.apiInfoCacheValidity = apiInfoCacheValidity
     }
 }

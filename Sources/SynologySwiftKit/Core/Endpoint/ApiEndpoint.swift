@@ -118,6 +118,7 @@ extension Array: ApiParameterValueConvertible where Element: ApiParameterValueCo
 struct ApiEndpoint {
     let api: ApiDefinition
     let method: String
+    /// API 协议版本的唯一声明位置；parameters 不得包含 version。
     let version: Int
     let httpMethod: HTTPMethod
     let parameters: ApiParameters
@@ -165,11 +166,11 @@ struct ApiEndpoint {
 
     /// 自定义路径初始化
     /// Custom path initialization
-    init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, parameters: ApiParameters = [:],
+    init(api: ApiDefinition, fullPath: String, method: String = "", version: Int = 1, httpMethod: HTTPMethod = .get, parameters: ApiParameters = [:],
                 timeout: TimeInterval = 10) {
         self.api = api
-        method = ""
-        version = 1
+        self.method = method
+        self.version = version
         self.httpMethod = httpMethod
         self.parameters = parameters
         self.timeout = timeout
@@ -218,8 +219,8 @@ extension ApiEndpoint {
 
     /// 自定义路径初始化 (使用 Result Builder)
     /// Custom path initialization with Result Builder
-    init(api: ApiDefinition, fullPath: String, httpMethod: HTTPMethod = .get, timeout: TimeInterval = 10,
+    init(api: ApiDefinition, fullPath: String, method: String = "", version: Int = 1, httpMethod: HTTPMethod = .get, timeout: TimeInterval = 10,
                 @ApiParametersBuilder parameters: () -> ApiParameters) {
-        self.init(api: api, fullPath: fullPath, httpMethod: httpMethod, parameters: parameters(), timeout: timeout)
+        self.init(api: api, fullPath: fullPath, method: method, version: version, httpMethod: httpMethod, parameters: parameters(), timeout: timeout)
     }
 }

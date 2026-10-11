@@ -2,6 +2,64 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class FoundationAndUtilityTests: XCTestCase {
+    func testVersionInParametersIsRejectedBeforeResolution() async {
+        let resolver = ApiEndpointResolver(apiInfoProvider: { nil })
+        let endpoints = [
+            ApiEndpoint.get(api: SynologyApi.AudioStation.FOLDER, method: "list", parameters: ["version": 3]),
+            ApiEndpoint.post(api: SynologyApi.AudioStation.FOLDER, method: "list", version: 3, parameters: ["version": 3]),
+            ApiEndpoint(api: SynologyApi.Core.INFO, fullPath: "/webapi/query.cgi") { ("version", 1) }
+        ]
+        for endpoint in endpoints {
+            do {
+                _ = try await resolver.resolve(endpoint)
+                XCTFail("Version parameters must not be silently overwritten")
+            } catch {
+                XCTAssertTrue(error.localizedDescription.contains("ApiEndpoint.version"))
+            }
+        }
+    }
+
+    func testDeclaredVersionSurvivesGetPostAndPublicURLConstruction() async throws {
+        let api = SynologyApi.AudioStation.FOLDER
+        let provider = TestApiInfoProvider(nodes: [api.name: ApiInfoNode(path: "AudioStation/folder.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)])
+        let resolver = ApiEndpointResolver(apiInfoProvider: { provider })
+        let factory = ApiRequestFactory(connectionProvider: { (.lan, "https://nas.invalid") }, sessionProvider: { nil })
+        for requestedVersion in [2, 3, 4] {
+            let expected = String(min(requestedVersion, 3))
+            for endpoint in [ApiEndpoint.get(api: api, method: "list", version: requestedVersion), ApiEndpoint.post(api: api, method: "list", version: requestedVersion)] {
+                let resolved = try await resolver.resolve(endpoint)
+                let request = try await factory.makeRequest(endpoint: endpoint, resolved: resolved)
+                let encoded = request.httpBody.flatMap { String(data: $0, encoding: .utf8) } ?? request.url?.query ?? ""
+                XCTAssertTrue(encoded.split(separator: "&").contains(Substring("version=\(expected)")))
+                let publicURL = try await factory.makeURL(endpoint: endpoint, resolved: resolved)
+                XCTAssertEqual(URLComponents(url: publicURL, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "version" }?.value, expected)
+            }
+        }
+    }
+
+    func testDiscoveryDeclaresVersionAndWorksWithoutDiscoveryProvider() async throws {
+        let client = MockApiClient()
+        client.connection = (.lan, "https://nas.invalid")
+        client.mockResponse = ["SYNO.DSM.Info": ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 2, requestFormat: nil)]
+        let discovery = ApiInfoApi(apiClient: client, keyValueStorage: MockKeyValueStorage())
+        discovery.selectServer("nas.invalid")
+        try await discovery.refresh()
+        let endpoint = try XCTUnwrap(client.requestedEndpoints.first)
+        XCTAssertEqual(endpoint.version, 1)
+        XCTAssertEqual(endpoint.method, "query")
+        XCTAssertNil(endpoint.parameters["version"])
+        let resolved = try await ApiEndpointResolver(apiInfoProvider: { nil }).resolve(endpoint)
+        let factory = ApiRequestFactory(connectionProvider: { (.lan, "https://nas.invalid") }, sessionProvider: { nil })
+        let request = try await factory.makeRequest(endpoint: endpoint, resolved: resolved)
+        let components = try XCTUnwrap(request.url.flatMap { URLComponents(url: $0, resolvingAgainstBaseURL: false) })
+        let params = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).map { ($0.name, $0.value ?? "") })
+        XCTAssertEqual(components.path, "/webapi/query.cgi")
+        XCTAssertEqual(params["version"], "1")
+        XCTAssertEqual(params["method"], "query")
+        XCTAssertEqual(params["api"], "SYNO.API.Info")
+        XCTAssertEqual(params["query"], "all")
+    }
+
     func testApiRequestFactoryEncodesFormSeparatorsInsideLyrics() async throws {
         let endpoint = ApiEndpoint.custom(
             api: SynologyApi.AudioStation.TAG_EDITOR_UI,

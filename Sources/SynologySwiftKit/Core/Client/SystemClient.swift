@@ -51,7 +51,13 @@ public final class SystemClient {
     /// Connection management client
     public let connection: ConnectionClient
 
-    init(dsmInfo: DSMInfoClient, encryption: EncryptionClient, connection: ConnectionClient) {
+    public let desktopTimeout: DesktopTimeoutClient
+    public let normalUser: NormalUserClient
+
+    init(dsmInfo: DSMInfoClient, encryption: EncryptionClient, connection: ConnectionClient,
+         desktopTimeout: DesktopTimeoutClient, normalUser: NormalUserClient) {
+        self.desktopTimeout = desktopTimeout
+        self.normalUser = normalUser
         self.dsmInfo = dsmInfo
         self.encryption = encryption
         self.connection = connection

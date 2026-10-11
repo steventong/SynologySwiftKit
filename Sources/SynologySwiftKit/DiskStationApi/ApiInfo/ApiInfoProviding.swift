@@ -15,6 +15,9 @@ import Foundation
 /// 定义 API 信息查询和缓存的接口，支持依赖注入模式。
 /// Defines interfaces for API information query and caching, supporting dependency injection pattern.
 protocol ApiInfoProviding {
+    var serverIdentity: String? { get }
+    func selectServer(_ server: String?)
+
     /// 根据 API 名称获取 API 信息
     /// Get API information by API name
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode
@@ -24,6 +27,6 @@ protocol ApiInfoProviding {
     func refresh() async throws
 
     /// 优先从缓存加载 API 信息，缓存不可用时回源刷新
-    /// Load from cache first; refresh from remote if cache is unavailable or expired
+    /// Load from cache first; refresh from remote if cache is unavailable
     func loadFromCacheOrRefresh() async throws
 }

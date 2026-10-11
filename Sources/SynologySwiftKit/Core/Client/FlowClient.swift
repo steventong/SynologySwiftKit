@@ -106,38 +106,6 @@ public final class ConnectionManagerFlowClient {
     }
 }
 
-// MARK: - QueryAllSongsFlowClient
-
-/// 查询全部歌曲流程客户端（公开入口）
-/// Public entry point for the query all songs flow
-///
-/// 对外暴露 `QueryAllSongsProviding` 的功能，屏蔽内部实现细节。
-/// Exposes `QueryAllSongsProviding` functionality while hiding implementation details.
-public final class QueryAllSongsFlowClient {
-    private let queryFlow: any QueryAllSongsProviding
-
-    init(queryFlow: any QueryAllSongsProviding) {
-        self.queryFlow = queryFlow
-    }
-
-    /// 查询歌曲总数（异步，一次性结果）
-    /// Query total songs count (async, single result)
-    /// - Returns: 歌曲总数，失败返回 -1 / Total count, -1 on failure
-    public func queryTotalSongsCount() async -> Int {
-        await queryFlow.queryTotalSongsCount()
-    }
-
-    /// 批量查询所有歌曲
-    /// Query all songs in batches
-    /// - Parameters:
-    ///   - batchSize: 每批次拉取数量（默认 500）/ Number of songs per batch (default: 500)
-    ///   - concurrency: 并发任务数（默认 3）/ Number of concurrent tasks (default: 3)
-    /// - Returns: AsyncStream 依次推送查询进度 / AsyncStream yielding query progress
-    public func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
-        queryFlow.queryAllSongs(batchSize: batchSize, concurrency: concurrency)
-    }
-}
-
 // MARK: - FlowClient
 
 /// 流程客户端集合（统一入口）
@@ -148,7 +116,6 @@ public final class QueryAllSongsFlowClient {
 /// - `userLogin`: 用户登录流程 / User login flow
 /// - `connectionCheck`: 连接检查流程 / Connection check flow
 /// - `connection`: 连接管理流程 / Connection management flow
-/// - `queryAllSongs`: 批量歌曲查询流程 / Batch song query flow
 public final class FlowClient {
     /// 用户登录流程
     /// User login flow
@@ -162,18 +129,12 @@ public final class FlowClient {
     /// Connection management flow (automatic recovery, candidate listing, switching)
     public let connection: ConnectionManagerFlowClient
 
-    /// 批量歌曲查询流程
-    /// Batch song query flow
-    public let queryAllSongs: QueryAllSongsFlowClient
-
     init(userLogin: UserLoginFlowClient,
          connectionCheck: ConnectionCheckFlowClient,
-         connection: ConnectionManagerFlowClient,
-         queryAllSongs: QueryAllSongsFlowClient)
+         connection: ConnectionManagerFlowClient)
     {
         self.userLogin = userLogin
         self.connectionCheck = connectionCheck
         self.connection = connection
-        self.queryAllSongs = queryAllSongs
     }
 }

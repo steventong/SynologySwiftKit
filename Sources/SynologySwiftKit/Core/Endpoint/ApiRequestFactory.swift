@@ -58,6 +58,11 @@ struct ApiRequestFactory {
             request.httpBody = formURLEncodedBody(parameters: parameters)
         }
 
+        // A cookie-disabled endpoint must not acquire credentials from URLSession's cookie jar.
+        if endpoint.sidOnCookie == false {
+            request.httpShouldHandleCookies = false
+        }
+
         // Explicit sid/did parameters are kept for call sites that provide a detached session.
         if let cookie = buildExplicitCookieHeader(parameters: resolved.parameters) {
             request.setValue(cookie, forHTTPHeaderField: "Cookie")

@@ -5,8 +5,8 @@ import Foundation
 /// 批量查询歌曲流程提供者协议
 /// Protocol defining the batch song query flow interface
 ///
-/// 内部依赖注入接口，由 `QueryAllSongs` 实现，通过 `QueryAllSongsFlowClient` 对外暴露。
-/// Internal dependency injection interface, implemented by `QueryAllSongs`, exposed via `QueryAllSongsFlowClient`.
+/// 内部依赖注入接口，由 `QueryAllSongs` 实现，通过 `AudioStationClient` 对外暴露。
+/// Internal dependency injection interface, implemented by `QueryAllSongs`, exposed via `AudioStationClient`.
 protocol QueryAllSongsProviding {
     /// 查询歌曲总数（异步，单次结果）
     /// Query total songs count (async, single result)

@@ -12,6 +12,7 @@ import Foundation
 final class MockApiClient: ApiClientProviding {
     var connection: (type: SynologySwiftKit.ConnectionType, url: String)?
     var session: (sid: String, did: String?)?
+    private(set) var clearSessionCount = 0
 
     func updateConnection(type: ConnectionType, url: String) {
         connection = (type, url)
@@ -22,6 +23,7 @@ final class MockApiClient: ApiClientProviding {
     }
 
     func clearSession() {
+        clearSessionCount += 1
         session = nil
     }
 

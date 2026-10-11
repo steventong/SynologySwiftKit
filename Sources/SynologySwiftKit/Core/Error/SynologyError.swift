@@ -64,6 +64,15 @@ public enum SynologyError: Error, LocalizedError, Sendable {
 // MARK: - Auth Error Code Mapping
 
 extension SynologyError {
+    /// 只有服务器明确返回的会话超时、中断或无效码才允许重新登录；本地缺 SID 的 code 0 不属于该信号。
+    var isServerSessionExpired: Bool {
+        guard case let .sessionExpired(code, _) = self else {
+            return false
+        }
+        let errorCode = SynologyErrorCode(rawValue: code)
+        return errorCode == .sessionTimeout || errorCode == .sessionInterrupted || errorCode == .invalidSession
+    }
+
     /// 认证错误码 → 本地化消息
     /// Auth error code → localized message
     public static func authMessage(forCode code: Int) -> String {

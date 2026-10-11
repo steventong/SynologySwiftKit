@@ -52,14 +52,14 @@ public final class AuthClient {
         let normalizedOTPCode = otpCode?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .nilIfEmpty
-        let deviceName = deviceInfo?.1 ?? "Apple Device - DS Music"
+        let deviceName = deviceInfo?.1 ?? "SynologySwiftKit"
 
         do {
             let api = ApiEndpoint(api: SynologyApi.Core.AUTH, method: "login", version: 6, httpMethod: .post, timeout: 10) {
                 ("account", username)
                 ("passwd", password)
                 ("format", "cookie")
-                ("session", "AudioStation")
+                ("session", "SynologySwiftKit")
                 ("client_time", String(Int(Date().timeIntervalSince1970)))
                 if let normalizedOTPCode {
                     ("otp_code", normalizedOTPCode)
@@ -102,6 +102,18 @@ public final class AuthClient {
                 keyChainStorage.removeSessionInfo()
             }
         }
+    }
+
+    /// Queries SYNO.API.Auth.token (v6), documented in the DSM Login Web API Guide.
+    /// Returns the API envelope without changing the session or storing the returned SynoToken.
+    /// An explicit SID is sent without ambient cookies. This is not a guaranteed SID validation API.
+    public func token(sid: String? = nil) async throws -> DSMReadResponse {
+        try await apiClient.requestEnvelope(ApiEndpoint(
+            api: SynologyApi.Core.AUTH, method: "token", version: 6,
+            httpMethod: .get, sidOnQuery: sid == nil, sidOnCookie: false
+        ) {
+            if let sid { ("_sid", sid) }
+        })
     }
 
     /// 读取已保存的登录凭据

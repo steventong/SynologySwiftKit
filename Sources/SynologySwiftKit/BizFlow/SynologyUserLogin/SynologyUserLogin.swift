@@ -15,10 +15,11 @@ import OSLog
 final class SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
+    private var pendingOTP: (server: String, username: String, connection: SynologyConnection)?
     private let sessionOperations: SessionOperationCoordinator
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
-    private let audioStationApi: AudioStationClient
+    private let sessionValidator: DSMSessionValidator
     private let apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating
     private let connectionChecker: any ConnectionChecking
     private let keyChainStorage: any SensitiveStorage
@@ -34,7 +35,8 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     init(apiInfoApi: ApiInfoProviding,
          apiClient: ConnectionStateProviding & ConnectionStateUpdating & SessionStateProviding & SessionStateUpdating,
          authApi: AuthClient,
-         audioStationApi: AudioStationClient,
+         dsmInfoApi: DSMInfoClient,
+         sessionValidationTimeout: TimeInterval = 3.6,
          connectionChecker: any ConnectionChecking,
          keyChainStorage: any SensitiveStorage = StorageService(),
          sessionOperations: SessionOperationCoordinator = SessionOperationCoordinator()) {
@@ -42,7 +44,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
         self.apiInfoApi = apiInfoApi
         self.apiClient = apiClient
         self.authApi = authApi
-        self.audioStationApi = audioStationApi
+        self.sessionValidator = DSMSessionValidator(dsmInfoApi: dsmInfoApi, timeout: sessionValidationTimeout)
         self.connectionChecker = connectionChecker
         self.keyChainStorage = keyChainStorage
     }
@@ -53,21 +55,24 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
-                await self.performPasswordLogin(server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, fetchApiList: true, attemptSliceLogin: false, continuation: continuation)
+                await self.performPasswordLogin(server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, attemptSliceLogin: false, continuation: continuation)
             }
             let completion = Task {
                 _ = try? await task.value
                 continuation.finish()
             }
-            continuation.onTermination = { _ in
-                task.cancel()
-                completion.cancel()
+            continuation.onTermination = { termination in
+                // 正常完成不取消生产任务，避免成功保存新地址后被误当作取消回滚。
+                if case .cancelled = termination {
+                    task.cancel()
+                    completion.cancel()
+                }
             }
         }
     }
 
-    /// 刷新登录信息，静默恢复（优先尝试 slice 登录命中缓存 SID，失败时自动 fallback 到全量登录）
-    /// Silent resume: try slice login (validates cached SID); on failure fall back to full password login.
+    /// 静默恢复时优先复用原 SID；仅无 SID 或服务器明确判定会话失效才执行全量登录。
+    /// 网络、解码与取消只结束本次恢复，保留会话供网络恢复后重试。
     func login() -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
@@ -87,7 +92,6 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                     password: credentials.password,
                     otpCode: nil,
                     shouldSavePassword: true,
-                    fetchApiList: true,
                     attemptSliceLogin: true,
                     continuation: continuation
                 )
@@ -96,9 +100,12 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                 _ = try? await task.value
                 continuation.finish()
             }
-            continuation.onTermination = { _ in
-                task.cancel()
-                completion.cancel()
+            continuation.onTermination = { termination in
+                // 正常完成不取消生产任务，避免成功保存新地址后被误当作取消回滚。
+                if case .cancelled = termination {
+                    task.cancel()
+                    completion.cancel()
+                }
             }
         }
     }
@@ -127,8 +134,8 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                     password: credentials.password,
                     otpCode: nil,
                     shouldSavePassword: true,
-                    fetchApiList: true,
                     attemptSliceLogin: false,
+                    isSessionRenewal: true,
                     continuation: continuation
                 )
             }
@@ -136,9 +143,12 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                 _ = try? await task.value
                 continuation.finish()
             }
-            continuation.onTermination = { _ in
-                task.cancel()
-                completion.cancel()
+            continuation.onTermination = { termination in
+                // 正常完成不取消生产任务，避免成功保存新地址后被误当作取消回滚。
+                if case .cancelled = termination {
+                    task.cancel()
+                    completion.cancel()
+                }
             }
         }
     }
@@ -147,21 +157,23 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
 // MARK: - Private Support
 
 private extension SynologyUserLogin {
-    /// 执行密码登录，可选先尝试 slice 校验缓存 SID。
-    /// Perform password login, optionally trying to validate cached SID first (slice optimization).
-    ///
-    /// 流程：
-    /// 1. 解析连接地址（connectionChecker）
-    /// 2. 刷新 API 列表（apiInfoApi.refresh）
-    /// 3. 若 attemptSliceLogin && usedCachedConnection && 有缓存 SID：调用 AudioStation.Info.query
-    ///    - 成功 → 直接返回 .completed（缓存 SID 可用，无需 round-trip 到 Auth）
-    ///    - 失败 → 仅记录日志后 fall through 到全量登录（不再抛 .invalidSession）
-    /// 4. 调用 authApi.login(...) 拿到新 SID
-    func performPasswordLogin(server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, fetchApiList: Bool = true, attemptSliceLogin: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+    /// 密码登录刷新服务器路由；静默恢复优先复用路由和现有连接。
+    /// 静默恢复只要有 SID，就在解析出的地址上校验原会话，不受地址是否命中缓存影响。
+    /// 校验成功直接完成；网络故障与取消回滚地址并结束；只有服务器明确失效才清理旧 SID 并全量登录。
+    func performPasswordLogin(server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         guard !Task.isCancelled else {
             continuation.finish()
             return
         }
+
+        let previousRouteServer = apiInfoApi.serverIdentity
+        let otpConnection = otpCode != nil && pendingOTP?.server == server && pendingOTP?.username == username ? pendingOTP?.connection : nil
+        let reusesOTPRoutes = otpConnection != nil
+        pendingOTP = nil
+        var completed = false
+        defer { if !completed { sessionOperations.rollback { apiInfoApi.selectServer(previousRouteServer) } } }
+        apiInfoApi.selectServer(server)
+        var refreshedRoutes = false
 
         // 连接检查
         continuation.yield(.connecting)
@@ -170,47 +182,35 @@ private extension SynologyUserLogin {
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // 解析可用连接 (使用 ConnectionChecker)
-        // Resolve available connection (using ConnectionChecker)
-        let connection: SynologyConnection
-        let usedCachedConnection: Bool
+        // OTP 复用本轮地址；恢复先验证旧地址；首次域名登录通过 API 发现连接。
+        // Reuse the OTP endpoint and saved session endpoint before discovering a new connection.
+        var connection: SynologyConnection
+        let previousConnection = currentConnection()
+        let usesSavedConnection = attemptSliceLogin && previousConnection != nil
+        let discoversDomainAPIs = !isQuickConnectID && usesHTTPS == nil
 
         do {
-            var resolvedConnection: SynologyConnection?
-            var resolvedFromCache = false
-            let progressStream = if let usesHTTPS {
-                connectionChecker.check(server: server, usesHTTPS: usesHTTPS)
+            if let otpConnection {
+                connection = otpConnection
+            } else if usesSavedConnection, let previousConnection {
+                connection = previousConnection
+            } else if discoversDomainAPIs {
+                connection = try await discoverDomainConnection(server: server)
+                refreshedRoutes = true
             } else {
-                connectionChecker.check(server: server)
+                connection = try await resolveConnection(server: server, usesHTTPS: usesHTTPS)
             }
-            for await progress in progressStream {
-                guard !Task.isCancelled else {
-                    continuation.finish()
-                    return
-                }
-
-                switch progress {
-                case .checking:
-                    break
-                case let .success(connection, usedCachedConnection):
-                    resolvedConnection = connection
-                    resolvedFromCache = usedCachedConnection
-                case let .serverCertificateUntrusted(certificate):
-                    continuation.yield(.serverCertificateUntrusted(certificate))
-                    continuation.finish()
-                    return
-                case let .failed(message):
-                    Logger.warn("SynologyUserLogin#performPasswordLogin, connection check failed: \(message)")
-                }
-            }
-
-            guard let resolvedConnection else {
-                throw SynologyError.network(message: "Connection resolution failed")
-            }
-
-            connection = resolvedConnection
-            usedCachedConnection = resolvedFromCache
+        } catch let SynologyError.serverCertificateUntrusted(certificate) {
+            rollbackConnection(to: previousConnection)
+            continuation.yield(.serverCertificateUntrusted(certificate))
+            continuation.finish()
+            return
+        } catch is CancellationError {
+            rollbackConnection(to: previousConnection)
+            continuation.finish()
+            return
         } catch {
+            rollbackConnection(to: previousConnection)
             Logger.error("SynologyUserLogin#performPasswordLogin, connection resolution failed: \(error)")
             continuation.yield(.failed(message: error.localizedDescription))
             continuation.finish()
@@ -222,11 +222,13 @@ private extension SynologyUserLogin {
             return
         }
 
-        let previousConnection = currentConnection()
         let previousSession = apiClient.session ?? keyChainStorage.getSessionInfo()
         do {
             try sessionOperations.commit {
                 apiClient.updateConnection(type: connection.type, url: connection.url)
+                if attemptSliceLogin, let previousSession {
+                    apiClient.updateSession(sid: previousSession.sid, did: previousSession.did)
+                }
             }
         } catch { continuation.finish(); return }
 
@@ -236,8 +238,13 @@ private extension SynologyUserLogin {
 
         do {
             // 刷新 Api 列表
-            if fetchApiList {
-                try await apiInfoApi.refresh()
+            if !discoversDomainAPIs {
+                if (attemptSliceLogin && previousSession != nil) || reusesOTPRoutes {
+                    try await apiInfoApi.loadFromCacheOrRefresh()
+                } else {
+                    try await apiInfoApi.refresh()
+                    refreshedRoutes = true
+                }
             }
             try Task.checkCancellation()
         } catch let SynologyError.serverCertificateUntrusted(certificate) {
@@ -257,26 +264,61 @@ private extension SynologyUserLogin {
             return
         }
 
-        // Step 1: 可选 slice 登录尝试（命中缓存 SID 即可直接返回，失败不影响后续全量登录）
+        // 记录明确的续期上下文，使服务器拒绝凭据时能结束失效会话，而非不断重试旧 SID。
+        var renewingExpiredSession = isSessionRenewal
+        // 先校验原 SID；无法确认有效性不等于失效，禁止因弱网进入密码登录。
         if attemptSliceLogin {
-            let sliceOutcome = await attemptSliceValidation(
+            var sliceOutcome = await attemptSliceValidation(
                 connection: connection,
                 serverType: serverType,
-                usedCachedConnection: usedCachedConnection,
                 continuation: continuation
             )
 
+            if usesSavedConnection, case let .failed(error) = sliceOutcome, isConnectionUnavailable(error) {
+                do {
+                    let discovered = try await resolveConnection(server: server, usesHTTPS: usesHTTPS)
+                    if discovered.url != connection.url || discovered.type != connection.type {
+                        connection = discovered
+                        try sessionOperations.commit { apiClient.updateConnection(type: connection.type, url: connection.url) }
+                        sliceOutcome = await attemptSliceValidation(connection: connection, serverType: serverType, continuation: continuation)
+                    }
+                } catch is CancellationError {
+                    sliceOutcome = .cancelled
+                } catch {
+                    sliceOutcome = .failed(error)
+                }
+            }
             switch sliceOutcome {
             case .completed:
-                // slice 命中：performPasswordLogin 已完成
+                completed = true
+                // 成功已经提交地址并结束流，不能再因完成后的取消信号回滚。
                 return
-            case .skipped(let reason):
-                Logger.info("SynologyUserLogin#performPasswordLogin, slice skipped, reason=\(reason), proceeding to full login")
-            case .failed(let reason):
-                Logger.warn("SynologyUserLogin#performPasswordLogin, slice failed, reason=\(reason), proceeding to full login")
-                // slice 校验失败说明缓存 SID 不可用，清掉后续 authApi.login 用不到的脏 cookie
+            case .skipped:
+                Logger.info("SynologyUserLogin#performPasswordLogin, no saved SID, proceeding to full login")
+            case .invalidSession:
+                guard !Task.isCancelled else {
+                    rollbackConnection(to: previousConnection)
+                    continuation.finish()
+                    return
+                }
+                Logger.info("SynologyUserLogin#performPasswordLogin, server confirmed expired SID, proceeding to full login")
+                renewingExpiredSession = true
                 do { try sessionOperations.commit { apiClient.clearSession() } }
                 catch { continuation.finish(); return }
+            case .cancelled:
+                rollbackConnection(to: previousConnection)
+                continuation.finish()
+                return
+            case .failed(let error):
+                rollbackConnection(to: previousConnection)
+                Logger.warn("SynologyUserLogin#performPasswordLogin, slice validation unavailable: \(error)")
+                if case let SynologyError.serverCertificateUntrusted(certificate) = error {
+                    continuation.yield(.serverCertificateUntrusted(certificate))
+                } else {
+                    continuation.yield(.failed(message: error.localizedDescription))
+                }
+                continuation.finish()
+                return
             }
         }
 
@@ -284,6 +326,9 @@ private extension SynologyUserLogin {
         do {
             try Task.checkCancellation()
 
+            if !refreshedRoutes && !reusesOTPRoutes {
+                try await apiInfoApi.refresh()
+            }
             let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
             try Task.checkCancellation()
 
@@ -309,6 +354,7 @@ private extension SynologyUserLogin {
                 serverType: serverType
             )
 
+            completed = true
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
         } catch let SynologyError.serverCertificateUntrusted(certificate) {
@@ -322,13 +368,20 @@ private extension SynologyUserLogin {
             // 需要或需重新输入 OTP 验证码（不算终止失败，需要用户输入）
             // OTP required or invalid (not a terminal failure; prompt the user again)
             Logger.info("SynologyUserLogin#performPasswordLogin, OTP input required, code=\(code), message: \(msg)")
+            pendingOTP = (server, username, connection)
             continuation.yield(.otpRequired)
             continuation.finish()
-        } catch let SynologyError.sessionExpired(code, msg) {
+        } catch let SynologyError.auth(code, message) where
+            (renewingExpiredSession && (400...411).contains(code)) || SynologyErrorCode(rawValue: code).toSynologyError().isServerSessionExpired {
             rollbackConnection(to: previousConnection)
             rollbackSession(to: previousSession)
-            // 这里是真信号：凭据登录本身被拒绝（不是 slice 校验失败被误传上来的）。
-            Logger.warn("SynologyUserLogin#performPasswordLogin, full login invalidSession, code=\(code), msg=\(msg)")
+            // 服务器明确会话失效，或已知失效会话的续期凭据被拒绝，都需要用户重新登录；网络包装的 code -1 不进入此分支。
+            Logger.warn("SynologyUserLogin#performPasswordLogin, renewal credentials rejected, code=\(code)")
+            continuation.yield(.invalidSession(message: message))
+            continuation.finish()
+        } catch let error as SynologyError where error.isServerSessionExpired {
+            rollbackConnection(to: previousConnection)
+            rollbackSession(to: previousSession)
             continuation.yield(.invalidSession(message: "session expired"))
             continuation.finish()
         } catch is CancellationError {
@@ -344,35 +397,78 @@ private extension SynologyUserLogin {
         }
     }
 
-    /// slice 登录尝试的结果
-    /// Outcome of a slice-login attempt.
-    enum SliceLoginOutcome {
-        /// 缓存 SID 校验通过，已经 yield .completed
-        case completed
-        /// 不具备 slice 前提条件（未命中缓存连接 / 无缓存 SID），未做任何远端调用
-        case skipped(reason: String)
-        /// 远端校验失败（缓存 SID 已失效或网络错误），未 yield 任何状态
-        case failed(reason: String)
+    private func isConnectionUnavailable(_ error: Error) -> Bool {
+        if case SynologyError.network = error { return true }
+        if let urlError = error as? URLError { return urlError.code != .cancelled }
+        return false
     }
 
-    /// 尝试用缓存 SID 命中 AudioStation.Info；任何失败都 swallowed，调用方继续走全量登录。
-    /// Attempt to validate cached SID against AudioStation.Info. All failures are swallowed so the
-    /// caller can fall back to a full password login.
+    func resolveConnection(server: String, usesHTTPS: Bool?) async throws -> SynologyConnection {
+        let stream = if let usesHTTPS { connectionChecker.check(server: server, usesHTTPS: usesHTTPS) }
+                     else { connectionChecker.check(server: server) }
+        var resolved: SynologyConnection?
+        for await progress in stream {
+            try Task.checkCancellation()
+            switch progress {
+            case let .success(connection, _): resolved = connection
+            case let .serverCertificateUntrusted(certificate): throw SynologyError.serverCertificateUntrusted(certificate)
+            case .checking, .failed: break
+            }
+        }
+        try Task.checkCancellation()
+        guard let resolved else { throw SynologyError.network(message: "Connection resolution failed") }
+        return resolved
+    }
+
+    /// 首次域名登录以 API 路由发现验证候选地址，不额外发送 Ping。
+    /// 沿用地址解析器的 HTTPS 优先顺序；证书错误和取消不得继续尝试其他协议。
+    func discoverDomainConnection(server: String) async throws -> SynologyConnection {
+        let attempts = try LoginServerAddressResolver.automaticAttempts(for: server)
+        var lastError: Error = SynologyError.network(message: "Connection resolution failed")
+        for attempt in attempts {
+            try Task.checkCancellation()
+            let connection = SynologyConnection(type: .custom_domain, url: attempt.server)
+            try sessionOperations.commit {
+                apiClient.updateConnection(type: connection.type, url: connection.url)
+            }
+            do {
+                try await apiInfoApi.refresh()
+                try Task.checkCancellation()
+                return connection
+            } catch let SynologyError.serverCertificateUntrusted(certificate) {
+                throw SynologyError.serverCertificateUntrusted(certificate)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as URLError where error.code == .cancelled {
+                throw CancellationError()
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError
+    }
+
+    /// 区分服务器明确失效与校验不可用，避免恢复流程误清仍然有效的 SID。
+    enum SliceLoginOutcome {
+        case completed
+        case skipped
+        case invalidSession
+        case cancelled
+        case failed(Error)
+    }
+
+    /// 在当前解析出的地址上校验原 SID。只有 106/107/119 可触发全量登录，其他错误交给调用方结束恢复。
     func attemptSliceValidation(connection: SynologyConnection,
                                 serverType: ServerType,
-                                usedCachedConnection: Bool,
                                 continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async -> SliceLoginOutcome {
-        guard usedCachedConnection else {
-            return .skipped(reason: "connection_not_cached")
-        }
-        guard let sessionInfo = keyChainStorage.getSessionInfo() else {
-            return .skipped(reason: "no_cached_session")
+        guard let sessionInfo = apiClient.session ?? keyChainStorage.getSessionInfo(), !sessionInfo.sid.isEmpty else {
+            return .skipped
         }
 
         Logger.info("SynologyUserLogin#attemptSliceValidation, start, sid=\(Logger.maskedSessionValue(sessionInfo.sid))")
 
         do {
-            _ = try await audioStationApi.info.query()
+            try await sessionValidator.checkCurrentSession()
             try Task.checkCancellation()
 
             // slice 命中：缓存 SID 仍然有效，直接构造结果
@@ -389,13 +485,14 @@ private extension SynologyUserLogin {
             continuation.yield(.completed(result: loginResult))
             continuation.finish()
             return .completed
-        } catch let SynologyError.sessionExpired(code, msg) {
-            return .failed(reason: "sessionExpired(code=\(code), msg=\(msg))")
+        } catch let error as SynologyError where error.isServerSessionExpired {
+            return .invalidSession
         } catch is CancellationError {
-            // 取消由上层处理；当作 failed 让 caller 退出
-            return .failed(reason: "cancelled")
+            return .cancelled
+        } catch let error as URLError where error.code == .cancelled {
+            return .cancelled
         } catch {
-            return .failed(reason: "error(\(error.localizedDescription))")
+            return .failed(error)
         }
     }
 

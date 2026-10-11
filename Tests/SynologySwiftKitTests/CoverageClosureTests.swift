@@ -184,9 +184,9 @@ final class CoverageClosureTests: XCTestCase {
         genericErrorClient.mockError = URLError(.timedOut)
         do {
             _ = try await DSMInfoClient(apiClient: genericErrorClient).query()
-            XCTFail("Expected mapped network error")
-        } catch let SynologyError.network(message) {
-            XCTAssertEqual(message, "request failed")
+            XCTFail("Expected original timeout")
+        } catch let error as URLError {
+            XCTAssertEqual(error.code, .timedOut)
         }
     }
 
@@ -216,7 +216,7 @@ final class CoverageClosureTests: XCTestCase {
             XCTAssertNil(endpoint.parameters["otp_code"])
             XCTAssertNil(endpoint.parameters["enable_device_token"])
             XCTAssertEqual(endpoint.parameters["device_id"]?.stringValue, "device-1")
-            XCTAssertEqual(endpoint.parameters["device_name"]?.stringValue, "Apple Device - DS Music")
+            XCTAssertEqual(endpoint.parameters["device_name"]?.stringValue, "SynologySwiftKit")
             return AuthResult(did: nil, isPortalPort: false, sid: "sid-2", synotoken: nil)
         }
         _ = try await AuthClient(
@@ -302,7 +302,7 @@ final class CoverageClosureTests: XCTestCase {
         }
 
         let removeAuthApi = AuthClient(apiClient: removeClient, keyChainStorage: removeKeychain)
-        let removeAudioStationApi = AudioStationClient(apiClient: removeClient)
+        let removeDSMInfoApi = DSMInfoClient(apiClient: removeClient)
         let removeConnectionChecker = ConnectionChecker(
             apiClient: removeClient,
             quickConnectApi: QuickConnectClient(apiClient: removeClient, pingpong: TestPingPong(singleURLReachable: true)),
@@ -313,7 +313,7 @@ final class CoverageClosureTests: XCTestCase {
             apiInfoApi: TestApiInfoProvider(),
             apiClient: removeClient,
             authApi: removeAuthApi,
-            audioStationApi: removeAudioStationApi,
+            dsmInfoApi: removeDSMInfoApi,
             connectionChecker: removeConnectionChecker,
             keyChainStorage: removeKeychain
         )
@@ -337,7 +337,7 @@ final class CoverageClosureTests: XCTestCase {
         }
 
         let otpAuthApi = AuthClient(apiClient: otpClient, keyChainStorage: otpKeychain)
-        let otpAudioStationApi = AudioStationClient(apiClient: otpClient)
+        let otpDSMInfoApi = DSMInfoClient(apiClient: otpClient)
         let otpConnectionChecker = ConnectionChecker(
             apiClient: otpClient,
             quickConnectApi: QuickConnectClient(apiClient: otpClient, pingpong: TestPingPong(singleURLReachable: true)),
@@ -348,7 +348,7 @@ final class CoverageClosureTests: XCTestCase {
             apiInfoApi: TestApiInfoProvider(),
             apiClient: otpClient,
             authApi: otpAuthApi,
-            audioStationApi: otpAudioStationApi,
+            dsmInfoApi: otpDSMInfoApi,
             connectionChecker: otpConnectionChecker,
             keyChainStorage: otpKeychain
         )
@@ -384,7 +384,7 @@ final class CoverageClosureTests: XCTestCase {
         let missingClient = MockApiClient()
         let missingKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let missingAuthApi = AuthClient(apiClient: missingClient, keyChainStorage: missingKeychain)
-        let missingAudioStationApi = AudioStationClient(apiClient: missingClient)
+        let missingDSMInfoApi = DSMInfoClient(apiClient: missingClient)
         let missingConnectionChecker = ConnectionChecker(
             apiClient: missingClient,
             quickConnectApi: QuickConnectClient(apiClient: missingClient, pingpong: TestPingPong(singleURLReachable: true)),
@@ -395,7 +395,7 @@ final class CoverageClosureTests: XCTestCase {
             apiInfoApi: TestApiInfoProvider(),
             apiClient: missingClient,
             authApi: missingAuthApi,
-            audioStationApi: missingAudioStationApi,
+            dsmInfoApi: missingDSMInfoApi,
             connectionChecker: missingConnectionChecker,
             keyChainStorage: missingKeychain
         )
@@ -410,6 +410,8 @@ final class CoverageClosureTests: XCTestCase {
         XCTAssertTrue(message.contains("No saved credentials"))
 
         struct FailingApiInfoProvider: ApiInfoProviding {
+    var serverIdentity: String? { nil }
+    func selectServer(_ server: String?) {}
             func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode {
                 ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil)
             }
@@ -426,7 +428,7 @@ final class CoverageClosureTests: XCTestCase {
         let failureClient = MockApiClient()
         let failureKeychain = makeKeyChainStorage(service: UUID().uuidString)
         let failureAuthApi = AuthClient(apiClient: failureClient, keyChainStorage: failureKeychain)
-        let failureAudioStationApi = AudioStationClient(apiClient: failureClient)
+        let failureDSMInfoApi = DSMInfoClient(apiClient: failureClient)
         let failureConnectionChecker = ConnectionChecker(
             apiClient: failureClient,
             quickConnectApi: QuickConnectClient(apiClient: failureClient, pingpong: TestPingPong(singleURLReachable: true)),
@@ -437,7 +439,7 @@ final class CoverageClosureTests: XCTestCase {
             apiInfoApi: FailingApiInfoProvider(),
             apiClient: failureClient,
             authApi: failureAuthApi,
-            audioStationApi: failureAudioStationApi,
+            dsmInfoApi: failureDSMInfoApi,
             connectionChecker: failureConnectionChecker,
             keyChainStorage: failureKeychain
         )
@@ -464,7 +466,7 @@ final class CoverageClosureTests: XCTestCase {
             apiInfoApi: FailingApiInfoProvider(),
             apiClient: preservedClient,
             authApi: AuthClient(apiClient: preservedClient, keyChainStorage: preservedKeychain),
-            audioStationApi: AudioStationClient(apiClient: preservedClient),
+            dsmInfoApi: DSMInfoClient(apiClient: preservedClient),
             connectionChecker: ConnectionChecker(
                 apiClient: preservedClient,
                 quickConnectApi: QuickConnectClient(

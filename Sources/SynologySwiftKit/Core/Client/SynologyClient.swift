@@ -107,6 +107,7 @@ public final class SynologyClient {
     /// Configure both endpoint and session when the host app owns persistence.
     public func configureConnection(type: ConnectionType, url: String, sid: String, did: String? = nil) {
         apiClient.sessionOperations.replaceState {
+            apiClient.apiInfoProvider?.selectServer(url)
             apiClient.updateConnection(type: type, url: url)
             keyChainStorage.saveConnectionInfo(url: url, typeString: type.rawValue)
             apiClient.updateSession(sid: sid, did: did)
@@ -148,19 +149,7 @@ public final class SynologyClient {
     public var dsmInfo: DSMInfoClient { system.dsmInfo }
     public var encryption: EncryptionClient { system.encryption }
 
-    public var pins: PinApi { audioStation.pins }
-    public var folders: FolderApi { audioStation.folders }
-    public var albums: AlbumApi { audioStation.albums }
-    public var artists: ArtistApi { audioStation.artists }
-    public var composers: ComposerApi { audioStation.composers }
-    public var genres: GenreApi { audioStation.genres }
-    public var songs: SongApi { audioStation.songs }
-    public var playlists: PlaylistApi { audioStation.playlists }
-    public var lyrics: LyricsApi { audioStation.lyrics }
-    public var search: SearchApi { audioStation.search }
-    public var covers: CoverApi { audioStation.covers }
-    public var stream: StreamApi { audioStation.stream }
-    public var tagEditor: TagEditorApi { audioStation.tagEditor }
+
 }
 
 private struct SynologyClientContainer {
@@ -191,8 +180,9 @@ private struct SynologyClientContainer {
 
         apiClient.publishCommittedState()
 
-        let apiInfo = ApiInfoApi(apiClient: apiClient, cacheValidity: config.apiInfoCacheValidity)
+        let apiInfo = ApiInfoApi(apiClient: apiClient, keyValueStorage: keyValueStorage)
         let ping = PingPong(apiClient: apiClient, timeout: config.pingpongTimeout)
+        apiInfo.selectServer(keyChainStorage.getCredentials()?.server)
         apiClient.apiInfoProvider = apiInfo
 
         let audioStationClient = AudioStationClient(apiClient: apiClient, keyValueStorage: keyValueStorage)
@@ -213,7 +203,9 @@ private struct SynologyClientContainer {
         self.system = SystemClient(
             dsmInfo: dsmInfo,
             encryption: encryption,
-            connection: ConnectionClient(quickConnect: quickConnect, ping: ping)
+            connection: ConnectionClient(quickConnect: quickConnect, ping: ping),
+            desktopTimeout: DesktopTimeoutClient(apiClient: apiClient),
+            normalUser: NormalUserClient(apiClient: apiClient)
         )
 
         let checkConnection = ConnectionChecker(
@@ -226,9 +218,9 @@ private struct SynologyClientContainer {
             apiClient: apiClient,
             quickConnectApi: quickConnect,
             pingpong: ping,
-            audioStationApi: audioStationClient,
+            dsmInfoApi: dsmInfo,
+            sessionValidationTimeout: config.pingpongTimeout,
             apiInfoApi: apiInfo,
-            authApi: authClient,
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations
         )
@@ -236,21 +228,19 @@ private struct SynologyClientContainer {
             apiInfoApi: apiInfo,
             apiClient: apiClient,
             authApi: authClient,
-            audioStationApi: audioStationClient,
+            dsmInfoApi: dsmInfo,
+            sessionValidationTimeout: config.pingpongTimeout,
             connectionChecker: checkConnection,
             keyChainStorage: keyChainStorage,
             sessionOperations: sessionOperations
         )
-        let queryAllSongs = QueryAllSongs(apiClient: apiClient)
         let userLoginFlow = UserLoginFlowClient(loginFlow: userLogin)
         let connectionCheckFlow = ConnectionCheckFlowClient(connectionCheck: checkConnection)
         let connectionFlow = ConnectionManagerFlowClient(connectionManager: connectionManager)
-        let queryAllSongsFlow = QueryAllSongsFlowClient(queryFlow: queryAllSongs)
         self.flows = FlowClient(
             userLogin: userLoginFlow,
             connectionCheck: connectionCheckFlow,
-            connection: connectionFlow,
-            queryAllSongs: queryAllSongsFlow
+            connection: connectionFlow
         )
         self.session = SessionClient(
             connectionProvider: { [weak apiClient] in
@@ -262,6 +252,7 @@ private struct SynologyClientContainer {
             },
             connectionUpdater: { [weak apiClient, weak keyChainStorage] type, url in
                 sessionOperations.replaceState {
+                    apiClient?.apiInfoProvider?.selectServer(url)
                     apiClient?.updateConnection(type: type, url: url)
                     keyChainStorage?.saveConnectionInfo(url: url, typeString: type.rawValue)
                 }

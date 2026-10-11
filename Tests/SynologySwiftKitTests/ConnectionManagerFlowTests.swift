@@ -7,31 +7,10 @@ final class ConnectionManagerFlowTests: XCTestCase {
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://cached.local", typeString: ConnectionType.lan.rawValue)
+        keychain.saveSessionInfo(sid: "sid", did: "did")
         apiClient.requestHandler = { endpoint in
-            if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                return AudioStationInfo(
-                    enable_equalizer: false,
-                    playing_queue_max: 0,
-                    same_subnet: false,
-                    enable_user_home: false,
-                    has_aac: false,
-                    support_bluetooth: false,
-                    version_string: nil,
-                    has_music_share: false,
-                    version: nil,
-                    sid: "sid",
-                    enable_personal_library: false,
-                    settings: AudioStationInfoSettings(disable_upnp: false, enable_download: false, transcode_to_mp3: false, prefer_using_html5: false, audio_show_virtual_library: false),
-                    support_usb: false,
-                    dsd_decode_capability: false,
-                    browse_personal_library: nil,
-                    serial_number: nil,
-                    privilege: AudioStationInfoPrivilege(tag_edit: false, sharing: false, upnp_browse: false, playlist_edit: false, remote_player: false),
-                    support_virtual_library: false,
-                    remote_controller: false,
-                    transcode_capability: [],
-                    is_manager: false
-                )
+            if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
+                return DsmInfo(model: "DS920+")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
@@ -40,9 +19,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -54,11 +32,13 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(apiClient.connection?.url, "https://cached.local")
     }
 
-    func testRecoverConnectionWithUnreachableQuickConnectEndpointRequiresRelogin() async {
+    func testRecoverConnectionWithUnreachableQuickConnectEndpointDisconnectsAndKeepsSession() async {
         let apiClient = MockApiClient()
+        apiClient.mockError = SynologyError.network(message: "unreachable")
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveConnectionInfo(url: "https://cached.local", typeString: ConnectionType.lan.rawValue)
+        keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
         apiClient.rawRequestHandler = { _, _, _, _, _ in
             try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
         }
@@ -67,31 +47,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
-            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
-            keyChainStorage: keychain
-        )
-
-        let decision = await manager.recoverConnection()
-
-        XCTAssertEqual(decision.status, .requiresRelogin)
-    }
-
-    func testRecoverConnectionWithUnreachableCustomDomainDisconnects() async {
-        let apiClient = MockApiClient()
-        let keychain = makeKeyChainStorage(service: UUID().uuidString)
-        keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
-        keychain.saveConnectionInfo(url: "https://nas.example.com", typeString: ConnectionType.custom_domain.rawValue)
-
-        let manager = ConnectionManager(
-            apiClient: apiClient,
-            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
-            pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
-            apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -99,6 +56,238 @@ final class ConnectionManagerFlowTests: XCTestCase {
         let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .disconnected)
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+    }
+
+    func testRecoverConnectionWithUnreachableCustomDomainDisconnects() async {
+        let apiClient = MockApiClient()
+        apiClient.mockError = SynologyError.network(message: "unreachable")
+        let keychain = makeKeyChainStorage(service: UUID().uuidString)
+        keychain.saveCredentials(server: "nas.example.com", username: "tester", password: "secret", usesHTTPS: true)
+        keychain.saveConnectionInfo(url: "https://nas.example.com", typeString: ConnectionType.custom_domain.rawValue)
+        keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
+
+        let manager = ConnectionManager(
+            apiClient: apiClient,
+            quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
+            pingpong: TestPingPong(singleURLReachable: false),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(),
+            optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
+            keyChainStorage: keychain
+        )
+
+        let decision = await manager.recoverConnection()
+
+        XCTAssertEqual(decision.status, .disconnected)
+    }
+
+    func testRecoverConnectionValidationFailuresKeepSessionAndDoNotLogin() async {
+        let failures: [Error] = [
+            SynologyError.network(message: "timeout"),
+            SynologyError.network(message: "HTTP 503"),
+            DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "invalid response")),
+            URLError(.notConnectedToInternet),
+            CancellationError(),
+            SynologyError.sessionExpired(code: 0, message: "local SID missing"),
+            SynologyError.sessionExpired(code: 105, message: "not an expiry code"),
+        ]
+        for failure in failures {
+            let apiClient = MockApiClient()
+            let keychain = makeRecoveryStorage(apiClient: apiClient)
+            apiClient.mockError = failure
+            let manager = makeRecoveryManager(apiClient: apiClient, keychain: keychain)
+
+            let decision = await manager.recoverConnection()
+
+            XCTAssertEqual(decision.status, .disconnected, "\(failure)")
+            XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+            XCTAssertEqual(apiClient.clearSessionCount, 0)
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+            XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.10:5001")
+        }
+    }
+
+    func testRecoverConnectionRequiresReloginOnlyForServerExpiryCodes() async {
+        for code in [106, 107, 119] {
+            let apiClient = MockApiClient()
+            let keychain = makeRecoveryStorage(apiClient: apiClient)
+            apiClient.mockError = SynologyError.sessionExpired(code: code, message: "expired")
+            let manager = makeRecoveryManager(apiClient: apiClient, keychain: keychain)
+
+            let decision = await manager.recoverConnection()
+
+            XCTAssertEqual(decision.status, .requiresRelogin, "code=\(code)")
+            XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+            XCTAssertEqual(apiClient.clearSessionCount, 0)
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        }
+    }
+
+    func testRecoverConnectionRediscoversAddressWithoutReplacingSID() async {
+        let apiClient = MockApiClient()
+        let keychain = makeRecoveryStorage(apiClient: apiClient)
+        let refreshed = SynologyConnection(type: .lan, url: "https://192.168.1.20:5001")
+        apiClient.rawRequestHandler = { _, _, _, _, _ in
+            try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
+        }
+        apiClient.requestHandler = { _ in
+            if apiClient.connection?.url != refreshed.url { throw SynologyError.network(message: "unreachable") }
+            XCTAssertEqual(apiClient.connection?.url, refreshed.url)
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            return makeSessionValidationInfo()
+        }
+        let manager = makeRecoveryManager(
+            apiClient: apiClient,
+            keychain: keychain,
+            pingpong: RecordingPingPong(firstResult: refreshed, singleURLReachable: false)
+        )
+
+        let decision = await manager.recoverConnection()
+
+        XCTAssertEqual(decision.status, .connected)
+        XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+        XCTAssertEqual(apiClient.clearSessionCount, 0)
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        XCTAssertEqual(keychain.getConnectionInfo()?.url, refreshed.url)
+    }
+
+    func testRediscoveredEndpointValidationFailuresKeepSIDAndDisconnect() async {
+        for failure in [
+            SynologyError.network(message: "weak network"),
+            SynologyError.sessionExpired(code: 0, message: "local SID missing"),
+        ] {
+            let apiClient = MockApiClient()
+            let keychain = makeRecoveryStorage(apiClient: apiClient)
+            apiClient.rawRequestHandler = { _, _, _, _, _ in
+                try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
+            }
+            apiClient.mockError = failure
+            let manager = makeRecoveryManager(
+                apiClient: apiClient,
+                keychain: keychain,
+                pingpong: RecordingPingPong(firstResult: .init(type: .lan, url: "https://192.168.1.20:5001"), singleURLReachable: false)
+            )
+
+            let decision = await manager.recoverConnection()
+
+            XCTAssertEqual(decision.status, .disconnected)
+            XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+            XCTAssertEqual(apiClient.clearSessionCount, 0)
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+            XCTAssertEqual(apiClient.connection?.url, "https://192.168.1.10:5001")
+            XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.10:5001")
+        }
+    }
+
+    func testSwitchConnectionReportsServerExpiryWithoutAuthenticating() async {
+        for code in [106, 107, 119] {
+            let apiClient = MockApiClient()
+            let keychain = makeRecoveryStorage(apiClient: apiClient)
+            apiClient.requestHandler = { _ in
+                XCTAssertEqual(apiClient.session?.sid, "old-sid")
+                throw SynologyError.sessionExpired(code: code, message: "expired")
+            }
+            let manager = makeRecoveryManager(apiClient: apiClient, keychain: keychain)
+
+            do {
+                _ = try await manager.switchConnection(to: .init(type: .relay, url: "https://relay.quickconnect.to"))
+                XCTFail("Expected server expiry")
+            } catch let SynologyError.sessionExpired(actualCode, _) {
+                XCTAssertEqual(actualCode, code)
+            } catch {
+                XCTFail("Unexpected error: \(error)")
+            }
+
+            XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+            XCTAssertEqual(apiClient.clearSessionCount, 0)
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+            XCTAssertEqual(apiClient.connection?.url, "https://192.168.1.10:5001")
+        }
+    }
+
+    func testRediscoveredEndpointServerExpiryRequiresReloginWithoutAuthenticating() async {
+        for code in [106, 107, 119] {
+            let apiClient = MockApiClient()
+            let keychain = makeRecoveryStorage(apiClient: apiClient)
+            apiClient.rawRequestHandler = { _, _, _, _, _ in
+                try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
+            }
+            apiClient.mockError = SynologyError.sessionExpired(code: code, message: "expired")
+            let manager = makeRecoveryManager(
+                apiClient: apiClient,
+                keychain: keychain,
+                pingpong: RecordingPingPong(firstResult: .init(type: .lan, url: "https://192.168.1.20:5001"), singleURLReachable: false)
+            )
+
+            let decision = await manager.recoverConnection()
+
+            XCTAssertEqual(decision.status, .requiresRelogin, "code=\(code)")
+            XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+            XCTAssertEqual(apiClient.clearSessionCount, 0)
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        }
+    }
+
+    func testBackgroundOptimizationReusesSIDWithoutLogin() async {
+        let apiClient = MockApiClient()
+        let keychain = makeRecoveryStorage(apiClient: apiClient)
+        apiClient.mockResponse = makeSessionValidationInfo()
+        apiClient.rawRequestHandler = { _, _, _, _, _ in
+            try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
+        }
+        let scheduler = BackgroundRecoveryOptimizationScheduler()
+        let manager = makeRecoveryManager(
+            apiClient: apiClient,
+            keychain: keychain,
+            pingpong: RecordingPingPong(firstResult: .init(type: .lan, url: "https://192.168.1.20:5001"), singleURLReachable: true),
+            scheduler: scheduler
+        )
+
+        let decision = await manager.recoverConnection()
+        await scheduler.waitForCompletion()
+
+        XCTAssertEqual(decision.status, .connected)
+        XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+        XCTAssertEqual(apiClient.clearSessionCount, 0)
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.20:5001")
+        XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.Core.DSM_INFO.name }.count, 2)
+    }
+
+    func testBackgroundOptimizationKeepsValidatedEndpointWithoutAnotherSessionRequest() async {
+        let apiClient = MockApiClient()
+        let keychain = makeRecoveryStorage(apiClient: apiClient)
+        apiClient.mockResponse = makeSessionValidationInfo()
+        apiClient.rawRequestHandler = { _, _, _, _, _ in
+            try makeQuickConnectServerInfo(ip: "192.168.1.10", port: 5001)
+        }
+        let scheduler = BackgroundRecoveryOptimizationScheduler()
+        let manager = makeRecoveryManager(
+            apiClient: apiClient,
+            keychain: keychain,
+            pingpong: RecordingPingPong(firstResult: .init(type: .lan, url: "https://192.168.1.10:5001"), singleURLReachable: true),
+            scheduler: scheduler
+        )
+
+        let decision = await manager.recoverConnection()
+        await scheduler.waitForCompletion()
+
+        XCTAssertEqual(decision.status, .connected)
+        XCTAssertFalse(apiClient.requestedEndpoints.contains { $0.apiName == SynologyApi.Core.AUTH.name })
+        XCTAssertEqual(apiClient.clearSessionCount, 0)
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.10:5001")
+        XCTAssertEqual(apiClient.requestedEndpoints.filter { $0.apiName == SynologyApi.Core.DSM_INFO.name }.count, 1)
     }
 
     func testRecoverConnectionWithoutCredentialsDisconnects() async {
@@ -109,9 +298,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -121,10 +309,15 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(decision.status, .disconnected)
     }
 
-    func testOptimizeQuickConnectEndpointPersistsRefreshedConnection() async throws {
+    func testOptimizeQuickConnectEndpointPersistsRefreshedConnectionWithOriginalSession() async throws {
         let apiClient = MockApiClient()
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+        keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
+        apiClient.requestHandler = { _ in
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            return makeSessionValidationInfo()
+        }
         apiClient.rawRequestHandler = { _, _, _, _, _ in
             try makeQuickConnectServerInfo(ip: "192.168.1.20", port: 5001)
         }
@@ -135,9 +328,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -148,12 +340,12 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(connection?.url, "https://192.168.1.20:5001")
         XCTAssertEqual(apiClient.connection?.type, .lan)
         XCTAssertEqual(apiClient.connection?.url, "https://192.168.1.20:5001")
-        XCTAssertEqual(apiClient.session?.sid, "new-sid")
-        XCTAssertEqual(apiClient.session?.did, "new-did")
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(apiClient.session?.did, "old-did")
         XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://192.168.1.20:5001")
         XCTAssertEqual(keychain.getConnectionInfo()?.typeString, ConnectionType.lan.rawValue)
-        XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
-        XCTAssertEqual(keychain.getSessionInfo()?.did, "new-did")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.did, "old-did")
         XCTAssertTrue(pingpong.singleURLPings.isEmpty)
     }
 
@@ -174,38 +366,15 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
 
         apiClient.requestHandler = { endpoint in
-            if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
-                return AudioStationInfo(
-                    enable_equalizer: false,
-                    playing_queue_max: 0,
-                    same_subnet: false,
-                    enable_user_home: false,
-                    has_aac: false,
-                    support_bluetooth: false,
-                    version_string: nil,
-                    has_music_share: false,
-                    version: nil,
-                    sid: "old-sid",
-                    enable_personal_library: false,
-                    settings: AudioStationInfoSettings(disable_upnp: false, enable_download: false, transcode_to_mp3: false, prefer_using_html5: false, audio_show_virtual_library: false),
-                    support_usb: false,
-                    dsd_decode_capability: false,
-                    browse_personal_library: nil,
-                    serial_number: nil,
-                    privilege: AudioStationInfoPrivilege(tag_edit: false, sharing: false, upnp_browse: false, playlist_edit: false, remote_player: false),
-                    support_virtual_library: false,
-                    remote_controller: false,
-                    transcode_capability: [],
-                    is_manager: false
-                )
+            if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
+                return DsmInfo(model: "DS920+")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
         }
@@ -213,7 +382,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .connected)
-        XCTAssertEqual(pingpong.singleURLPings.first, "https://192.168.1.10:5001")
+        XCTAssertTrue(pingpong.singleURLPings.isEmpty)
         XCTAssertFalse(pingpong.didRunBestConnectionSelection)
         XCTAssertEqual(apiClient.session?.sid, "old-sid")
         XCTAssertEqual(apiClient.session?.did, "old-did")
@@ -234,15 +403,14 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
 
         apiClient.requestHandler = { endpoint in
-            if endpoint.apiName == SynologyApi.AudioStation.INFO.name {
+            if endpoint.apiName == SynologyApi.Core.DSM_INFO.name {
                 throw SynologyError.sessionExpired(code: 106, message: "expired")
             }
             throw SynologyError.network(message: "Unexpected endpoint: \(endpoint.apiName)")
@@ -251,13 +419,14 @@ final class ConnectionManagerFlowTests: XCTestCase {
         let decision = await manager.recoverConnection()
 
         XCTAssertEqual(decision.status, .requiresRelogin)
-        XCTAssertEqual(pingpong.singleURLPings.first, "https://192.168.1.10:5001")
+        XCTAssertTrue(pingpong.singleURLPings.isEmpty)
     }
 
-    func testOptimizeQuickConnectEndpointDoesNotPersistRefreshedConnectionWhenLoginFails() async throws {
+    func testOptimizeQuickConnectEndpointDoesNotPersistRefreshedConnectionWhenValidationFails() async throws {
         let apiClient = MockApiClient()
         apiClient.updateConnection(type: .lan, url: "https://192.168.1.10:5001")
         apiClient.updateSession(sid: "old-sid", did: "old-did")
+        apiClient.mockError = SynologyError.network(message: "validation timed out")
 
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
@@ -273,9 +442,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
             pingpong: pingpong,
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .failure(SynologyError.auth(code: 400, message: "login failed"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -306,9 +474,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: nil, isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -333,9 +500,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: nil, isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -359,9 +525,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: nil, isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -375,8 +540,9 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(candidates.first?.isReachable, true)
     }
 
-    func testUsePersistsSelectedEndpointAndRefreshesSession() async throws {
+    func testUsePersistsSelectedEndpointAndReusesSession() async throws {
         let apiClient = MockApiClient()
+        apiClient.mockResponse = makeSessionValidationInfo()
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
         keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
@@ -386,9 +552,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -402,10 +567,10 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(apiClient.connection?.type, .relay)
         XCTAssertEqual(apiClient.connection?.url, "https://relay.quickconnect.to:443")
         XCTAssertEqual(keychain.getConnectionInfo()?.typeString, ConnectionType.relay.rawValue)
-        XCTAssertEqual(apiClient.session?.sid, "new-sid")
-        XCTAssertEqual(apiClient.session?.did, "new-did")
-        XCTAssertEqual(keychain.getSessionInfo()?.sid, "new-sid")
-        XCTAssertEqual(keychain.getSessionInfo()?.did, "new-did")
+        XCTAssertEqual(apiClient.session?.sid, "old-sid")
+        XCTAssertEqual(apiClient.session?.did, "old-did")
+        XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+        XCTAssertEqual(keychain.getSessionInfo()?.did, "old-did")
     }
 
     func testUseRejectsUnreachableSelectedEndpoint() async {
@@ -417,9 +582,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -430,13 +594,13 @@ final class ConnectionManagerFlowTests: XCTestCase {
             )
             XCTFail("Expected unreachable endpoint failure")
         } catch let SynologyError.network(message) {
-            XCTAssertEqual(message, "Selected endpoint is unreachable")
+            XCTAssertEqual(message, "Missing saved session")
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
     }
 
-    func testUseRollsBackConnectionAndSessionWhenSilentLoginFails() async {
+    func testUseRollsBackConnectionAndSessionWhenAPIDiscoveryFails() async {
         let apiClient = MockApiClient()
         apiClient.updateConnection(type: .lan, url: "https://192.168.1.10:5001")
         apiClient.updateSession(sid: "old-sid", did: "old-did")
@@ -450,11 +614,10 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
-            apiInfoApi: TestApiInfoProvider(onRefresh: {
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(onLoad: {
                 throw SynologyError.network(message: "refresh failed")
             }),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -480,7 +643,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertEqual(keychain.getSessionInfo()?.did, "old-did")
     }
 
-    func testUseClearsSessionWhenRefreshFailsWithoutPreviousSession() async {
+    func testUseRejectsMissingSessionWithoutLoggingIn() async {
         let apiClient = MockApiClient()
         let keychain = makeKeyChainStorage(service: UUID().uuidString)
         keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
@@ -489,11 +652,10 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
-            apiInfoApi: TestApiInfoProvider(onRefresh: {
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
+            apiInfoApi: TestApiInfoProvider(onLoad: {
                 throw SynologyError.network(message: "refresh failed")
             }),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -504,7 +666,7 @@ final class ConnectionManagerFlowTests: XCTestCase {
             )
             XCTFail("Expected switch failure")
         } catch let SynologyError.network(message) {
-            XCTAssertEqual(message, "refresh failed")
+            XCTAssertEqual(message, "Missing saved session")
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -521,9 +683,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -542,9 +703,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: true),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -566,9 +726,8 @@ final class ConnectionManagerFlowTests: XCTestCase {
             apiClient: apiClient,
             quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: TestPingPong()),
             pingpong: TestPingPong(singleURLReachable: false),
-            audioStationApi: AudioStationClient(apiClient: apiClient),
+            dsmInfoApi: DSMInfoClient(apiClient: apiClient),
             apiInfoApi: TestApiInfoProvider(),
-            authApi: TestAuthProvider(result: .success(AuthResult(did: "did", isPortalPort: false, sid: "sid"))),
             optimizationScheduler: NoOpQuickConnectOptimizationScheduler(),
             keyChainStorage: keychain
         )
@@ -581,6 +740,52 @@ final class ConnectionManagerFlowTests: XCTestCase {
         XCTAssertNil(keychain.getConnectionInfo())
         XCTAssertNil(keychain.getSessionInfo())
     }
+}
+
+private func makeRecoveryStorage(apiClient: MockApiClient) -> any SensitiveStorage {
+    let keychain = makeKeyChainStorage(service: UUID().uuidString)
+    keychain.saveCredentials(server: "qc-123456", username: "tester", password: "secret", usesHTTPS: true)
+    keychain.saveConnectionInfo(url: "https://192.168.1.10:5001", typeString: ConnectionType.lan.rawValue)
+    keychain.saveSessionInfo(sid: "old-sid", did: "old-did")
+    apiClient.updateConnection(type: .lan, url: "https://192.168.1.10:5001")
+    apiClient.updateSession(sid: "old-sid", did: "old-did")
+    return keychain
+}
+
+private func makeRecoveryManager(
+    apiClient: MockApiClient,
+    keychain: any SensitiveStorage,
+    pingpong: any PingPongProviding = TestPingPong(singleURLReachable: true),
+    scheduler: any QuickConnectOptimizationScheduling = NoOpQuickConnectOptimizationScheduler()
+) -> ConnectionManager {
+    ConnectionManager(
+        apiClient: apiClient,
+        quickConnectApi: QuickConnectClient(apiClient: apiClient, pingpong: pingpong),
+        pingpong: pingpong,
+        dsmInfoApi: DSMInfoClient(apiClient: apiClient),
+        apiInfoApi: TestApiInfoProvider(),
+        optimizationScheduler: scheduler,
+        keyChainStorage: keychain
+    )
+}
+
+private actor BackgroundRecoveryOptimizationScheduler: QuickConnectOptimizationScheduling {
+    private var task: Task<QuickConnectEndpointRefreshOutcome, Never>?
+    func run(operation: @escaping @Sendable () async -> QuickConnectEndpointRefreshOutcome) async -> QuickConnectEndpointRefreshOutcome {
+        await operation()
+    }
+
+    func schedule(operation: @escaping @Sendable () async -> QuickConnectEndpointRefreshOutcome) async {
+        task = Task { await operation() }
+    }
+
+    func waitForCompletion() async {
+        _ = await task?.value
+    }
+}
+
+private func makeSessionValidationInfo() -> DsmInfo {
+    DsmInfo(model: "DS920+")
 }
 
 private final class RecordingPingPong: PingPongProviding, @unchecked Sendable {

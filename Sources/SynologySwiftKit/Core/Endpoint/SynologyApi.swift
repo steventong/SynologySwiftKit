@@ -60,6 +60,9 @@ enum SynologyApi {
         /// 加密 API
         static let ENCRYPTION = ApiDefinition(name: "SYNO.API.Encryption", requiresAuth: false)
 
+        static let DESKTOP_TIMEOUT = ApiDefinition(name: "SYNO.Core.Desktop.Timeout")
+        static let NORMAL_USER = ApiDefinition(name: "SYNO.Core.NormalUser")
+
         /// DSM 信息
         static let DSM_INFO = ApiDefinition(name: "SYNO.DSM.Info")
     }
@@ -153,6 +156,7 @@ enum SynologyApi {
 
     /// FileStation API
     enum FileStation {
+        static let INFO = ApiDefinition(name: "SYNO.FileStation.Info")
         /// 删除
         static let DELETE = ApiDefinition(name: "SYNO.FileStation.Delete")
     }

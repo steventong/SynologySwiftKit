@@ -2,6 +2,39 @@ import XCTest
 @testable import SynologySwiftKit
 
 final class SessionOperationOwnershipTests: XCTestCase {
+    func testRecoveryPreservesAnInFlightRouteQuery() async throws {
+        let transport = HTTPClientFactorySpy()
+        let client = ApiClient(httpClientFactory: transport.makeFactory(), keyValueStorage: MockKeyValueStorage())
+        client.updateConnection(type: .custom_domain, url: "https://nas.invalid")
+        let routes = ApiInfoApi(apiClient: client, keyValueStorage: MockKeyValueStorage())
+        routes.selectServer("https://nas.invalid")
+        client.apiInfoProvider = routes
+        let started = expectation(description: "Artwork route discovery started")
+        let recovering = expectation(description: "Recovery started")
+        let release = DispatchSemaphore(value: 0)
+        transport.handler = { request, _ in
+            started.fulfill()
+            guard release.wait(timeout: .now() + 5) == .success else {
+                throw SynologyError.network(message: "Fixture timed out")
+            }
+            let data = Data(#"{"success":true,"data":{"SYNO.DSM.Info":{"path":"entry.cgi","minVersion":1,"maxVersion":2}}}"#.utf8)
+            return (data, makeHTTPURLResponse(url: request.url!))
+        }
+        let artwork = Task { try await routes.getApiInfoByApiName(apiName: "SYNO.DSM.Info") }
+        await fulfillment(of: [started], timeout: 2)
+        let recovery = client.sessionOperations.start(invalidatesRequests: false) {
+            recovering.fulfill()
+            return try await routes.getApiInfoByApiName(apiName: "SYNO.DSM.Info")
+        }
+        await fulfillment(of: [recovering], timeout: 2)
+        release.signal()
+        let artworkRoute = try await artwork.value
+        let recoveryRoute = try await recovery.value
+        XCTAssertEqual(artworkRoute.path, "entry.cgi")
+        XCTAssertEqual(recoveryRoute.path, "entry.cgi")
+        XCTAssertEqual(transport.requests.count, 1)
+    }
+
     func testNewOperationWaitsForCancelledOperationsRollback() async throws {
         let owner = SessionOperationCoordinator()
         let started = expectation(description: "Old operation suspended")
@@ -91,13 +124,38 @@ final class SessionOperationOwnershipTests: XCTestCase {
         let state = TestState()
         try await owner.perform {
             let task = Task {
-                try await owner.performAfterCurrent { try owner.commit { state.events.append("child") } }
+                try await owner.performAfterCurrent {
+                    try await owner.perform { try owner.commit { state.events.append("child") } }
+                }
             }
             await child.set(task)
             try owner.commit { state.events.append("parent") }
         }
         try await child.finish()
         XCTAssertEqual(state.events, ["parent", "child"])
+    }
+
+    func testBackgroundDiscoveryDoesNotBlockOrdinaryRequests() async throws {
+        let owner = SessionOperationCoordinator()
+        let child = ChildOperation()
+        let started = expectation(description: "Background discovery started")
+        let pause = IgnoringCancellationGate(started: started)
+        try await owner.perform {
+            let task = Task {
+                try await owner.performAfterCurrent { await pause.wait() }
+            }
+            await child.set(task)
+        }
+        await fulfillment(of: [started], timeout: 2)
+        let completed = expectation(description: "Request proceeds during discovery")
+        let request = Task {
+            _ = try await owner.requestStamp()
+            completed.fulfill()
+        }
+        await fulfillment(of: [completed], timeout: 2)
+        await pause.release()
+        try await child.finish()
+        try await request.value
     }
 
     func testLateLogoutResponseCannotClearAnExternallyReplacedSession() async throws {
@@ -140,7 +198,7 @@ final class SessionOperationOwnershipTests: XCTestCase {
         let login = SynologyUserLogin(
             apiInfoApi: NoopAPIInfo(), apiClient: api,
             authApi: AuthClient(apiClient: api, keyChainStorage: storage, sessionOperations: owner),
-            audioStationApi: AudioStationClient(apiClient: api),
+            dsmInfoApi: DSMInfoClient(apiClient: api),
             connectionChecker: TestConnectionChecker(), keyChainStorage: storage,
             sessionOperations: owner
         )
@@ -284,6 +342,8 @@ private final class DeferredSessionAPI: ApiRequestSending, ConnectionStateProvid
     func buildUrl(_ endpoint: ApiEndpoint) async throws -> URL { URL(string: "https://fixture.invalid")! }
 }
 private struct NoopAPIInfo: ApiInfoProviding {
+    var serverIdentity: String? { nil }
+    func selectServer(_ server: String?) {}
     func getApiInfoByApiName(apiName: String) async throws -> ApiInfoNode { ApiInfoNode(path: "entry.cgi", minVersion: 1, maxVersion: 1, requestFormat: nil) }
     func refresh() async throws {}
     func loadFromCacheOrRefresh() async throws {}

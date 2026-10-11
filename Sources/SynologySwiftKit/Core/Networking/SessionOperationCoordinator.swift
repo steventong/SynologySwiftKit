@@ -28,13 +28,13 @@ final class SessionOperationCoordinator: @unchecked Sendable {
     private var tail: Task<Void, Never>?
     private var completions: [UUID: Task<Void, Never>] = [:]
 
-    func start<Value>(_ work: @escaping () async throws -> Value) -> Task<Value, Error> {
+    func start<Value>(invalidatesRequests: Bool = true, _ work: @escaping () async throws -> Value) -> Task<Value, Error> {
         locked {
             let predecessor = tail
             let id = UUID()
             let revision = externalRevision
             latestID = id
-            requestRevision &+= 1
+            if invalidatesRequests { requestRevision &+= 1 }
             cancelActive?()
             let requestRevision = requestRevision
             let task = Task<Value, Error> { [self] in
@@ -150,17 +150,17 @@ final class SessionOperationCoordinator: @unchecked Sendable {
         }
     }
 
-    /// 后台优化在当前流程结束后取得自己的写入所有权，不能继承已结束的流程令牌。
+    /// 后台发现等待恢复结束后独立运行，不占用会话写入队列；真正换地址时再调用 perform。
     func performAfterCurrent<Value>(_ work: @escaping () async throws -> Value) async throws -> Value {
         guard let context = Self.context, context.owner === self else { throw CancellationError() }
         let predecessor = locked { completions[context.id] }
         if let predecessor { await predecessor.value }
         return try await Self.$context.withValue(nil) {
-            let task = try locked {
+            try Task.checkCancellation()
+            try locked {
                 guard requestRevision == context.requestRevision else { throw CancellationError() }
-                return start(work)
             }
-            return try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+            return try await work()
         }
     }
 
