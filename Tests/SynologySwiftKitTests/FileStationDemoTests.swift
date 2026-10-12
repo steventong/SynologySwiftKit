@@ -20,13 +20,13 @@ final class FileStationDemoTests: XCTestCase {
         XCTAssertEqual(url.host, "nas.example")
     }
 
-    func testAuthUsesSDKSessionName() async throws {
+    func testAuthUsesAudioStationSessionName() async throws {
         let transport = MockApiClient()
         transport.mockResponse = AuthResult(did: nil, isPortalPort: false, sid: "test-sid", synotoken: nil)
         let auth = AuthClient(apiClient: transport, keyChainStorage: makeKeyChainStorage(service: UUID().uuidString))
         _ = try await auth.login(username: "demo", password: "test")
         XCTAssertEqual(transport.requestedEndpoints.map { $0.parameters["session"]?.stringValue },
-                       ["SynologySwiftKit"])
+                       ["AudioStation"])
     }
 
     func testShareAndFileResponseDecodingAndPaginationRequest() async throws {

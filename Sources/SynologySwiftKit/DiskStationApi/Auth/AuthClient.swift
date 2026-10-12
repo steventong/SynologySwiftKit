@@ -59,7 +59,7 @@ public final class AuthClient {
                 ("account", username)
                 ("passwd", password)
                 ("format", "cookie")
-                ("session", "SynologySwiftKit")
+                ("session", "AudioStation")
                 ("client_time", String(Int(Date().timeIntervalSince1970)))
                 if let normalizedOTPCode {
                     ("otp_code", normalizedOTPCode)
