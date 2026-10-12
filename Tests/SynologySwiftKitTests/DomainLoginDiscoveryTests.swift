@@ -77,7 +77,7 @@ final class DomainLoginDiscoveryTests: XCTestCase {
             keyChainStorage: storage
         )
         var events: [SynologyUserLoginProgress] = []
-        for await event in flow.login(server: "nas.local", username: "tester", password: "secret") { events.append(event) }
+        for await event in flow.login(sessionName: "AudioStation", server: "nas.local", username: "tester", password: "secret") { events.append(event) }
         XCTAssertEqual(provider.addresses, ["https://nas.local:5001"])
         XCTAssertTrue(api.requestedEndpoints.isEmpty)
         XCTAssertEqual(api.connection?.url, "https://previous.local")
@@ -106,7 +106,7 @@ final class DomainLoginDiscoveryTests: XCTestCase {
 
     private func login(_ client: SynologyClient, server: String) async -> [SynologyUserLoginProgress] {
         var events: [SynologyUserLoginProgress] = []
-        for await event in client.flows.userLogin.login(server: server, username: "tester", password: "secret") {
+        for await event in client.flows.userLogin.login(sessionName: "AudioStation", server: server, username: "tester", password: "secret") {
             events.append(event)
         }
         return events

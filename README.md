@@ -40,8 +40,8 @@ import SynologySwiftKit
 let client = SynologyClientFactory.make()
 
 for await progress in client.flows.userLogin.login(
+    sessionName: "AudioStation",
     server: "your-quickconnect-id",
-    usesHTTPS: true,
     username: "demo",
     password: "secret"
 ) {
@@ -59,6 +59,24 @@ for await progress in client.flows.userLogin.login(
     }
 }
 ```
+
+## Login Session Name
+
+Pass the DSM application session name explicitly when logging in. For example, DS Music passes
+`sessionName: "AudioStation"`; a File Station client can pass `sessionName: "FileStation"`.
+This is a server-side protocol value used for application session/permission checks, not your
+SDK/product name or a session ID. It must match the target DSM application; an arbitrary name
+can cause `SYNO.API.Auth.login` to fail with code 402 (permission denied).
+Kit does not provide a default. Direct `client.auth.login` calls also require `sessionName`.
+
+Use the same name for password login, OTP continuation and renewal:
+
+```swift
+let progress = client.flows.userLogin.resume(sessionName: "AudioStation")
+let renewal = client.flows.userLogin.relogin(sessionName: "AudioStation")
+```
+
+The host supplies the name again after relaunch; Kit does not infer it from saved credentials.
 
 ## Audio Station
 

@@ -10,7 +10,7 @@ import Foundation
 // MARK: - AuthClient
 
 protocol AuthenticationProviding {
-    func login(username: String, password: String, otpCode: String?) async throws -> AuthResult
+    func login(sessionName: String, username: String, password: String, otpCode: String?) async throws -> AuthResult
 }
 
 /// Synology 登录/登出客户端
@@ -34,6 +34,10 @@ public final class AuthClient {
     /// 使用账号密码登录
     /// Login with username and password
     /// - Parameters:
+    ///   - sessionName: DSM 应用会话及权限校验使用的协议名称（不是 SID），必须与目标应用匹配，
+    ///     例如 Audio Station 使用 "AudioStation"、File Station 使用 "FileStation"。
+    ///     不可任意填写或使用 App / SDK 名称；不匹配可能导致 SYNO.API.Auth.login 返回 402。
+    ///     Use the target DSM application's session name, not an arbitrary product/SDK name or SID.
     ///   - username: 用户名 / Username
     ///   - password: 密码 / Password
     ///   - otpCode: OTP 验证码（启用了双验证时传入）/ OTP code (provide when 2FA is enabled)
@@ -41,13 +45,13 @@ public final class AuthClient {
     /// - Throws:
     ///   - `SynologyError.auth`: 登录失败 / Login failed
     ///   - `SynologyError.authError`: API 错误码映射 / API error code mapping
-    public func login(username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
+    public func login(sessionName: String, username: String, password: String, otpCode: String? = nil) async throws -> AuthResult {
         try await sessionOperations.perform { [self] in
-            try await authenticate(username: username, password: password, otpCode: otpCode)
+            try await authenticate(sessionName: sessionName, username: username, password: password, otpCode: otpCode)
         }
     }
 
-    private func authenticate(username: String, password: String, otpCode: String?) async throws -> AuthResult {
+    private func authenticate(sessionName: String, username: String, password: String, otpCode: String?) async throws -> AuthResult {
         let deviceInfo = keyChainStorage.getDeviceInfo()
         let normalizedOTPCode = otpCode?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -59,7 +63,7 @@ public final class AuthClient {
                 ("account", username)
                 ("passwd", password)
                 ("format", "cookie")
-                ("session", "AudioStation")
+                ("session", sessionName)
                 ("client_time", String(Int(Date().timeIntervalSince1970)))
                 if let normalizedOTPCode {
                     ("otp_code", normalizedOTPCode)

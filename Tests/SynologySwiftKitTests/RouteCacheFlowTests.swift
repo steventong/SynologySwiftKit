@@ -17,7 +17,7 @@ final class RouteCacheFlowTests: XCTestCase {
         XCTAssertTrue(loggedIn)
         XCTAssertEqual(calls, ["SYNO.API.Info", "SYNO.API.Auth"])
         calls = []
-        for await _ in client.flows.userLogin.resume() {}
+        for await _ in client.flows.userLogin.resume(sessionName: "AudioStation") {}
         XCTAssertEqual(calls, ["SYNO.DSM.Info"])
         calls = []
         let recovery = await client.flows.connection.recover()
@@ -43,6 +43,11 @@ final class RouteCacheFlowTests: XCTestCase {
                 let api = self.apiName(request)
                 calls.append(api)
                 if server == "nas.local" && request.url?.scheme == "https" { throw URLError(.cannotConnectToHost) }
+                if api == "SYNO.API.Auth" {
+                    let body = String(decoding: requestBodyData(request) ?? Data(), as: UTF8.self)
+                    let items = URLComponents(string: "https://test/?" + body)?.queryItems
+                    XCTAssertEqual(items?.first { $0.name == "session" }?.value, "FileStation")
+                }
                 if api == "SYNO.API.Auth" && needsOTP {
                     needsOTP = false
                     return (try makeJSONData(["success": false, "error": ["code": 403]]), makeHTTPURLResponse(url: request.url!))
@@ -51,13 +56,50 @@ final class RouteCacheFlowTests: XCTestCase {
             }
             let client = makeClient(transport, MockKeyValueStorage(), makeKeyChainStorage(service: UUID().uuidString))
             var otpRequired = false
-            for await progress in client.flows.userLogin.login(server: server, username: "tester", password: "secret") {
+            for await progress in client.flows.userLogin.login(sessionName: "FileStation", server: server, username: "tester", password: "secret") {
                 if case .otpRequired = progress { otpRequired = true }
             }
             XCTAssertTrue(otpRequired)
-            let success = await login(client, otp: "123456", server: server)
+            let success = await login(client, sessionName: "FileStation", otp: "123456", server: server)
             XCTAssertTrue(success)
             XCTAssertEqual(calls, (server == "nas.local" ? ["SYNO.API.Info"] : []) + ["SYNO.API.Info", "SYNO.API.Auth", "SYNO.API.Auth"])
+        }
+    }
+
+    func testHostSessionNameReachesPasswordLoginExpiredResumeAndRelogin() async throws {
+        for sessionName in ["AudioStation", "FileStation"] {
+            let transport = HTTPClientFactorySpy()
+            var receivedSessionNames: [String] = []
+            transport.handler = { request, _ in
+                if request.url?.path == "/webman/pingpong.cgi" {
+                    return (try makeJSONData(["success": true]), makeHTTPURLResponse(url: request.url!))
+                }
+                switch self.apiName(request) {
+                case "SYNO.API.Auth":
+                    let body = String(decoding: requestBodyData(request) ?? Data(), as: UTF8.self)
+                    let items = URLComponents(string: "https://test/?" + body)?.queryItems
+                    receivedSessionNames.append(try XCTUnwrap(items?.first { $0.name == "session" }?.value))
+                case "SYNO.DSM.Info":
+                    return (try makeJSONData(["success": false, "error": ["code": 106]]),
+                            makeHTTPURLResponse(url: request.url!))
+                default: break
+                }
+                return try self.response(request)
+            }
+            let client = makeClient(transport, MockKeyValueStorage(), makeKeyChainStorage(service: UUID().uuidString))
+            let loggedIn = await login(client, sessionName: sessionName)
+            XCTAssertTrue(loggedIn)
+            var resumed = false
+            for await event in client.flows.userLogin.resume(sessionName: sessionName) {
+                if case .completed = event { resumed = true }
+            }
+            XCTAssertTrue(resumed)
+            var renewed = false
+            for await event in client.flows.userLogin.relogin(sessionName: sessionName) {
+                if case .completed = event { renewed = true }
+            }
+            XCTAssertTrue(renewed)
+            XCTAssertEqual(receivedSessionNames, [sessionName, sessionName, sessionName])
         }
     }
 
@@ -85,8 +127,8 @@ final class RouteCacheFlowTests: XCTestCase {
         }
     }
 
-    private func login(_ client: SynologyClient, otp: String? = nil, server: String = "https://nas.local") async -> Bool {
-        for await event in client.flows.userLogin.login(server: server, username: "tester", password: "secret", otpCode: otp) {
+    private func login(_ client: SynologyClient, sessionName: String = "AudioStation", otp: String? = nil, server: String = "https://nas.local") async -> Bool {
+        for await event in client.flows.userLogin.login(sessionName: sessionName, server: server, username: "tester", password: "secret", otpCode: otp) {
             if case .completed = event { return true }
         }
         return false

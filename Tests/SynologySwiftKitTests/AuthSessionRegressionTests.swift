@@ -39,7 +39,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         )
 
         var events: [SynologyUserLoginProgress] = []
-        for await progress in login.login() {
+        for await progress in login.login(sessionName: "AudioStation") {
             events.append(progress)
         }
 
@@ -84,7 +84,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 }
                 let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: usedCachedConnection)
 
-                let events = await collectResumeEvents(login.login())
+                let events = await collectResumeEvents(login.login(sessionName: "AudioStation"))
 
                 XCTAssertEqual(events.count, 3, "\(failure), cache=\(usedCachedConnection)")
                 guard case .failed = events.last else {
@@ -119,7 +119,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         }
         let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-        let events = await collectResumeEvents(login.login())
+        let events = await collectResumeEvents(login.login(sessionName: "AudioStation"))
 
         guard case let .completed(result) = events.last else {
             return XCTFail("Expected original session to be reused on a rediscovered address")
@@ -142,7 +142,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.mockResponse = makeResumeValidationInfo()
         let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-        let events = await collectResumeEvents(login.login())
+        let events = await collectResumeEvents(login.login(sessionName: "AudioStation"))
 
         guard case let .completed(result) = events.last else {
             return XCTFail("Expected available in-memory SID to be reused")
@@ -159,7 +159,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             apiClient.mockError = failure
             let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-            let events = await collectResumeEvents(login.login())
+            let events = await collectResumeEvents(login.login(sessionName: "AudioStation"))
 
             XCTAssertEqual(events.count, 2)
             XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
@@ -179,7 +179,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         }
         let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-        let events = await collectResumeEvents(login.login())
+        let events = await collectResumeEvents(login.login(sessionName: "AudioStation"))
 
         XCTAssertEqual(events.count, 2)
         XCTAssertEqual(apiClient.requestedEndpoints.count, 1)
@@ -199,7 +199,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             apiInfo: TestApiInfoProvider(onLoad: { throw SynologyError.network(message: "API discovery timeout") })
         )
 
-        let events = await collectResumeEvents(login.login())
+        let events = await collectResumeEvents(login.login(sessionName: "AudioStation"))
 
         guard case .failed = events.last else {
             return XCTFail("Expected discovery failure")
@@ -226,7 +226,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             }
             let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-            let events = await collectResumeEvents(login.login())
+            let events = await collectResumeEvents(login.login(sessionName: "AudioStation"))
 
             guard case let .completed(result) = events.last else {
                 return XCTFail("Expected explicit expiry to permit password login, code=\(code)")
@@ -246,7 +246,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 return AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid")
             }
             let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
-            let stream = forceRelogin ? login.relogin() : login.login(server: "nas.local", username: "tester", password: "secret")
+            let stream = forceRelogin ? login.relogin(sessionName: "AudioStation") : login.login(sessionName: "AudioStation", server: "nas.local", username: "tester", password: "secret")
 
             let events = await collectResumeEvents(stream)
 
@@ -272,7 +272,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 }
                 let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-                let events = await collectResumeEvents(forceRelogin ? login.relogin() : login.login())
+                let events = await collectResumeEvents(forceRelogin ? login.relogin(sessionName: "AudioStation") : login.login(sessionName: "AudioStation"))
 
                 guard case let .invalidSession(message) = events.last else {
                     return XCTFail("Expected known renewal rejection to require user login, code=\(code)")
@@ -288,7 +288,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.mockError = SynologyError.auth(code: 400, message: "wrong password")
         let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-        let events = await collectResumeEvents(login.login(server: "nas.local", username: "tester", password: "wrong"))
+        let events = await collectResumeEvents(login.login(sessionName: "AudioStation", server: "nas.local", username: "tester", password: "wrong"))
 
         guard case let .failed(message) = events.last else {
             return XCTFail("Expected first password login to retain ordinary failure")
@@ -317,7 +317,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 }
                 let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-                let events = await collectResumeEvents(forceRelogin ? login.relogin() : login.login())
+                let events = await collectResumeEvents(forceRelogin ? login.relogin(sessionName: "AudioStation") : login.login(sessionName: "AudioStation"))
 
                 if failure is CancellationError {
                     XCTAssertFalse(events.contains {
@@ -351,7 +351,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 }
                 let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-                let events = await collectResumeEvents(forceRelogin ? login.relogin() : login.login())
+                let events = await collectResumeEvents(forceRelogin ? login.relogin(sessionName: "AudioStation") : login.login(sessionName: "AudioStation"))
 
                 guard case .otpRequired = events.last else {
                     return XCTFail("Expected OTP prompt, code=\(code)")
@@ -367,7 +367,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         apiClient.mockError = SynologyError.sessionExpired(code: 119, message: "server invalid session")
         let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
 
-        let events = await collectResumeEvents(login.relogin())
+        let events = await collectResumeEvents(login.relogin(sessionName: "AudioStation"))
 
         guard case .invalidSession = events.last else {
             return XCTFail("Expected normalized auth 119 to retain server expiry semantics")

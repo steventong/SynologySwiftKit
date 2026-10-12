@@ -15,7 +15,7 @@ import OSLog
 final class SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
-    private var pendingOTP: (server: String, username: String, connection: SynologyConnection)?
+    private var pendingOTP: (server: String, username: String, sessionName: String, connection: SynologyConnection)?
     private let sessionOperations: SessionOperationCoordinator
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
@@ -51,11 +51,11 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
 
     /// 通过密码登录（AsyncStream 版本）
     /// Login with password (AsyncStream version)
-    func login(server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+    func login(sessionName: String, server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
-                await self.performPasswordLogin(server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, attemptSliceLogin: false, continuation: continuation)
+                await self.performPasswordLogin(sessionName: sessionName, server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, attemptSliceLogin: false, continuation: continuation)
             }
             let completion = Task {
                 _ = try? await task.value
@@ -73,7 +73,8 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
 
     /// 静默恢复时优先复用原 SID；仅无 SID 或服务器明确判定会话失效才执行全量登录。
     /// 网络、解码与取消只结束本次恢复，保留会话供网络恢复后重试。
-    func login() -> AsyncStream<SynologyUserLoginProgress> {
+    /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称。
+    func login(sessionName: String) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 guard let credentials = keyChainStorage.getCredentials() else {
@@ -86,6 +87,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                 Logger.info("SynologyUserLogin#login(resume), entry, server=\(credentials.server), usesHTTPS=\(credentials.usesHTTPS), strategy=sliceThenFull")
 
                 await self.performPasswordLogin(
+                    sessionName: sessionName,
                     server: credentials.server,
                     usesHTTPS: credentials.usesHTTPS,
                     username: credentials.username,
@@ -115,7 +117,8 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     ///
     /// 用于已知缓存 SID 失效的恢复路径（例如 SessionOrchestrator 检测到 session fault 之后），
     /// 避免在已知一定失败的场景下浪费一次 slice 校验的 round-trip。
-    func relogin() -> AsyncStream<SynologyUserLoginProgress> {
+    /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称。
+    func relogin(sessionName: String) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 guard let credentials = keyChainStorage.getCredentials() else {
@@ -128,6 +131,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
                 Logger.info("SynologyUserLogin#login(relogin), entry, server=\(credentials.server), usesHTTPS=\(credentials.usesHTTPS), strategy=forceFull")
 
                 await self.performPasswordLogin(
+                    sessionName: sessionName,
                     server: credentials.server,
                     usesHTTPS: credentials.usesHTTPS,
                     username: credentials.username,
@@ -160,14 +164,14 @@ private extension SynologyUserLogin {
     /// 密码登录刷新服务器路由；静默恢复优先复用路由和现有连接。
     /// 静默恢复只要有 SID，就在解析出的地址上校验原会话，不受地址是否命中缓存影响。
     /// 校验成功直接完成；网络故障与取消回滚地址并结束；只有服务器明确失效才清理旧 SID 并全量登录。
-    func performPasswordLogin(server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+    func performPasswordLogin(sessionName: String, server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         guard !Task.isCancelled else {
             continuation.finish()
             return
         }
 
         let previousRouteServer = apiInfoApi.serverIdentity
-        let otpConnection = otpCode != nil && pendingOTP?.server == server && pendingOTP?.username == username ? pendingOTP?.connection : nil
+        let otpConnection = otpCode != nil && pendingOTP?.server == server && pendingOTP?.username == username && pendingOTP?.sessionName == sessionName ? pendingOTP?.connection : nil
         let reusesOTPRoutes = otpConnection != nil
         pendingOTP = nil
         var completed = false
@@ -329,7 +333,7 @@ private extension SynologyUserLogin {
             if !refreshedRoutes && !reusesOTPRoutes {
                 try await apiInfoApi.refresh()
             }
-            let authResult = try await authApi.login(username: username, password: password, otpCode: otpCode)
+            let authResult = try await authApi.login(sessionName: sessionName, username: username, password: password, otpCode: otpCode)
             try Task.checkCancellation()
 
             // 登录成功，保存会话
@@ -368,7 +372,7 @@ private extension SynologyUserLogin {
             // 需要或需重新输入 OTP 验证码（不算终止失败，需要用户输入）
             // OTP required or invalid (not a terminal failure; prompt the user again)
             Logger.info("SynologyUserLogin#performPasswordLogin, OTP input required, code=\(code), message: \(msg)")
-            pendingOTP = (server, username, connection)
+            pendingOTP = (server, username, sessionName, connection)
             continuation.yield(.otpRequired)
             continuation.finish()
         } catch let SynologyError.auth(code, message) where

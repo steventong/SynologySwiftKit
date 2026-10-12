@@ -237,7 +237,7 @@ struct TestApiInfoProvider: ApiInfoProviding {
 struct TestAuthProvider: AuthenticationProviding {
     var result: Result<AuthResult, Error>
 
-    func login(username: String, password: String, otpCode: String?) async throws -> AuthResult {
+    func login(sessionName: String, username: String, password: String, otpCode: String?) async throws -> AuthResult {
         _ = (username, password, otpCode)
         return try result.get()
     }
