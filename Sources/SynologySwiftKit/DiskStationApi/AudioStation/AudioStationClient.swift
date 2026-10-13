@@ -79,6 +79,9 @@ public final class AudioStationClient {
     /// 标签编辑器 API
     public let tagEditor: TagEditorApi
 
+    /// NAS 远程播放器
+    public let remotePlayers: RemotePlayerApi
+
     /// Query the music library count; returns -1 when the query fails.
     public func queryTotalSongsCount() async -> Int {
         await songQuery.queryTotalSongsCount()
@@ -116,6 +119,7 @@ public final class AudioStationClient {
         )
         self.info = info
         tagEditor = TagEditorApi(apiClient: apiClient)
+        remotePlayers = RemotePlayerApi(apiClient: apiClient)
     }
 }
 
