@@ -31,7 +31,7 @@ final class CoreFlowHappyPathTests: XCTestCase {
 
         var events: [SynologyUserLoginProgress] = []
         for await progress in login.login(
-            sessionName: "AudioStation",
+            sessionName: .audioStation,
             server: "https://nas.local",
             username: "tester",
             password: "secret",

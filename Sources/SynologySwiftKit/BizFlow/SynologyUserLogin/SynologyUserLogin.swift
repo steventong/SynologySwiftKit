@@ -15,7 +15,7 @@ import OSLog
 final class SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
-    private var pendingOTP: (server: String, username: String, sessionName: String, connection: SynologyConnection)?
+    private var pendingOTP: (server: String, username: String, sessionName: SynologySessionName, connection: SynologyConnection)?
     private let sessionOperations: SessionOperationCoordinator
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
@@ -51,7 +51,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
 
     /// 通过密码登录（AsyncStream 版本）
     /// Login with password (AsyncStream version)
-    func login(sessionName: String, server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
+    func login(sessionName: SynologySessionName, server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
@@ -74,7 +74,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// 静默恢复时优先复用原 SID；仅无 SID 或服务器明确判定会话失效才执行全量登录。
     /// 网络、解码与取消只结束本次恢复，保留会话供网络恢复后重试。
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称。
-    func login(sessionName: String) -> AsyncStream<SynologyUserLoginProgress> {
+    func login(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 guard let credentials = keyChainStorage.getCredentials() else {
@@ -118,7 +118,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// 用于已知缓存 SID 失效的恢复路径（例如 SessionOrchestrator 检测到 session fault 之后），
     /// 避免在已知一定失败的场景下浪费一次 slice 校验的 round-trip。
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称。
-    func relogin(sessionName: String) -> AsyncStream<SynologyUserLoginProgress> {
+    func relogin(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
             let task = sessionOperations.start { [self] in
                 guard let credentials = keyChainStorage.getCredentials() else {
@@ -164,7 +164,7 @@ private extension SynologyUserLogin {
     /// 密码登录刷新服务器路由；静默恢复优先复用路由和现有连接。
     /// 静默恢复只要有 SID，就在解析出的地址上校验原会话，不受地址是否命中缓存影响。
     /// 校验成功直接完成；网络故障与取消回滚地址并结束；只有服务器明确失效才清理旧 SID 并全量登录。
-    func performPasswordLogin(sessionName: String, server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
+    func performPasswordLogin(sessionName: SynologySessionName, server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         guard !Task.isCancelled else {
             continuation.finish()
             return

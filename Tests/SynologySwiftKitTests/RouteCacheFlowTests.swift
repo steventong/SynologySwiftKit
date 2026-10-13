@@ -17,7 +17,7 @@ final class RouteCacheFlowTests: XCTestCase {
         XCTAssertTrue(loggedIn)
         XCTAssertEqual(calls, ["SYNO.API.Info", "SYNO.API.Auth"])
         calls = []
-        for await _ in client.flows.userLogin.resume(sessionName: "AudioStation") {}
+        for await _ in client.flows.userLogin.resume(sessionName: .audioStation) {}
         XCTAssertEqual(calls, ["SYNO.DSM.Info"])
         calls = []
         let recovery = await client.flows.connection.recover()
@@ -56,18 +56,18 @@ final class RouteCacheFlowTests: XCTestCase {
             }
             let client = makeClient(transport, MockKeyValueStorage(), makeKeyChainStorage(service: UUID().uuidString))
             var otpRequired = false
-            for await progress in client.flows.userLogin.login(sessionName: "FileStation", server: server, username: "tester", password: "secret") {
+            for await progress in client.flows.userLogin.login(sessionName: .fileStation, server: server, username: "tester", password: "secret") {
                 if case .otpRequired = progress { otpRequired = true }
             }
             XCTAssertTrue(otpRequired)
-            let success = await login(client, sessionName: "FileStation", otp: "123456", server: server)
+            let success = await login(client, sessionName: .fileStation, otp: "123456", server: server)
             XCTAssertTrue(success)
             XCTAssertEqual(calls, (server == "nas.local" ? ["SYNO.API.Info"] : []) + ["SYNO.API.Info", "SYNO.API.Auth", "SYNO.API.Auth"])
         }
     }
 
     func testHostSessionNameReachesPasswordLoginExpiredResumeAndRelogin() async throws {
-        for sessionName in ["AudioStation", "FileStation"] {
+        for sessionName in SynologySessionName.allCases {
             let transport = HTTPClientFactorySpy()
             var receivedSessionNames: [String] = []
             transport.handler = { request, _ in
@@ -99,7 +99,7 @@ final class RouteCacheFlowTests: XCTestCase {
                 if case .completed = event { renewed = true }
             }
             XCTAssertTrue(renewed)
-            XCTAssertEqual(receivedSessionNames, [sessionName, sessionName, sessionName])
+            XCTAssertEqual(receivedSessionNames, [sessionName.rawValue, sessionName.rawValue, sessionName.rawValue])
         }
     }
 
@@ -127,7 +127,7 @@ final class RouteCacheFlowTests: XCTestCase {
         }
     }
 
-    private func login(_ client: SynologyClient, sessionName: String = "AudioStation", otp: String? = nil, server: String = "https://nas.local") async -> Bool {
+    private func login(_ client: SynologyClient, sessionName: SynologySessionName = .audioStation, otp: String? = nil, server: String = "https://nas.local") async -> Bool {
         for await event in client.flows.userLogin.login(sessionName: sessionName, server: server, username: "tester", password: "secret", otpCode: otp) {
             if case .completed = event { return true }
         }

@@ -7,6 +7,16 @@
 
 import Foundation
 
+// MARK: - SynologySessionName
+
+/// DSM 应用会话名称，用于 `SYNO.API.Auth` 的应用权限校验，不是会话 ID。
+/// DSM application session name used for authorization, not a session ID.
+public enum SynologySessionName: String, CaseIterable, Sendable {
+    case audioStation = "AudioStation"
+    case fileStation = "FileStation"
+    case videoStation = "VideoStation"
+}
+
 // MARK: - AuthResult
 
 /// 登录结果模型（由 `SYNO.API.Auth login` 接口返回）

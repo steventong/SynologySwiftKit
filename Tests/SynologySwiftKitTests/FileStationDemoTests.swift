@@ -24,11 +24,11 @@ final class FileStationDemoTests: XCTestCase {
         let transport = MockApiClient()
         transport.mockResponse = AuthResult(did: nil, isPortalPort: false, sid: "test-sid", synotoken: nil)
         let auth = AuthClient(apiClient: transport, keyChainStorage: makeKeyChainStorage(service: UUID().uuidString))
-        for sessionName in ["AudioStation", "FileStation"] {
+        for sessionName in SynologySessionName.allCases {
             _ = try await auth.login(sessionName: sessionName, username: "demo", password: "test")
         }
         XCTAssertEqual(transport.requestedEndpoints.map { $0.parameters["session"]?.stringValue },
-                       ["AudioStation", "FileStation"])
+                       ["AudioStation", "FileStation", "VideoStation"])
     }
 
     func testShareAndFileResponseDecodingAndPaginationRequest() async throws {

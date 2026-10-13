@@ -207,7 +207,7 @@ final class CoverageClosureTests: XCTestCase {
         }
 
         let api = AuthClient(apiClient: successClient, keyChainStorage: keychain)
-        let result = try await api.login(sessionName: "AudioStation", username: "tester", password: "secret", otpCode: "123456")
+        let result = try await api.login(sessionName: .audioStation, username: "tester", password: "secret", otpCode: "123456")
         XCTAssertEqual(result.sid, "sid-1")
         XCTAssertEqual(keychain.getDeviceInfo()?.0, "device-1")
 
@@ -222,12 +222,12 @@ final class CoverageClosureTests: XCTestCase {
         _ = try await AuthClient(
             apiClient: trustedDeviceClient,
             keyChainStorage: keychain
-        ).login(sessionName: "AudioStation", username: "tester", password: "secret", otpCode: "  ")
+        ).login(sessionName: .audioStation, username: "tester", password: "secret", otpCode: "  ")
 
         let sessionExpiredClient = MockApiClient()
         sessionExpiredClient.mockError = SynologyError.sessionExpired(code: 403, message: "otp")
         do {
-            _ = try await AuthClient(apiClient: sessionExpiredClient, keyChainStorage: keychain).login(sessionName: "AudioStation", username: "tester", password: "secret")
+            _ = try await AuthClient(apiClient: sessionExpiredClient, keyChainStorage: keychain).login(sessionName: .audioStation, username: "tester", password: "secret")
             XCTFail("Expected auth conversion")
         } catch let SynologyError.auth(code, message) {
             XCTAssertEqual(code, 403)
@@ -237,7 +237,7 @@ final class CoverageClosureTests: XCTestCase {
         let apiErrorClient = MockApiClient()
         apiErrorClient.mockError = SynologyError.api(code: 404, message: "bad")
         do {
-            _ = try await AuthClient(apiClient: apiErrorClient, keyChainStorage: keychain).login(sessionName: "AudioStation", username: "tester", password: "secret")
+            _ = try await AuthClient(apiClient: apiErrorClient, keyChainStorage: keychain).login(sessionName: .audioStation, username: "tester", password: "secret")
             XCTFail("Expected authError conversion")
         } catch let SynologyError.auth(code, message) {
             XCTAssertEqual(code, 404)
@@ -247,7 +247,7 @@ final class CoverageClosureTests: XCTestCase {
         let genericErrorClient = MockApiClient()
         genericErrorClient.mockError = URLError(.cannotConnectToHost)
         do {
-            _ = try await AuthClient(apiClient: genericErrorClient, keyChainStorage: keychain).login(sessionName: "AudioStation", username: "tester", password: "secret")
+            _ = try await AuthClient(apiClient: genericErrorClient, keyChainStorage: keychain).login(sessionName: .audioStation, username: "tester", password: "secret")
             XCTFail("Expected fallback auth error")
         } catch let SynologyError.auth(code, message) {
             XCTAssertEqual(code, -1)
@@ -319,7 +319,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var removeEvents: [SynologyUserLoginProgress] = []
-        for await progress in removeLogin.login(sessionName: "AudioStation", server: "https://nas.local", username: "tester", password: "secret", shouldSavePassword: false) {
+        for await progress in removeLogin.login(sessionName: .audioStation, server: "https://nas.local", username: "tester", password: "secret", shouldSavePassword: false) {
             removeEvents.append(progress)
         }
         guard case .completed = removeEvents.last else {
@@ -354,7 +354,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var otpEvents: [SynologyUserLoginProgress] = []
-        for await progress in otpLogin.login(sessionName: "AudioStation", server: "https://nas.local", username: "tester", password: "secret") {
+        for await progress in otpLogin.login(sessionName: .audioStation, server: "https://nas.local", username: "tester", password: "secret") {
             otpEvents.append(progress)
         }
         guard case .otpRequired? = otpEvents.last else {
@@ -370,7 +370,7 @@ final class CoverageClosureTests: XCTestCase {
         }
         var invalidOTPEvents: [SynologyUserLoginProgress] = []
         for await progress in otpLogin.login(
-            sessionName: "AudioStation",
+            sessionName: .audioStation,
             server: "https://nas.local",
             username: "tester",
             password: "secret",
@@ -402,7 +402,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var missingEvents: [SynologyUserLoginProgress] = []
-        for await progress in missingLogin.login(sessionName: "AudioStation") {
+        for await progress in missingLogin.login(sessionName: .audioStation) {
             missingEvents.append(progress)
         }
         guard case let .invalidSession(message)? = missingEvents.last else {
@@ -446,7 +446,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         var failureEvents: [SynologyUserLoginProgress] = []
-        for await progress in failureLogin.login(sessionName: "AudioStation", server: "https://nas.local", username: "tester", password: "secret") {
+        for await progress in failureLogin.login(sessionName: .audioStation, server: "https://nas.local", username: "tester", password: "secret") {
             failureEvents.append(progress)
         }
         guard case let .failed(message)? = failureEvents.last else {
@@ -481,7 +481,7 @@ final class CoverageClosureTests: XCTestCase {
         )
 
         for await _ in preservedLogin.login(
-            sessionName: "AudioStation",
+            sessionName: .audioStation,
             server: "https://new-nas.local",
             username: "new-user",
             password: "wrong-password",

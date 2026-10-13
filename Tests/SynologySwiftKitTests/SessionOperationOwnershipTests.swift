@@ -202,10 +202,10 @@ final class SessionOperationOwnershipTests: XCTestCase {
             connectionChecker: TestConnectionChecker(), keyChainStorage: storage,
             sessionOperations: owner
         )
-        let first = login.login(sessionName: "AudioStation", server: "https://old.invalid", username: "old", password: "test")
+        let first = login.login(sessionName: .audioStation, server: "https://old.invalid", username: "old", password: "test")
         let oldResult = Task { await self.collect(first) }
         await fulfillment(of: [started], timeout: 2)
-        let second = login.login(sessionName: "AudioStation", server: "https://new.invalid", username: "new", password: "test")
+        let second = login.login(sessionName: .audioStation, server: "https://new.invalid", username: "new", password: "test")
         let newResult = Task { await self.collect(second) }
         await pause.release()
         let oldEvents = await oldResult.value
