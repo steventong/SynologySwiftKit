@@ -15,7 +15,6 @@ import OSLog
 final class SynologyUserLogin: SynologyUserLoginProviding {
     // MARK: - Dependencies
 
-    private var pendingOTP: (server: String, username: String, sessionName: SynologySessionName, connection: SynologyConnection)?
     private let sessionOperations: SessionOperationCoordinator
     private let apiInfoApi: ApiInfoProviding
     private let authApi: AuthClient
@@ -171,9 +170,6 @@ private extension SynologyUserLogin {
         }
 
         let previousRouteServer = apiInfoApi.serverIdentity
-        let otpConnection = otpCode != nil && pendingOTP?.server == server && pendingOTP?.username == username && pendingOTP?.sessionName == sessionName ? pendingOTP?.connection : nil
-        let reusesOTPRoutes = otpConnection != nil
-        pendingOTP = nil
         var completed = false
         defer { if !completed { sessionOperations.rollback { apiInfoApi.selectServer(previousRouteServer) } } }
         apiInfoApi.selectServer(server)
@@ -186,17 +182,15 @@ private extension SynologyUserLogin {
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // OTP 复用本轮地址；恢复先验证旧地址；首次域名登录通过 API 发现连接。
-        // Reuse the OTP endpoint and saved session endpoint before discovering a new connection.
+        // 恢复先验证旧地址；密码登录（含验证码重试）通过统一流程发现连接。
+        // Resume uses the saved endpoint; password login, including OTP retries, discovers the connection.
         var connection: SynologyConnection
         let previousConnection = currentConnection()
         let usesSavedConnection = attemptSliceLogin && previousConnection != nil
         let discoversDomainAPIs = !isQuickConnectID && usesHTTPS == nil
 
         do {
-            if let otpConnection {
-                connection = otpConnection
-            } else if usesSavedConnection, let previousConnection {
+            if usesSavedConnection, let previousConnection {
                 connection = previousConnection
             } else if discoversDomainAPIs {
                 connection = try await discoverDomainConnection(server: server)
@@ -243,7 +237,7 @@ private extension SynologyUserLogin {
         do {
             // 刷新 Api 列表
             if !discoversDomainAPIs {
-                if (attemptSliceLogin && previousSession != nil) || reusesOTPRoutes {
+                if attemptSliceLogin && previousSession != nil {
                     try await apiInfoApi.loadFromCacheOrRefresh()
                 } else {
                     try await apiInfoApi.refresh()
@@ -330,7 +324,7 @@ private extension SynologyUserLogin {
         do {
             try Task.checkCancellation()
 
-            if !refreshedRoutes && !reusesOTPRoutes {
+            if !refreshedRoutes {
                 try await apiInfoApi.refresh()
             }
             let authResult = try await authApi.login(sessionName: sessionName, username: username, password: password, otpCode: otpCode)
@@ -372,7 +366,6 @@ private extension SynologyUserLogin {
             // 需要或需重新输入 OTP 验证码（不算终止失败，需要用户输入）
             // OTP required or invalid (not a terminal failure; prompt the user again)
             Logger.info("SynologyUserLogin#performPasswordLogin, OTP input required, code=\(code), message: \(msg)")
-            pendingOTP = (server, username, sessionName, connection)
             continuation.yield(.otpRequired)
             continuation.finish()
         } catch let SynologyError.auth(code, message) where

@@ -34,7 +34,7 @@ final class RouteCacheFlowTests: XCTestCase {
         XCTAssertEqual(calls, ["SYNO.API.Info", "SYNO.API.Auth"])
     }
 
-    func testOTPContinuationReusesDiscoveredRoutes() async throws {
+    func testRepeatedLoginWithOTPRediscoversConnectionAndRoutes() async throws {
         for server in ["https://nas.local", "nas.local"] {
             let transport = HTTPClientFactorySpy()
             var calls: [String] = []
@@ -47,6 +47,7 @@ final class RouteCacheFlowTests: XCTestCase {
                     let body = String(decoding: requestBodyData(request) ?? Data(), as: UTF8.self)
                     let items = URLComponents(string: "https://test/?" + body)?.queryItems
                     XCTAssertEqual(items?.first { $0.name == "session" }?.value, "FileStation")
+                    XCTAssertEqual(items?.first { $0.name == "otp_code" }?.value, needsOTP ? nil : "123456")
                 }
                 if api == "SYNO.API.Auth" && needsOTP {
                     needsOTP = false
@@ -62,7 +63,8 @@ final class RouteCacheFlowTests: XCTestCase {
             XCTAssertTrue(otpRequired)
             let success = await login(client, sessionName: .fileStation, otp: "123456", server: server)
             XCTAssertTrue(success)
-            XCTAssertEqual(calls, (server == "nas.local" ? ["SYNO.API.Info"] : []) + ["SYNO.API.Info", "SYNO.API.Auth", "SYNO.API.Auth"])
+            let loginCalls = (server == "nas.local" ? ["SYNO.API.Info"] : []) + ["SYNO.API.Info", "SYNO.API.Auth"]
+            XCTAssertEqual(calls, loginCalls + loginCalls)
         }
     }
 

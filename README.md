@@ -70,7 +70,11 @@ SDK/product name or a session ID. It must match the target DSM application; an a
 can cause `SYNO.API.Auth.login` to fail with code 402 (permission denied).
 Kit does not provide a default. Direct `client.auth.login` calls also require `sessionName`.
 
-Use the same name for password login, OTP continuation and renewal:
+When `.otpRequired` is emitted, call the same `login` method again with the credentials and
+`otpCode`. Each call discovers the connection and refreshes API routes through the regular
+login flow; no pending OTP context is retained.
+
+Use the same session name for password login, OTP retries and renewal:
 
 ```swift
 let progress = client.flows.userLogin.resume(sessionName: .audioStation)
