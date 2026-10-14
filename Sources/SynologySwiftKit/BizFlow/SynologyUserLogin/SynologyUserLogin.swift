@@ -51,22 +51,9 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// 通过密码登录（AsyncStream 版本）
     /// Login with password (AsyncStream version)
     func login(sessionName: SynologySessionName, server: String, username: String, password: String, otpCode: String? = nil, shouldSavePassword: Bool = true) -> AsyncStream<SynologyUserLoginProgress> {
-        AsyncStream { continuation in
-            let task = sessionOperations.start { [self] in
-                Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
-                await self.performPasswordLogin(sessionName: sessionName, server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, attemptSliceLogin: false, continuation: continuation)
-            }
-            let completion = Task {
-                _ = try? await task.value
-                continuation.finish()
-            }
-            continuation.onTermination = { termination in
-                // 正常完成不取消生产任务，避免成功保存新地址后被误当作取消回滚。
-                if case .cancelled = termination {
-                    task.cancel()
-                    completion.cancel()
-                }
-            }
+        makeLoginStream { [self] continuation in
+            Logger.info("SynologyUserLogin#login(password), entry, server=\(server), protocol=automatic, hasOtp=\(otpCode != nil)")
+            await self.performPasswordLogin(sessionName: sessionName, server: server, usesHTTPS: nil, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword, attemptSliceLogin: false, continuation: continuation)
         }
     }
 
@@ -74,40 +61,27 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// 网络、解码与取消只结束本次恢复，保留会话供网络恢复后重试。
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称。
     func login(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress> {
-        AsyncStream { continuation in
-            let task = sessionOperations.start { [self] in
-                guard let credentials = keyChainStorage.getCredentials() else {
-                    Logger.warn("SynologyUserLogin#login(resume), abort: no saved credentials")
-                    continuation.yield(.invalidSession(message: "No saved credentials found"))
-                    continuation.finish()
-                    return
-                }
-
-                Logger.info("SynologyUserLogin#login(resume), entry, server=\(credentials.server), usesHTTPS=\(credentials.usesHTTPS), strategy=sliceThenFull")
-
-                await self.performPasswordLogin(
-                    sessionName: sessionName,
-                    server: credentials.server,
-                    usesHTTPS: credentials.usesHTTPS,
-                    username: credentials.username,
-                    password: credentials.password,
-                    otpCode: nil,
-                    shouldSavePassword: true,
-                    attemptSliceLogin: true,
-                    continuation: continuation
-                )
-            }
-            let completion = Task {
-                _ = try? await task.value
+        makeLoginStream { [self] continuation in
+            guard let credentials = keyChainStorage.getCredentials() else {
+                Logger.warn("SynologyUserLogin#login(resume), abort: no saved credentials")
+                continuation.yield(.invalidSession(message: "No saved credentials found"))
                 continuation.finish()
+                return
             }
-            continuation.onTermination = { termination in
-                // 正常完成不取消生产任务，避免成功保存新地址后被误当作取消回滚。
-                if case .cancelled = termination {
-                    task.cancel()
-                    completion.cancel()
-                }
-            }
+
+            Logger.info("SynologyUserLogin#login(resume), entry, server=\(credentials.server), usesHTTPS=\(credentials.usesHTTPS), strategy=sliceThenFull")
+
+            await self.performPasswordLogin(
+                sessionName: sessionName,
+                server: credentials.server,
+                usesHTTPS: credentials.usesHTTPS,
+                username: credentials.username,
+                password: credentials.password,
+                otpCode: nil,
+                shouldSavePassword: true,
+                attemptSliceLogin: true,
+                continuation: continuation
+            )
         }
     }
 
@@ -118,29 +92,42 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
     /// 避免在已知一定失败的场景下浪费一次 slice 校验的 round-trip。
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称。
     func relogin(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress> {
+        makeLoginStream { [self] continuation in
+            guard let credentials = keyChainStorage.getCredentials() else {
+                Logger.warn("SynologyUserLogin#login(relogin), abort: no saved credentials")
+                continuation.yield(.invalidSession(message: "No saved credentials found"))
+                continuation.finish()
+                return
+            }
+
+            Logger.info("SynologyUserLogin#login(relogin), entry, server=\(credentials.server), usesHTTPS=\(credentials.usesHTTPS), strategy=forceFull")
+
+            await self.performPasswordLogin(
+                sessionName: sessionName,
+                server: credentials.server,
+                usesHTTPS: credentials.usesHTTPS,
+                username: credentials.username,
+                password: credentials.password,
+                otpCode: nil,
+                shouldSavePassword: true,
+                attemptSliceLogin: false,
+                isSessionRenewal: true,
+                continuation: continuation
+            )
+        }
+    }
+}
+
+// MARK: - Private Support
+
+private extension SynologyUserLogin {
+    /// 统一管理登录流的任务归属、取消和结束；业务流程仍由各入口决定。
+    func makeLoginStream(
+        operation: @escaping (AsyncStream<SynologyUserLoginProgress>.Continuation) async -> Void
+    ) -> AsyncStream<SynologyUserLoginProgress> {
         AsyncStream { continuation in
-            let task = sessionOperations.start { [self] in
-                guard let credentials = keyChainStorage.getCredentials() else {
-                    Logger.warn("SynologyUserLogin#login(relogin), abort: no saved credentials")
-                    continuation.yield(.invalidSession(message: "No saved credentials found"))
-                    continuation.finish()
-                    return
-                }
-
-                Logger.info("SynologyUserLogin#login(relogin), entry, server=\(credentials.server), usesHTTPS=\(credentials.usesHTTPS), strategy=forceFull")
-
-                await self.performPasswordLogin(
-                    sessionName: sessionName,
-                    server: credentials.server,
-                    usesHTTPS: credentials.usesHTTPS,
-                    username: credentials.username,
-                    password: credentials.password,
-                    otpCode: nil,
-                    shouldSavePassword: true,
-                    attemptSliceLogin: false,
-                    isSessionRenewal: true,
-                    continuation: continuation
-                )
+            let task = sessionOperations.start {
+                await operation(continuation)
             }
             let completion = Task {
                 _ = try? await task.value
@@ -155,11 +142,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
             }
         }
     }
-}
 
-// MARK: - Private Support
-
-private extension SynologyUserLogin {
     /// 密码登录刷新服务器路由；静默恢复优先复用路由和现有连接。
     /// 静默恢复只要有 SID，就在解析出的地址上校验原会话，不受地址是否命中缓存影响。
     /// 校验成功直接完成；网络故障与取消回滚地址并结束；只有服务器明确失效才清理旧 SID 并全量登录。
@@ -407,7 +390,7 @@ private extension SynologyUserLogin {
         for await progress in stream {
             try Task.checkCancellation()
             switch progress {
-            case let .success(connection, _): resolved = connection
+            case let .success(connection): resolved = connection
             case let .serverCertificateUntrusted(certificate): throw SynologyError.serverCertificateUntrusted(certificate)
             case .checking, .failed: break
             }

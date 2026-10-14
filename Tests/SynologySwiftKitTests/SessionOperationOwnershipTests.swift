@@ -351,7 +351,7 @@ private struct NoopAPIInfo: ApiInfoProviding {
 private struct TestConnectionChecker: ConnectionChecking {
     func check() -> AsyncStream<ConnectionCheckProgress> { check(server: "https://fixture.invalid") }
     func check(server: String) -> AsyncStream<ConnectionCheckProgress> {
-        AsyncStream { $0.yield(.success(connection: SynologyConnection(type: .custom_domain, url: server), usedCachedConnection: false)); $0.finish() }
+        AsyncStream { $0.yield(.success(connection: SynologyConnection(type: .custom_domain, url: server))); $0.finish() }
     }
     func check(server: String, usesHTTPS: Bool) -> AsyncStream<ConnectionCheckProgress> { check(server: server) }
 }

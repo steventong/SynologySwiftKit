@@ -127,7 +127,7 @@ private extension ConnectionChecker {
                         attempt: attempt
                     ) {
                         Logger.info("ConnectionChecker#check, using reachable cached url: \(cachedConnection.url)")
-                        finish(continuation, with: .success(connection: cachedConnection, usedCachedConnection: true))
+                        finish(continuation, with: .success(connection: cachedConnection))
                         return
                     }
 
@@ -144,7 +144,7 @@ private extension ConnectionChecker {
                     try Task.checkCancellation()
 
                     Logger.info("ConnectionChecker#check, resolved reachable connection candidate: \(newConn.url)")
-                    finish(continuation, with: .success(connection: newConn, usedCachedConnection: false))
+                    finish(continuation, with: .success(connection: newConn))
                     return
                 } catch let SynologyError.serverCertificateUntrusted(certificate) {
                     finish(continuation, with: .serverCertificateUntrusted(certificate))

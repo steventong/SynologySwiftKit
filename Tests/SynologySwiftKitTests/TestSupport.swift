@@ -234,15 +234,6 @@ struct TestApiInfoProvider: ApiInfoProviding {
     func loadFromCacheOrRefresh() async throws { try onLoad?() }
 }
 
-struct TestAuthProvider: AuthenticationProviding {
-    var result: Result<AuthResult, Error>
-
-    func login(sessionName: SynologySessionName, username: String, password: String, otpCode: String?) async throws -> AuthResult {
-        _ = (username, password, otpCode)
-        return try result.get()
-    }
-}
-
 struct TestPingPong: PingPongProviding {
     var results: [ConnectionType: String] = [:]
     var firstResult: SynologyConnection?

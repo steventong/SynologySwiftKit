@@ -25,12 +25,11 @@ final class ConnectionCheckFlowTests: XCTestCase {
         guard case .checking = events[0] else {
             return XCTFail("Expected checking event first")
         }
-        guard case let .success(connection, usedCachedConnection) = events[1] else {
+        guard case let .success(connection) = events[1] else {
             return XCTFail("Expected cached success event")
         }
         XCTAssertEqual(connection.type, .custom_domain)
         XCTAssertEqual(connection.url, "https://nas.local")
-        XCTAssertTrue(usedCachedConnection)
     }
 
     func testCheckWithoutCredentialsEmitsFailure() async {
@@ -70,12 +69,11 @@ final class ConnectionCheckFlowTests: XCTestCase {
         }
 
         XCTAssertEqual(events.count, 2)
-        guard case let .success(connection, usedCachedConnection) = events[1] else {
+        guard case let .success(connection) = events[1] else {
             return XCTFail("Expected refreshed success")
         }
         XCTAssertEqual(connection.type, .custom_domain)
         XCTAssertEqual(connection.url, "https://nas.local:5001")
-        XCTAssertFalse(usedCachedConnection)
     }
 
     func testCheckFallsBackWhenCachedConnectionIsUnreachable() async {
@@ -98,11 +96,10 @@ final class ConnectionCheckFlowTests: XCTestCase {
         }
 
         XCTAssertEqual(events.count, 2)
-        guard case let .success(connection, usedCachedConnection) = events[1] else {
+        guard case let .success(connection) = events[1] else {
             return XCTFail("Expected fallback success")
         }
         XCTAssertEqual(connection.url, "https://nas.local:5001")
-        XCTAssertFalse(usedCachedConnection)
     }
 
     func testCheckDoesNotReuseReachableConnectionFromAnotherServer() async {
@@ -132,11 +129,10 @@ final class ConnectionCheckFlowTests: XCTestCase {
         }
 
         XCTAssertEqual(events.count, 2)
-        guard case let .success(connection, usedCachedConnection) = events[1] else {
+        guard case let .success(connection) = events[1] else {
             return XCTFail("Expected refreshed success")
         }
         XCTAssertEqual(connection.url, "https://new-nas.local:5001")
-        XCTAssertFalse(usedCachedConnection)
     }
 
     func testCheckFailsWhenQuickConnectResolutionFails() async {

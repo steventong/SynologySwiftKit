@@ -73,35 +73,33 @@ final class AuthSessionRegressionTests: XCTestCase {
             SynologyError.sessionExpired(code: 0, message: "local session missing"),
             SynologyError.sessionExpired(code: 105, message: "not a server expiry"),
         ]
-        for usedCachedConnection in [true, false] {
-            for failure in failures {
-                let apiClient = MockApiClient()
-                let keychain = makeResumeStorage(apiClient: apiClient)
-                apiClient.requestHandler = { endpoint in
-                    XCTAssertEqual(endpoint.apiName, SynologyApi.Core.DSM_INFO.name)
-                    XCTAssertEqual(apiClient.session?.sid, "old-sid")
-                    throw failure
-                }
-                let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: usedCachedConnection)
-
-                let events = await collectResumeEvents(login.login(sessionName: .audioStation))
-
-                XCTAssertEqual(events.count, 3, "\(failure), cache=\(usedCachedConnection)")
-                guard case .failed = events.last else {
-                    return XCTFail("Expected unavailable validation to end resume without login")
-                }
-                let networkFailure: Bool
-                if case SynologyError.network = failure { networkFailure = true }
-                else { networkFailure = failure is URLError }
-                XCTAssertEqual(apiClient.requestedEndpoints.count, networkFailure ? 2 : 1)
-                XCTAssertEqual(apiClient.clearSessionCount, 0)
+        for failure in failures {
+            let apiClient = MockApiClient()
+            let keychain = makeResumeStorage(apiClient: apiClient)
+            apiClient.requestHandler = { endpoint in
+                XCTAssertEqual(endpoint.apiName, SynologyApi.Core.DSM_INFO.name)
                 XCTAssertEqual(apiClient.session?.sid, "old-sid")
-                XCTAssertEqual(apiClient.session?.did, "old-did")
-                XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
-                XCTAssertEqual(keychain.getSessionInfo()?.did, "old-did")
-                XCTAssertEqual(apiClient.connection?.url, "https://old.local")
-                XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://old.local")
+                throw failure
             }
+            let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
+
+            let events = await collectResumeEvents(login.login(sessionName: .audioStation))
+
+            XCTAssertEqual(events.count, 3, "\(failure)")
+            guard case .failed = events.last else {
+                return XCTFail("Expected unavailable validation to end resume without login")
+            }
+            let networkFailure: Bool
+            if case SynologyError.network = failure { networkFailure = true }
+            else { networkFailure = failure is URLError }
+            XCTAssertEqual(apiClient.requestedEndpoints.count, networkFailure ? 2 : 1)
+            XCTAssertEqual(apiClient.clearSessionCount, 0)
+            XCTAssertEqual(apiClient.session?.sid, "old-sid")
+            XCTAssertEqual(apiClient.session?.did, "old-did")
+            XCTAssertEqual(keychain.getSessionInfo()?.sid, "old-sid")
+            XCTAssertEqual(keychain.getSessionInfo()?.did, "old-did")
+            XCTAssertEqual(apiClient.connection?.url, "https://old.local")
+            XCTAssertEqual(keychain.getConnectionInfo()?.url, "https://old.local")
         }
     }
 
@@ -117,7 +115,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             XCTAssertEqual(apiClient.session?.sid, "old-sid")
             return makeResumeValidationInfo()
         }
-        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
         let events = await collectResumeEvents(login.login(sessionName: .audioStation))
 
@@ -140,7 +138,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         let keychain = makeResumeStorage(apiClient: apiClient)
         keychain.removeSessionInfo()
         apiClient.mockResponse = makeResumeValidationInfo()
-        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
         let events = await collectResumeEvents(login.login(sessionName: .audioStation))
 
@@ -157,7 +155,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             let apiClient = MockApiClient()
             let keychain = makeResumeStorage(apiClient: apiClient)
             apiClient.mockError = failure
-            let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+            let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
             let events = await collectResumeEvents(login.login(sessionName: .audioStation))
 
@@ -177,7 +175,7 @@ final class AuthSessionRegressionTests: XCTestCase {
             withUnsafeCurrentTask { $0?.cancel() }
             return makeResumeValidationInfo()
         }
-        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
         let events = await collectResumeEvents(login.login(sessionName: .audioStation))
 
@@ -195,7 +193,6 @@ final class AuthSessionRegressionTests: XCTestCase {
         let login = makeResumeLogin(
             apiClient: apiClient,
             keychain: keychain,
-            usedCachedConnection: false,
             apiInfo: TestApiInfoProvider(onLoad: { throw SynologyError.network(message: "API discovery timeout") })
         )
 
@@ -224,7 +221,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 XCTAssertNil(apiClient.session)
                 return AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid")
             }
-            let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+            let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
             let events = await collectResumeEvents(login.login(sessionName: .audioStation))
 
@@ -245,7 +242,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                 XCTAssertEqual(endpoint.apiName, SynologyApi.Core.AUTH.name)
                 return AuthResult(did: "new-did", isPortalPort: false, sid: "new-sid")
             }
-            let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+            let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
             let stream = forceRelogin ? login.relogin(sessionName: .audioStation) : login.login(sessionName: .audioStation, server: "nas.local", username: "tester", password: "secret")
 
             let events = await collectResumeEvents(stream)
@@ -270,7 +267,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                     }
                     throw SynologyError.auth(code: code, message: "credentials rejected")
                 }
-                let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+                let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
                 let events = await collectResumeEvents(forceRelogin ? login.relogin(sessionName: .audioStation) : login.login(sessionName: .audioStation))
 
@@ -286,7 +283,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         let apiClient = MockApiClient()
         let keychain = makeResumeStorage(apiClient: apiClient)
         apiClient.mockError = SynologyError.auth(code: 400, message: "wrong password")
-        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
         let events = await collectResumeEvents(login.login(sessionName: .audioStation, server: "nas.local", username: "tester", password: "wrong"))
 
@@ -315,7 +312,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                     }
                     throw failure
                 }
-                let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+                let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
                 let events = await collectResumeEvents(forceRelogin ? login.relogin(sessionName: .audioStation) : login.login(sessionName: .audioStation))
 
@@ -349,7 +346,7 @@ final class AuthSessionRegressionTests: XCTestCase {
                     }
                     throw SynologyError.auth(code: code, message: "OTP required")
                 }
-                let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+                let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
                 let events = await collectResumeEvents(forceRelogin ? login.relogin(sessionName: .audioStation) : login.login(sessionName: .audioStation))
 
@@ -365,7 +362,7 @@ final class AuthSessionRegressionTests: XCTestCase {
         let keychain = makeResumeStorage(apiClient: apiClient)
         // AuthClient 会把服务器 sessionExpired 119 转成 auth 119，登录流程仍应识别真实失效。
         apiClient.mockError = SynologyError.sessionExpired(code: 119, message: "server invalid session")
-        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain, usedCachedConnection: false)
+        let login = makeResumeLogin(apiClient: apiClient, keychain: keychain)
 
         let events = await collectResumeEvents(login.relogin(sessionName: .audioStation))
 
@@ -414,7 +411,6 @@ private func makeResumeStorage(apiClient: MockApiClient) -> any SensitiveStorage
 private func makeResumeLogin(
     apiClient: MockApiClient,
     keychain: any SensitiveStorage,
-    usedCachedConnection: Bool,
     apiInfo: any ApiInfoProviding = MockApiInfoProvider()
 ) -> SynologyUserLogin {
     SynologyUserLogin(
@@ -422,7 +418,7 @@ private func makeResumeLogin(
         apiClient: apiClient,
         authApi: AuthClient(apiClient: apiClient, keyChainStorage: keychain),
         dsmInfoApi: DSMInfoClient(apiClient: apiClient),
-        connectionChecker: ResumeConnectionChecker(usedCachedConnection: usedCachedConnection),
+        connectionChecker: ResumeConnectionChecker(),
         keyChainStorage: keychain
     )
 }
@@ -436,11 +432,9 @@ private func collectResumeEvents(_ stream: AsyncStream<SynologyUserLoginProgress
 }
 
 private struct ResumeConnectionChecker: ConnectionChecking {
-    let usedCachedConnection: Bool
-
     func check() -> AsyncStream<ConnectionCheckProgress> {
         AsyncStream { continuation in
-            continuation.yield(.success(connection: .init(type: .custom_domain, url: "https://new.local"), usedCachedConnection: usedCachedConnection))
+            continuation.yield(.success(connection: .init(type: .custom_domain, url: "https://new.local")))
             continuation.finish()
         }
     }

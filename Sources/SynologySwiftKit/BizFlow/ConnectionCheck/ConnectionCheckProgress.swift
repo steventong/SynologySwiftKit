@@ -18,9 +18,7 @@ public enum ConnectionCheckProgress: Sendable {
 
     /// 连接成功
     /// Connection successful
-    /// usedCachedConnection 表示不需要再次登录用户。
-    /// usedCachedConnection = false 表示地址切换了，需要重新登录。
-    case success(connection: SynologyConnection, usedCachedConnection: Bool)
+    case success(connection: SynologyConnection)
 
     /// HTTPS certificate requires explicit user approval.
     case serverCertificateUntrusted(SynologyServerCertificate)

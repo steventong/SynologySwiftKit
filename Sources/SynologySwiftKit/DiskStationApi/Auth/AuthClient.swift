@@ -9,10 +9,6 @@ import Foundation
 
 // MARK: - AuthClient
 
-protocol AuthenticationProviding {
-    func login(sessionName: SynologySessionName, username: String, password: String, otpCode: String?) async throws -> AuthResult
-}
-
 /// Synology 登录/登出客户端
 /// Synology login/logout client
 ///
@@ -144,8 +140,6 @@ private extension String {
         isEmpty ? nil : self
     }
 }
-
-extension AuthClient: AuthenticationProviding {}
 
 extension AuthClient {
     /// 处理登录结果（当前仅记录日志）
