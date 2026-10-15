@@ -7,7 +7,9 @@ actor QuickConnectOptimizationCoordinator: QuickConnectOptimizationScheduling {
         operation: @escaping @Sendable () async -> QuickConnectEndpointRefreshOutcome
     ) async -> QuickConnectEndpointRefreshOutcome {
         if let activeTask {
-            return await activeTask.value
+            let trace = OperationDiagnostics("quickConnect joinActiveRefresh")
+            defer { trace.finish() }
+            return await trace.measure("activeRefresh") { await activeTask.value }
         }
 
         let task = Task {

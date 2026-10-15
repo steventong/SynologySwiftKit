@@ -115,7 +115,7 @@ public final class Logger {
         let swiftFileName = (filePath as NSString).lastPathComponent
         let record = SynologyLogRecord(
             level: level,
-            message: message,
+            message: OperationDiagnostics.currentID.map { "sdkOperation=\($0) " + message } ?? message,
             file: swiftFileName,
             line: fileNumber
         )
@@ -233,5 +233,68 @@ private extension NSLock {
         lock()
         defer { unlock() }
         return operation()
+    }
+}
+
+/// 只观察异步阶段，不改变超时、取消或重试策略。独立计时器让挂起的 await 也留下证据。
+internal final class OperationDiagnostics: @unchecked Sendable {
+    @TaskLocal static var currentID: String?
+    let id = UUID().uuidString
+    private let label: String
+    private let parent = OperationDiagnostics.currentID ?? "none"
+    private let startedAt = ProcessInfo.processInfo.systemUptime
+    private let lock = NSLock()
+    private var stage = "begin"
+    private var cancelled = false
+    private var finished = false
+    private var watcher: Task<Void, Never>?
+
+    init(_ label: String) {
+        self.label = label
+        emit("begin")
+        watcher = Task.detached { [weak self] in
+            var delay: UInt64 = 5
+            while !Task.isCancelled {
+                do { try await Task.sleep(nanoseconds: delay * 1_000_000_000) } catch { return }
+                guard let self else { return }
+                if self.lock.withLock({ self.finished }) { return }
+                self.emit("waiting", warning: true)
+                delay = min(delay * 2, 60)
+            }
+        }
+    }
+
+    deinit { watcher?.cancel() }
+
+    func measure<T>(_ stage: String, operation: () async throws -> T) async rethrows -> T {
+        lock.withLock { self.stage = stage }
+        emit("stage.begin")
+        return try await withTaskCancellationHandler {
+            do {
+                let result = try await Self.$currentID.withValue(id, operation: operation)
+                emit("stage.returned")
+                return result
+            } catch {
+                let value = error as NSError
+                let underlying = value.userInfo[NSUnderlyingErrorKey] as? NSError
+                emit("stage.failed domain=\(value.domain) code=\(value.code) underlying=\(underlying?.domain ?? "none"):\(underlying?.code ?? 0)", warning: true)
+                throw error
+            }
+        } onCancel: {
+            self.lock.withLock { self.cancelled = true }
+            self.emit("cancel.requested", warning: true)
+        }
+    }
+
+    func finish() {
+        lock.withLock { finished = true }
+        watcher?.cancel()
+        emit("returned")
+    }
+
+    private func emit(_ event: String, warning: Bool = false) {
+        let snapshot = lock.withLock { (stage, cancelled) }
+        let message = "SDK operation \(event), operation=\(id), parent=\(parent), name=\(label), stage=\(snapshot.0), cancelRequested=\(snapshot.1), elapsedMs=\(Int((ProcessInfo.processInfo.systemUptime - startedAt) * 1_000))"
+        if warning { Logger.warn(message) } else { Logger.debug(message) }
     }
 }

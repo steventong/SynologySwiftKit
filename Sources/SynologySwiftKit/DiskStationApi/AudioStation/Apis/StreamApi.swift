@@ -26,14 +26,16 @@ public final class StreamApi {
         quality: SongStreamQuality,
         preferredTranscodeFormat: SongTranscodeFormat = .mp3
     ) async throws -> SongPlaybackResource {
-        let supportedFormats = try await transcodeCapabilityProvider.supportedTranscodeFormats()
+        let trace = OperationDiagnostics("streamResource musicId=\(source.id), quality=\(quality)")
+        defer { trace.finish() }
+        let supportedFormats = try await trace.measure("capabilities") { try await transcodeCapabilityProvider.supportedTranscodeFormats() }
         let plan = try playbackPlan(
             for: source,
             quality: quality,
             preferredTranscodeFormat: preferredTranscodeFormat,
             supportedTranscodeFormats: supportedFormats
         )
-        let url = try await buildPlaybackURL(for: source, plan: plan)
+        let url = try await trace.measure("playbackURL") { try await buildPlaybackURL(for: source, plan: plan) }
         return SongPlaybackResource(url: url, plan: plan)
     }
 

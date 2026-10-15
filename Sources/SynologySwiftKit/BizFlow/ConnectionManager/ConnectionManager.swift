@@ -46,7 +46,10 @@ final class ConnectionManager: ConnectionManaging {
             recovery = pending
             return pending
         }
-        let decision = (try? await pending.task.value) ?? .disconnected
+        let trace = OperationDiagnostics("recoverConnection recovery=\(pending.id)")
+        defer { trace.finish() }
+        let decision = (try? await trace.measure("sessionRecovery") { try await pending.task.value }) ?? .disconnected
+        Logger.debug("Connection recovery returned, recovery=\(pending.id), decision=\(decision)")
         recoveryLock.withLock {
             if recovery?.id == pending.id { recovery = nil }
         }

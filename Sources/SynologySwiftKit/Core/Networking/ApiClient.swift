@@ -252,9 +252,11 @@ extension ApiClient {
 
     /// 构建带查询参数的 URL
     private func buildApiUrlWithQueryParameters(endpoint: ApiEndpoint) async throws -> URL {
-        let stamp = try await sessionOperations.requestStamp()
-        let resolved = try await endpointResolver.resolve(endpoint)
-        let url = try await requestFactory.makeURL(endpoint: endpoint, resolved: resolved)
+        let trace = OperationDiagnostics("buildURL api=\(endpoint.apiName), method=\(endpoint.method)")
+        defer { trace.finish() }
+        let stamp = try await trace.measure("sessionGate") { try await sessionOperations.requestStamp() }
+        let resolved = try await trace.measure("apiRoute") { try await endpointResolver.resolve(endpoint) }
+        let url = try await trace.measure("requestURL") { try await requestFactory.makeURL(endpoint: endpoint, resolved: resolved) }
         try sessionOperations.validateRequest(stamp)
         return url
     }

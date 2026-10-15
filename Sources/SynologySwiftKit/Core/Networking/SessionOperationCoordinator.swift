@@ -33,19 +33,25 @@ final class SessionOperationCoordinator: @unchecked Sendable {
             let predecessor = tail
             let id = UUID()
             let revision = externalRevision
+            let predecessorID = latestID
+            Logger.debug("Session operation queued, operation=\(id), predecessor=\(predecessorID?.uuidString ?? "none"), running=\(runningID?.uuidString ?? "none"), invalidatesRequests=\(invalidatesRequests)")
             latestID = id
             if invalidatesRequests { requestRevision &+= 1 }
+            if cancelActive != nil { Logger.debug("Session operation cancel requested, operation=\(predecessorID?.uuidString ?? "none"), supersededBy=\(id)") }
             cancelActive?()
             let requestRevision = requestRevision
             let task = Task<Value, Error> { [self] in
+                let trace = OperationDiagnostics("sessionWrite operation=\(id), predecessor=\(predecessorID?.uuidString ?? "none")")
                 defer {
+                    trace.finish()
+                    Logger.debug("Session operation exited, operation=\(id), cancelled=\(Task.isCancelled)")
                     locked {
                         completions[id] = nil
                         if runningID == id { stateDidSettle(); runningID = nil }
                         if latestID == id { latestID = nil; cancelActive = nil }
                     }
                 }
-                if let predecessor { await predecessor.value }
+                if let predecessor { await trace.measure("predecessor") { await predecessor.value } }
                 try Task.checkCancellation()
                 let context = try locked { () throws -> Context in
                     guard latestID == id, externalRevision == revision else { throw CancellationError() }
@@ -53,7 +59,7 @@ final class SessionOperationCoordinator: @unchecked Sendable {
                     return Context(owner: self, id: id, externalRevision: revision, requestRevision: requestRevision)
                 }
                 return try await Self.$context.withValue(context) {
-                    let result = try await work()
+                    let result = try await trace.measure("work") { try await work() }
                     try checkCurrent()
                     return result
                 }
@@ -120,8 +126,12 @@ final class SessionOperationCoordinator: @unchecked Sendable {
             return locked { requestRevision }
         }
         while true {
-            let pending = locked { latestID == nil ? nil : tail }
-            if let pending { await pending.value }
+            let pending = locked { (latestID, runningID, latestID == nil ? nil : tail) }
+            if let task = pending.2 {
+                let trace = OperationDiagnostics("sessionGate latest=\(pending.0?.uuidString ?? "none"), running=\(pending.1?.uuidString ?? "none")")
+                defer { trace.finish() }
+                await trace.measure("sessionCompletion") { await task.value }
+            }
             try Task.checkCancellation()
             if let revision = locked({ latestID == nil ? requestRevision : nil }) { return revision }
         }
@@ -154,7 +164,9 @@ final class SessionOperationCoordinator: @unchecked Sendable {
     func performAfterCurrent<Value>(_ work: @escaping () async throws -> Value) async throws -> Value {
         guard let context = Self.context, context.owner === self else { throw CancellationError() }
         let predecessor = locked { completions[context.id] }
-        if let predecessor { await predecessor.value }
+        let trace = OperationDiagnostics("afterSession operation=\(context.id)")
+        defer { trace.finish() }
+        if let predecessor { await trace.measure("sessionCompletion") { await predecessor.value } }
         return try await Self.$context.withValue(nil) {
             try Task.checkCancellation()
             try locked {
