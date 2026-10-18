@@ -60,6 +60,27 @@ for await progress in client.flows.userLogin.login(
 }
 ```
 
+## File Station sharing links
+
+`client.dsmInfo.timeZoneInfo()` reads `SYNO.Core.Region.NTP.get` and `listzone` (v1). It joins the configured opaque key to the NAS's own option list and formats the numeric `offset` as `displayPrefix` (for example `GMT+08:00`). It does not recognize city names or keep a local alias catalog. The prefix matches the DSM dropdown; it is not a prediction of the offset at a future expiry date. `currentTimeZone` derives the current effective offset from the same NAS clock response's date/time fields and epoch timestamp, including any current daylight saving, for calendar-date calculations. `timeZone()` returns this current offset snapshot; neither API supplies future transition rules. Permission failures, malformed clock data, missing or duplicate options and invalid offsets fail explicitly without falling back to the device zone. This DSM internal endpoint may be restricted for non-administrator accounts.
+
+After signing in with the `.fileStation` session, use `client.files` to manage the current user's public links:
+
+```swift
+let page = try await client.files.listSharingLinks(refreshStatus: true)
+let existing = page.links.filter { $0.path == "/public/demo.pdf" }
+let link = try await client.files.createSharingLink(
+    path: "/public/demo.pdf", expirationDate: "2026-12-31"
+)
+let details = try await client.files.sharingLink(id: link.id)
+try await client.files.updateSharingLink(id: link.id, expirationDate: "2027-01-01", password: "example")
+try await client.files.deleteSharingLink(id: link.id)
+```
+
+`expirationDate` is a Gregorian `YYYY-MM-DD` date interpreted by the NAS; omit it for a permanent link. Creation also accepts an optional password. The SDK JSON-encodes paths, IDs and dates, checks per-link creation errors, and returns DSM's public URL without constructing an authenticated download URL. Revoking a link does not delete its file. After an uncertain mutation result, list links again before retrying creation. `listSharingLinks` supports offset/limit; zero limit requests all links. See the [official File Station API guide](https://global.download.synology.com/download/Document/Software/DeveloperGuide/Package/FileStation/All/enu/Synology_File_Station_API_Guide.pdf), Sharing v3.
+
+For `updateSharingLink`, omitted fields stay unchanged, `expirationDate: "0"` makes the link permanent, and `password: ""` removes the password. Passwords are limited to 16 characters. Editing preserves the existing URL; use `sharingLink(id:)` to read the updated metadata. DSM returns whether a password exists, not the password itself.
+
 ## Login Session Name
 
 Pass a `SynologySessionName` explicitly when logging in. The enum supports `.audioStation`,

@@ -271,7 +271,9 @@ internal final class OperationDiagnostics: @unchecked Sendable {
         emit("stage.begin")
         return try await withTaskCancellationHandler {
             do {
-                let result = try await Self.$currentID.withValue(id, operation: operation)
+                let result = try await Self.$currentID.withValue(id) {
+                    try await operation()
+                }
                 emit("stage.returned")
                 return result
             } catch {

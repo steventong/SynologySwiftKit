@@ -16,6 +16,24 @@ public final class DSMInfoClient {
         self.apiClient = apiClient
     }
 
+    /// Reads the NAS's current numeric offset. This is a clock snapshot, not
+    /// daylight-saving transition rules for converting future instants.
+    public func timeZone() async throws -> TimeZone {
+        try await timeZoneInfo().currentTimeZone
+    }
+
+    /// Reads the current NAS calendar offset and its configured dropdown prefix.
+    /// Zone names are opaque keys matched only against the NAS's own listzone.
+    public func timeZoneInfo() async throws -> DSMTimeZoneInfo {
+        let settings: DSMTimeSettings = try await apiClient.request(ApiEndpoint(
+            api: ApiDefinition(name: "SYNO.Core.Region.NTP"), method: "get", version: 1, httpMethod: .post
+        ))
+        let zones: DSMTimeZoneList = try await apiClient.request(ApiEndpoint(
+            api: ApiDefinition(name: "SYNO.Core.Region.NTP"), method: "listzone", version: 1, httpMethod: .post
+        ))
+        return try settings.resolvedTimeZone(from: zones)
+    }
+
     /// Queries DSM info with an explicit SID, without ambient cookies or session invalidation.
     /// Preserves the full API envelope, including rejection codes, for diagnostics.
     public func queryEnvelope(sid: String) async throws -> DSMReadResponse {
