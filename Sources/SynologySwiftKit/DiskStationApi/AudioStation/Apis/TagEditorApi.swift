@@ -16,9 +16,16 @@ public final class TagEditorApi {
         self.apiClient = apiClient
     }
 
-    /// 加载标签信息
-    /// Load tag information
-    /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
+    /// 读取歌曲文件的标签和歌词。
+    ///
+    /// POST /webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi，action=load。
+    ///
+    /// requestFrom 为空；这是自定义顶层响应，不是标准 WebAPI data envelope。应检查 readFailedFileCount。
+    ///
+    /// - Parameters:
+    ///   - path: NAS 上歌曲绝对路径，JSON 编码为 audioInfos=[{path: ...}]。
+    /// - Returns: TagEditorDocument，含 lyrics/files/readFailedFileCount。
+    /// - Throws: 请求/解码错误；success=false 时抛出 SynologyError.api(code: -1)，消息来自 error_msg。
     public func load(path: String) async throws -> TagEditorDocument {
         let audioInfos = try ApiParameterValue.jsonEncoded([
             TagEditorFileReference(path: path)
@@ -39,9 +46,16 @@ public final class TagEditorApi {
         )
     }
 
-    /// 应用标签修改
-    /// Apply tag changes
-    /// - Throws: SynologyError.api(.tagEditorFailed) when operation fails
+    /// 提交完整文件标签。
+    ///
+    /// POST /webman/3rdparty/AudioStation/tagEditorUI/tag_editor.cgi，action=apply。
+    ///
+    /// 这是完整提交，不是局部补丁。track/disc/year 转为字符串，nil 编为空串；artwork=nil 时 coverType/coverPath 为空串。保留封面应显式使用 originalImage。
+    ///
+    /// - Parameters:
+    ///   - update: 完整标签及原始 files；编码为单元素 JSON 数组 data，requestFrom 为空。
+    /// - Returns: TagEditorDocument；当前模型不暴露 write_fail_files，不能据此确认逐文件成功。
+    /// - Throws: 请求/解码错误；success=false 时抛出 SynologyError.api(code: -1)，消息来自 error_msg。
     public func apply(update: TagEditorUpdate) async throws -> TagEditorDocument {
         let data = try ApiParameterValue.jsonEncoded([
             TagEditorRequest(update: update)
@@ -62,12 +76,17 @@ public final class TagEditorApi {
         )
     }
 
-    /// 更新指定文件的封面，并保留歌词和其他标签
-    /// Update artwork for a file while preserving its lyrics and other tags
+    /// 先读取完整标签，再更新封面。
+    ///
+    /// 标签编辑 CGI 的 load → apply 两次 POST。
+    ///
+    /// 远程封面地址受 NAS 的网络访问和 SSRF 限制；需当前用户具有标签编辑权限。
+    ///
     /// - Parameters:
-    ///   - artwork: 要设置的封面来源 / Artwork source to set
-    ///   - path: Audio Station 中的歌曲绝对路径 / Absolute song path in Audio Station
-    /// - Returns: 标签编辑器的保存结果 / Tag editor save result
+    ///   - artwork: 保留原图、NAS 图片路径或远程图片 URL；远程图片由 NAS 下载。
+    ///   - path: 歌曲绝对路径。
+    /// - Returns: TagEditorDocument，保留加载的歌词及其他标签。
+    /// - Throws: 读取失败、无首个文件或写入被拒绝时抛出 SynologyError；其他请求错误向上传递。
     public func saveArtwork(_ artwork: TagEditorArtwork, forPath path: String) async throws -> TagEditorDocument {
         try await saveContent(forPath: path, lyrics: nil, artwork: artwork)
     }

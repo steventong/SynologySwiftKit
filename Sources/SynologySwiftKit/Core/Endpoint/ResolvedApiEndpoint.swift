@@ -16,8 +16,8 @@ struct ResolvedApiEndpoint {
     /// API method (e.g. "list", "getinfo")
     let method: String
 
-    /// 实际使用版本（已通过 Clamp 到服务器支持范围）
-    /// Actual version (clamped to server-supported range)
+    /// 请求使用的 API 声明版本。
+    /// Declared API version used by the request.
     let version: Int
 
     /// 合并后的请求参数（含 api / version / method 等公共参数）

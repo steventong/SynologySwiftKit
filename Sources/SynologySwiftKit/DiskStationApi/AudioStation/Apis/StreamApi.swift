@@ -20,7 +20,18 @@ public final class StreamApi {
         self.transcodeCapabilityProvider = transcodeCapabilityProvider
     }
 
-    /// 构造播放资源。URL、最终格式和缓存身份均来自同一播放方案。
+    /// 根据音质、源格式和 NAS 能力构造播放资源。
+    ///
+    /// SYNO.AudioStation.Stream/stream 或 transcode，声明版本 1；路径追加 /0.<输出扩展名>。
+    ///
+    /// 先读取可缓存的 Info/getinfo 能力；虚拟轨或不兼容格式需要转码。ORIGINAL 不保证永远直流。URL 含 _sid；构造成功不代表媒体加载成功。
+    ///
+    /// - Parameters:
+    ///   - source: 歌曲 ID、NAS 路径、码率及 fileExtension；使用显式 fileExtension 决定源格式，默认 .mp3，不自动从 path 推断。
+    ///   - quality: LOW/MEDIUM/HIGH 分别为 128000/192000/320000 bit/s；ORIGINAL 不设目标码率。
+    ///   - preferredTranscodeFormat: 偏好 mp3/wav，默认 mp3；实际输出按 NAS 能力决定。
+    /// - Returns: SongPlaybackResource，含 url 和最终 plan。
+    /// - Throws: 能力查询/URL 构造错误；无扩展名抛出 missingFileExtension，无法直放且无可用转码格式时抛出 unsupportedSourceFormat。
     public func playbackResource(
         for source: SongPlaybackSource,
         quality: SongStreamQuality,
@@ -39,7 +50,18 @@ public final class StreamApi {
         return SongPlaybackResource(url: url, plan: plan)
     }
 
-    /// 兼容只需要 URL 的调用方。
+    /// 根据音质、源格式和 NAS 能力构造播放资源。
+    ///
+    /// SYNO.AudioStation.Stream/stream 或 transcode，声明版本 1；路径追加 /0.<输出扩展名>。
+    ///
+    /// 先读取可缓存的 Info/getinfo 能力；虚拟轨或不兼容格式需要转码。ORIGINAL 不保证永远直流。URL 含 _sid；构造成功不代表媒体加载成功。
+    ///
+    /// - Parameters:
+    ///   - source: 歌曲 ID、NAS 路径、码率及 fileExtension；使用显式 fileExtension 决定源格式，默认 .mp3，不自动从 path 推断。
+    ///   - quality: LOW/MEDIUM/HIGH 分别为 128000/192000/320000 bit/s；ORIGINAL 不设目标码率。
+    ///   - preferredTranscodeFormat: 偏好 mp3/wav，默认 mp3；实际输出按 NAS 能力决定。
+    /// - Returns: 与 playbackResource 相同方案的 URL。
+    /// - Throws: 能力查询/URL 构造错误；无扩展名抛出 missingFileExtension，无法直放且无可用转码格式时抛出 unsupportedSourceFormat。
     public func playbackURL(
         for source: SongPlaybackSource,
         quality: SongStreamQuality,
@@ -52,7 +74,7 @@ public final class StreamApi {
         ).url
     }
 
-    /// 按官方客户端的顺序决定直流或转码：
+    /// 按以下顺序决定直接播放或转码：
     /// 1. 先判断整轨和客户端格式兼容性。
     /// 2. 可直放时仅在源码率高于目标码率时压缩。
     /// 3. 需要转码时根据 NAS 能力选择实际输出格式。

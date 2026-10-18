@@ -12,10 +12,10 @@ import Foundation
 /// Resolution flow:
 /// 1. 自定义路径端点直接返回，不查询 API 信息。
 ///    Custom path endpoints are returned directly without querying API info.
-/// 2. 标准端点通过 `ApiInfoProviding` 获取路径和支持版本范围，再合并公共参数。
-///    Standard endpoints fetch path and version range via `ApiInfoProviding`, then merge common parameters.
+/// 2. 标准端点通过 `ApiInfoProviding` 获取路径，校验声明版本是否受支持，再合并公共参数。
+///    Standard endpoints fetch the path, validate the declared version, and merge common parameters.
 final class ApiEndpointResolver {
-    /// API 信息提供者（弱引用，通过闭包延迟解析以避免循环依赖）
+    /// 通过闭包延迟获取 API 信息提供者，避免循环依赖。
     /// API info provider (lazily resolved via closure to avoid circular dependency)
     private let apiInfoProvider: () -> ApiInfoProviding?
 
@@ -30,7 +30,7 @@ final class ApiEndpointResolver {
     /// Resolve endpoint (async)
     /// - Parameter endpoint: 待解析的 API 端点 / API endpoint to resolve
     /// - Returns: 可执行的解析端点（含路径、版本、参数）/ Executable resolved endpoint (path, version, parameters)
-    /// - Throws: `SynologyError.network` 如果 Host 未配置或 API 信息拉取失败 / if host is not configured or API info fetch fails
+    /// - Throws: API 信息查询错误；声明版本不受支持时抛出 `SynologyError.api(code: 104)`。
     func resolve(_ endpoint: ApiEndpoint) async throws -> ResolvedApiEndpoint {
         guard endpoint.parameters["version"] == nil else {
             throw SynologyError.api(code: -1, message: "Declare the API version using ApiEndpoint.version, not parameters[\"version\"].")
@@ -53,17 +53,19 @@ final class ApiEndpointResolver {
 
         let apiName = endpoint.apiName
         let fetchedApiInfo = try await apiInfoProvider.getApiInfoByApiName(apiName: apiName)
-        let apiVersion = fetchApiVersion(
-            requestedVersion: endpoint.version,
-            minVersion: fetchedApiInfo.minVersion,
-            maxVersion: fetchedApiInfo.maxVersion
-        )
+        guard endpoint.version >= fetchedApiInfo.minVersion,
+              endpoint.version <= fetchedApiInfo.maxVersion else {
+            throw SynologyError.api(
+                code: SynologyErrorCode.versionDoesNotSupport.rawValue,
+                message: "API \(apiName) version \(endpoint.version) is outside the server-supported range \(fetchedApiInfo.minVersion)...\(fetchedApiInfo.maxVersion)."
+            )
+        }
 
         // 合并调用方参数与公共参数（api / version / method）
         // Merge caller parameters with common parameters (api / version / method)
         let mergedParameters = endpoint.parameters.merging([
             "api": .string(apiName),
-            "version": .int(apiVersion),
+            "version": .int(endpoint.version),
             "method": .string(endpoint.method),
         ]) { current, _ in current }
 
@@ -77,22 +79,11 @@ final class ApiEndpointResolver {
         return ResolvedApiEndpoint(
             name: apiName,
             method: endpoint.method,
-            version: apiVersion,
+            version: endpoint.version,
             parameters: mergedParameters,
             apiPath: apiPath,
             requireAuthCookie: endpoint.sidOnCookie ?? endpoint.requireAuthCookie,
             requireAuthQuery: endpoint.sidOnQuery ?? endpoint.requireQuerySid
         )
-    }
-
-    /// 根据请求版本和服务器支持范围，确定实际使用的版本号
-    /// Determine the actual version based on requested version and server-supported range
-    /// - Parameters:
-    ///   - requestedVersion: 调用方请求的版本号 / Requested version
-    ///   - minVersion: 服务器支持的最小版本 / Server minimum version
-    ///   - maxVersion: 服务器支持的最大版本 / Server maximum version
-    /// - Returns: 实际使用版本（Clamp 到 [minVersion, maxVersion]）/ Clamped version
-    private func fetchApiVersion(requestedVersion: Int, minVersion: Int, maxVersion: Int) -> Int {
-        min(max(minVersion, requestedVersion), maxVersion)
     }
 }

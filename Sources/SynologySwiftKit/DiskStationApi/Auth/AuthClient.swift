@@ -104,7 +104,7 @@ public final class AuthClient {
         }
     }
 
-    /// Queries SYNO.API.Auth.token (v6), documented in the DSM Login Web API Guide.
+    /// Queries SYNO.API.Auth.token (v6).
     /// Returns the API envelope without changing the session or storing the returned SynoToken.
     /// An explicit SID is sent without ambient cookies. This is not a guaranteed SID validation API.
     public func token(sid: String? = nil) async throws -> DSMReadResponse {

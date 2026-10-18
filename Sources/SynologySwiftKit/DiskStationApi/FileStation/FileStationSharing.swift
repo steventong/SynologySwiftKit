@@ -50,6 +50,12 @@ extension FileStationClient {
         })
     }
 
+    /// 读取一条公开分享链接的最新信息。
+    ///
+    /// GET SYNO.FileStation.Sharing/getinfo v3；id 按 JSON 字符串编码。
+    /// - Parameter id: 服务端返回的分享链接 ID。
+    /// - Returns: FileStationSharingLink；密码只返回是否已设置，不返回原密码。
+    /// - Throws: 请求或响应解码错误。
     public func sharingLink(id: String) async throws -> FileStationSharingLink {
         let quotedID = try ApiParameterValue.jsonEncoded(id)
         return try await apiClient.request(ApiEndpoint(

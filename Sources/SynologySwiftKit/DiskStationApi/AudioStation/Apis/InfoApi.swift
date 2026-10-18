@@ -16,7 +16,16 @@ public final class InfoApi {
         self.keyValueStorage = keyValueStorage
     }
 
-    /// 查询 AudioStation 信息
+    /// 读取 Audio Station 能力、设置和权限。
+    ///
+    /// POST SYNO.AudioStation.Info/getinfo，声明版本 6。
+    ///
+    /// 每次成功网络读取都会更新缓存；缓存未按服务器分键。转码能力只说明 NAS 支持的格式，不保证所有输入文件均可成功转码。
+    ///
+    /// - Parameters:
+    ///   - usesCache: 默认 false；true 且缓存不足 24 小时时直接返回缓存。
+    /// - Returns: AudioStationInfo；字段以 InfoModels.swift 为准。
+    /// - Throws: 连接、请求和响应解码失败时抛出底层错误；服务端拒绝时抛出 SynologyError。
     public func query(usesCache: Bool = false) async throws -> AudioStationInfo {
         // Cache Check
         if usesCache, isAudioStationInfoCacheValid(), let cachedInfo = cachedInfo() {

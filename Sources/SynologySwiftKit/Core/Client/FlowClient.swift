@@ -31,8 +31,8 @@ public final class UserLoginFlowClient {
         loginFlow.login(sessionName: sessionName, server: server, username: username, password: password, otpCode: otpCode, shouldSavePassword: shouldSavePassword)
     }
 
-    /// 使用 Keychain 中保存的凭据进行静默恢复登录（slice + fallback 到全量）
-    /// Resume login silently using credentials saved in Keychain (slice with full-login fallback)
+    /// 校验保存的 SID；无 SID 或服务器明确判定会话失效时，使用 Keychain 凭据登录。
+    /// Validate the saved SID; use Keychain credentials when the SID is absent or explicitly expired.
     /// - Returns: AsyncStream 依次推送登录进度 / AsyncStream yielding login progress
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称，不能改成 App / SDK 名称。
     public func resume(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress> {

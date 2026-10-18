@@ -27,7 +27,11 @@ public final class QuickConnectClient {
 
     /// 通过 QuickConnect ID 获取设备连接地址（竞速模式，首个最优连接立即返回）
     /// Get device connection URL by QuickConnect ID (race mode, returns first best connection)
-    /// - Throws: SynologyError.quickConnect(.serverInfoNotFound) or SynologyError.quickConnect(.connectionFailed)
+    /// - Parameters:
+    ///   - quickConnectId: 设备 QuickConnect ID。
+    ///   - usesHTTPS: true 查询 dsm_https 服务，false 查询 dsm 服务。
+    /// - Returns: 已探测可达的连接；不会自动更新 client 的连接或会话。
+    /// - Throws: 无服务器信息或可达连接时抛出 SynologyError.network；证书和请求错误向上传递。
     public func getDeviceConnection(quickConnectId: String, usesHTTPS: Bool) async throws -> SynologyConnection {
         // 获取 serverInfo 信息
         // Fetch serverInfo
@@ -60,6 +64,11 @@ public final class QuickConnectClient {
 
     /// 获取当前 QuickConnect ID 对应的全部候选连接地址
     /// List all candidate connection endpoints for the current QuickConnect ID
+    /// - Parameters:
+    ///   - quickConnectId: 设备 QuickConnect ID。
+    ///   - usesHTTPS: 是否查询 HTTPS 服务。
+    /// - Returns: 按连接类型优先级排列的去重候选；未探测可达性，必要时会申请 relay。
+    /// - Throws: 无服务器信息时抛出 SynologyError.network；请求错误向上传递。
     public func listDeviceConnections(quickConnectId: String, usesHTTPS: Bool) async throws -> [SynologyConnection] {
         let resolved = try await resolveConnectionCandidates(
             quickConnectId: quickConnectId,
@@ -169,7 +178,7 @@ private extension QuickConnectClient {
     }
 
     /// 从已公布的候选中查找最优连接，失败后才申请并验证新 relay。
-    /// Find the best advertised connection, then request and validate a new relay as fallback.
+    /// Find the best advertised connection; request and validate a relay when none is reachable.
     private func resolveBestReachableConnection(connections: [ConnectionType: [String]], pingPongPaths: [String: String], synologyServer: String, quickConnectId: String, usesHTTPS: Bool) async throws -> (type: ConnectionType, url: String)? {
         if let reachable = try await pingpong.pingpongFirst(
             connections: connections,

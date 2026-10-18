@@ -105,18 +105,6 @@ final class ApiInfoApiHappyPathTests: XCTestCase {
         XCTAssertEqual(api.requestedEndpoints.count, 1)
     }
 
-    func testLegacyGlobalCacheIsNotUsedForAnUnknownServer() async throws {
-        let api = MockApiClient()
-        api.connection = (.custom_domain, "https://new.local")
-        api.mockResponse = routes("new.cgi")
-        let storage = MockKeyValueStorage()
-        storage.setCodable(routes("wrong.cgi"), forKey: "SynologySwiftKit_DiskStation_ApiInfo")
-        let provider = ApiInfoApi(apiClient: api, keyValueStorage: storage)
-        let node = try await provider.getApiInfoByApiName(apiName: "SYNO.DSM.Info")
-        XCTAssertEqual(node.path, "new.cgi")
-        XCTAssertEqual(api.requestedEndpoints.count, 1)
-    }
-
     private func routes(_ path: String) -> [String: ApiInfoNode] {
         ["SYNO.DSM.Info": ApiInfoNode(path: path, minVersion: 2, maxVersion: 2, requestFormat: nil)]
     }

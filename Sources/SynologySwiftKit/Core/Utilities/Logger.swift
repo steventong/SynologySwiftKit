@@ -236,7 +236,7 @@ private extension NSLock {
     }
 }
 
-/// 只观察异步阶段，不改变超时、取消或重试策略。独立计时器让挂起的 await 也留下证据。
+/// 记录异步操作各阶段的耗时；等待期间通过独立计时器输出进度。
 internal final class OperationDiagnostics: @unchecked Sendable {
     @TaskLocal static var currentID: String?
     let id = UUID().uuidString

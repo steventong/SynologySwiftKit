@@ -85,11 +85,10 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
         }
     }
 
-    /// 使用保存的凭据强制执行全量登录（跳过 slice 优化）
-    /// Force full password re-login using saved credentials (skips slice optimization).
+    /// 使用保存的凭据执行密码登录。
+    /// Perform password login using saved credentials.
     ///
-    /// 用于已知缓存 SID 失效的恢复路径（例如 SessionOrchestrator 检测到 session fault 之后），
-    /// 避免在已知一定失败的场景下浪费一次 slice 校验的 round-trip。
+    /// 发现连接并刷新 API 路由后，直接执行 `SYNO.API.Auth.login`。
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称。
     func relogin(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress> {
         makeLoginStream { [self] continuation in
@@ -121,7 +120,7 @@ final class SynologyUserLogin: SynologyUserLoginProviding {
 // MARK: - Private Support
 
 private extension SynologyUserLogin {
-    /// 统一管理登录流的任务归属、取消和结束；业务流程仍由各入口决定。
+    /// 创建登录进度流，管理生产任务的取消和结束。
     func makeLoginStream(
         operation: @escaping (AsyncStream<SynologyUserLoginProgress>.Continuation) async -> Void
     ) -> AsyncStream<SynologyUserLoginProgress> {
@@ -145,7 +144,7 @@ private extension SynologyUserLogin {
 
     /// 密码登录刷新服务器路由；静默恢复优先复用路由和现有连接。
     /// 静默恢复只要有 SID，就在解析出的地址上校验原会话，不受地址是否命中缓存影响。
-    /// 校验成功直接完成；网络故障与取消回滚地址并结束；只有服务器明确失效才清理旧 SID 并全量登录。
+    /// 校验成功直接完成；网络故障与取消回滚地址并结束；只有服务器明确失效才清理 SID 并使用密码登录。
     func performPasswordLogin(sessionName: SynologySessionName, server: String, usesHTTPS: Bool?, username: String, password: String, otpCode: String?, shouldSavePassword: Bool, attemptSliceLogin: Bool = false, isSessionRenewal: Bool = false, continuation: AsyncStream<SynologyUserLoginProgress>.Continuation) async {
         guard !Task.isCancelled else {
             continuation.finish()
@@ -165,7 +164,7 @@ private extension SynologyUserLogin {
         let isQuickConnectID = QuickConnectUtils.isQuickConnectId(server: server)
         let serverType: ServerType = isQuickConnectID ? .quickConnectId : .customDomain
 
-        // 恢复先验证旧地址；密码登录（含验证码重试）通过统一流程发现连接。
+        // 恢复先验证保存的地址；密码登录（含验证码重试）先发现连接。
         // Resume uses the saved endpoint; password login, including OTP retries, discovers the connection.
         var connection: SynologyConnection
         let previousConnection = currentConnection()
@@ -245,7 +244,7 @@ private extension SynologyUserLogin {
             return
         }
 
-        // 记录明确的续期上下文，使服务器拒绝凭据时能结束失效会话，而非不断重试旧 SID。
+        // 会话续期时，服务器拒绝凭据会结束失效会话。
         var renewingExpiredSession = isSessionRenewal
         // 先校验原 SID；无法确认有效性不等于失效，禁止因弱网进入密码登录。
         if attemptSliceLogin {

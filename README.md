@@ -2,8 +2,6 @@
 
 Swift package for building Synology DSM and Audio Station clients in Swift.
 
-> Status: active development. Use the `develop` branch for the latest changes.
-
 ## Requirements
 
 - Swift 5.10+
@@ -11,6 +9,7 @@ Swift package for building Synology DSM and Audio Station clients in Swift.
 - iOS 14+
 - macOS 11+
 - tvOS 14+
+- watchOS 10+
 - visionOS 1+
 
 ## Installation
@@ -77,15 +76,14 @@ try await client.files.updateSharingLink(id: link.id, expirationDate: "2027-01-0
 try await client.files.deleteSharingLink(id: link.id)
 ```
 
-`expirationDate` is a Gregorian `YYYY-MM-DD` date interpreted by the NAS; omit it for a permanent link. Creation also accepts an optional password. The SDK JSON-encodes paths, IDs and dates, checks per-link creation errors, and returns DSM's public URL without constructing an authenticated download URL. Revoking a link does not delete its file. After an uncertain mutation result, list links again before retrying creation. `listSharingLinks` supports offset/limit; zero limit requests all links. See the [official File Station API guide](https://global.download.synology.com/download/Document/Software/DeveloperGuide/Package/FileStation/All/enu/Synology_File_Station_API_Guide.pdf), Sharing v3.
+`expirationDate` is a Gregorian `YYYY-MM-DD` date interpreted by the NAS; omit it for a permanent link. Creation also accepts an optional password. The SDK JSON-encodes paths, IDs and dates, checks per-link creation errors, and returns DSM's public URL. Revoking a link does not delete its file. After an uncertain mutation result, list links again before retrying creation. `listSharingLinks` supports offset/limit; zero limit requests all links. These methods use `SYNO.FileStation.Sharing` v3.
 
 For `updateSharingLink`, omitted fields stay unchanged, `expirationDate: "0"` makes the link permanent, and `password: ""` removes the password. Passwords are limited to 16 characters. Editing preserves the existing URL; use `sharingLink(id:)` to read the updated metadata. DSM returns whether a password exists, not the password itself.
 
 ## Login Session Name
 
 Pass a `SynologySessionName` explicitly when logging in. The enum supports `.audioStation`,
-`.fileStation`, and `.videoStation`, whose raw values are the DSM protocol session names. For example, DS Music passes
-`sessionName: .audioStation`; a File Station client can pass `sessionName: .fileStation`.
+`.fileStation`, and `.videoStation`, whose raw values are the DSM protocol session names.
 This is a server-side protocol value used for application session/permission checks, not your
 SDK/product name or a session ID. It must match the target DSM application; an arbitrary name
 can cause `SYNO.API.Auth.login` to fail with code 402 (permission denied).
@@ -93,7 +91,7 @@ Kit does not provide a default. Direct `client.auth.login` calls also require `s
 
 When `.otpRequired` is emitted, call the same `login` method again with the credentials and
 `otpCode`. Each call discovers the connection and refreshes API routes through the regular
-login flow; no pending OTP context is retained.
+login flow.
 
 Use the same session name for password login, OTP retries and renewal:
 
@@ -110,7 +108,7 @@ The host supplies the name again after relaunch; Kit does not infer it from save
 let albums = try await client.audioStation.albums.list(limit: 20)
 let songs = try await client.audioStation.songs.list(limit: 100, libraryScope: .shared)
 let playlists = try await client.audioStation.playlists.list(limit: 50, offset: 0)
-let searchResults = try await client.audioStation.search.list(keyword: "Miles")
+let searchResults = try await client.audioStation.search.list(keyword: "Miles", libraryScope: .shared)
 ```
 
 ## Playlists
@@ -141,7 +139,8 @@ let playbackURL = try await client.audioStation.stream.playbackURL(
         id: "music_1",
         path: "/music/demo.mp3",
         bitrate: 320000,
-        frequency: 44100
+        frequency: 44100,
+        fileExtension: ".mp3"
     ),
     quality: .ORIGINAL
 )
@@ -176,17 +175,18 @@ client.session.clear()
 
 `SynologyClient` restores persisted session state when available. `client.session.clear()` clears both in-memory and persisted session state.
 
-API routes are persisted per login server identity (QuickConnect ID or normalized server address),
-not in a global or time-expiring cache. Each password login refreshes routes once; OTP continuation
-reuses the discovered endpoint and routes. Session resume and connection recovery reuse cached
-routes and validate the SID with `SYNO.DSM.Info.getinfo`, without a preliminary Ping. Missing
+API routes are persisted per login server identity (QuickConnect ID or normalized server address).
+Each password login, including an OTP retry through the login flow, discovers the connection
+and refreshes routes once. Session resume and connection recovery reuse cached
+routes and validate the SID with `SYNO.DSM.Info.getinfo`. Missing
 routes are discovered on demand; ordinary API requests rejected with 102/103/104 refresh routes
 and retry at most once. Diagnostic envelope requests preserve the original response instead.
-QuickConnect candidate priority and racing behavior are unchanged.
+Standard API requests use their declared protocol version. A version outside the server's
+advertised range fails with code 104. Route discovery can refresh once before the request fails.
 
 ## Entrypoints
 
-Use one naming system only:
+Access APIs and flows through these properties:
 
 - grouped modules: `client.auth`, `client.system`, `client.audioStation`, `client.files`, `client.session`, `client.flows`
 - direct system API names: `client.quickConnect`, `client.dsmInfo`, `client.encryption`
@@ -270,8 +270,8 @@ swift test
 
 ## DSM Core Read APIs
 
-These internal DSM APIs are exposed independently; they do not replace the existing
-session-validation flow. Availability and semantics must be verified against the NAS.
+`client.system.desktopTimeout` and `client.system.normalUser` expose DSM read APIs.
+Access depends on the NAS's permissions and supported APIs.
 
 ```swift
 let timeout = try await client.system.desktopTimeout.check()
@@ -289,20 +289,15 @@ Transport, API-discovery and decoding failures throw. `success: true` without
 `data` is supported. The response is Codable for display; callers should redact
 credentials and personal fields before exporting diagnostics.
 
-## Audio Station namespace migration
+## Audio Station batch queries
 
-All music APIs now live under `client.audioStation`. Root music aliases and
-`client.flows.queryAllSongs` have been removed without compatibility shims.
+`client.audioStation` provides song totals and batched song queries.
 
 ```swift
 let songs = try await client.audioStation.songs.list(limit: 100)
 let total = await client.audioStation.queryTotalSongsCount()
 for await progress in client.audioStation.queryAllSongs(batchSize: 500, concurrency: 3) {
-    // Consume the existing QueryAllSongsProgress events.
+    // Handle each QueryAllSongsProgress event.
     print(progress)
 }
 ```
-
-Move `client.<music API>` to `client.audioStation.<music API>`.
-Move `client.flows.queryAllSongs.queryAllSongs(...)` to `client.audioStation.queryAllSongs(...)`,
-and `client.flows.queryAllSongs.queryTotalSongsCount()` to `client.audioStation.queryTotalSongsCount()`.

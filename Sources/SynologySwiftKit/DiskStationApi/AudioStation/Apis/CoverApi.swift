@@ -21,8 +21,17 @@ public final class CoverApi {
         self.urlBuilder = urlBuilder
     }
 
-    /// 获取歌曲封面 URL
-    /// Get song cover URL
+    /// 构造封面图片 URL。
+    ///
+    /// SYNO.AudioStation.Cover/getsongcover，声明版本 1。
+    ///
+    /// 只生成 URL，不下载图片；未设置 output_default/is_hr/view，不承诺无封面时一定返回默认图。不要记录或长期保存此 URL。
+    ///
+    /// - Parameters:
+    ///   - songID: 歌曲 ID。
+    ///   - libraryScope: library，默认 all。
+    /// - Returns: 带 _sid 的 URL，访问后返回图片二进制。
+    /// - Throws: 连接、请求和响应解码失败时抛出底层错误；服务端拒绝时抛出 SynologyError。
     public func songCoverURL(songID: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getsongcover", version: 1) {
             ("library", libraryScope.rawValue)
@@ -31,8 +40,18 @@ public final class CoverApi {
         )
     }
 
-    /// 获取专辑封面 URL
-    /// Get album cover URL
+    /// 构造封面图片 URL。
+    ///
+    /// SYNO.AudioStation.Cover/getcover，声明版本 3。
+    ///
+    /// 只生成 URL，不下载图片；未设置 output_default/is_hr/view，不承诺无封面时一定返回默认图。不要记录或长期保存此 URL。
+    ///
+    /// - Parameters:
+    ///   - albumName: album_name，专辑名称。
+    ///   - albumArtistName: album_artist_name，专辑艺术家名称。
+    ///   - libraryScope: library，默认 all。
+    /// - Returns: 带 _sid 的 URL，访问后返回图片二进制。
+    /// - Throws: 连接、请求和响应解码失败时抛出底层错误；服务端拒绝时抛出 SynologyError。
     public func albumCoverURL(albumName: String, albumArtistName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)
@@ -42,8 +61,17 @@ public final class CoverApi {
         )
     }
 
-    /// 获取艺术家封面 URL
-    /// Get artist cover URL
+    /// 构造封面图片 URL。
+    ///
+    /// SYNO.AudioStation.Cover/getcover，声明版本 3。
+    ///
+    /// 只生成 URL，不下载图片；未设置 output_default/is_hr/view，不承诺无封面时一定返回默认图。不要记录或长期保存此 URL。
+    ///
+    /// - Parameters:
+    ///   - artistName: artist_name，艺术家名称。
+    ///   - libraryScope: library，默认 all。
+    /// - Returns: 带 _sid 的 URL，访问后返回图片二进制。
+    /// - Throws: 连接、请求和响应解码失败时抛出底层错误；服务端拒绝时抛出 SynologyError。
     public func artistCoverURL(artistName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)
@@ -52,8 +80,17 @@ public final class CoverApi {
         )
     }
 
-    /// 获取作曲家封面 URL
-    /// Get composer cover URL
+    /// 构造封面图片 URL。
+    ///
+    /// SYNO.AudioStation.Cover/getcover，声明版本 3。
+    ///
+    /// 只生成 URL，不下载图片；未设置 output_default/is_hr/view，不承诺无封面时一定返回默认图。不要记录或长期保存此 URL。
+    ///
+    /// - Parameters:
+    ///   - composerName: composer_name，作曲家名称。
+    ///   - libraryScope: library，默认 all。
+    /// - Returns: 带 _sid 的 URL，访问后返回图片二进制。
+    /// - Throws: 连接、请求和响应解码失败时抛出底层错误；服务端拒绝时抛出 SynologyError。
     public func composerCoverURL(composerName: String, libraryScope: SynologyLibraryScope = .all) async throws -> URL {
         return try await urlBuilder.buildUrl(ApiEndpoint(api: SynologyApi.AudioStation.COVER, method: "getcover", version: 3) {
             ("library", libraryScope.rawValue)

@@ -21,13 +21,21 @@ public final class SearchApi {
         self.apiClient = apiClient
     }
 
-    /// 搜索歌曲、专辑、艺术家
-    /// Search for songs, albums, and artists
+    /// 同时搜索歌曲、专辑和艺术家。
+    ///
+    /// POST SYNO.AudioStation.Search/list，声明版本 1。
+    ///
+    /// 不能把三个分类的 total 视为一份统一分页总数。
+    ///
     /// - Parameters:
-    ///   - keyword: 搜索关键词 / Search keyword
-    ///   - limit: 每页数量 / Page size
-    ///   - offset: 起始偏移量 / Start offset
-    ///   - libraryScope: 媒体库范围 / Library scope
+    ///   - keyword: 搜索关键词。
+    ///   - limit: 各类结果请求的数量限制，默认 1000。
+    ///   - offset: 起始偏移，默认 0。
+    ///   - libraryScope: library，必须指定。
+    ///   - includeFields: additional；nil 时省略，歌曲详情可用 song_tag,song_audio,song_rating。
+    ///   - sort: sort_by/sort_direction；nil 时省略。
+    /// - Returns: AudioStationSearchResults，albums/artists/songs 各有独立 total/items。
+    /// - Throws: 连接、请求和响应解码失败时抛出底层错误；服务端拒绝时抛出 SynologyError。
     public func list(
         keyword: String, limit: Int = 1000, offset: Int = 0,
         libraryScope: SynologyLibraryScope,

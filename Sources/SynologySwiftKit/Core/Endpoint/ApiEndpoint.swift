@@ -112,7 +112,7 @@ extension Array: ApiParameterValueConvertible where Element: ApiParameterValueCo
 /// 使用示例 / Usage example:
 /// ```swift
 /// let result: PinListResult = try await apiClient.request(
-///     ApiEndpoint(api: SynologyApi.AudioStation.pin, method: "list", parameters: ["limit": 10])
+///     ApiEndpoint(api: SynologyApi.AudioStation.PIN, method: "list", parameters: ["limit": 10])
 /// )
 /// ```
 struct ApiEndpoint {

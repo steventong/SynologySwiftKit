@@ -33,7 +33,7 @@ public final class FileStationClient {
         })
     }
 
-    /// Gets SYNO.FileStation.Info (v2), documented in the File Station API Guide.
+    /// Gets SYNO.FileStation.Info (v2).
     /// Requires File Station access; a permission failure alone does not indicate an invalid SID.
     /// Returns the API envelope without invalidating the session. An explicit SID excludes ambient cookies.
     public func info(sid: String? = nil) async throws -> DSMReadResponse {
@@ -48,7 +48,9 @@ public final class FileStationClient {
     /// 删除文件
     /// Delete file
     /// - Parameter path: 文件路径
-    /// - Returns: 删除任务信息
+    /// POST SYNO.FileStation.Delete/start v2，accurate_progress=true。
+    /// - Returns: FileDeletionTask，仅表示任务已启动，不代表文件已经删除；Kit 未封装任务状态查询。
+    /// - Throws: 请求错误；taskid 缺失或为空时抛出 SynologyError.api(code: -1)。
     public func delete(path: String) async throws -> FileDeletionTask {
         let delete: DeleteTask = try await apiClient.request(
             ApiEndpoint(api: SynologyApi.FileStation.DELETE, method: "start", version: 2, httpMethod: .post) {

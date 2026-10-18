@@ -26,8 +26,8 @@ protocol SynologyUserLoginProviding {
     /// 使用 Keychain 中保存的凭据进行静默恢复登录
     /// Resume login silently using credentials saved in Keychain
     ///
-    /// 优先尝试 slice 登录（命中缓存 SID 时跳过完整登录的 round-trip）；
-    /// 若 slice 校验失败（缓存 SID 已失效等），内部会自动 fallback 到全量密码登录。
+    /// 优先校验保存的 SID；无 SID 或服务器明确判定会话失效时，使用密码登录。
+    /// 网络、解码或取消错误结束本次恢复，并保留会话。
     /// - Returns: AsyncStream 依次推送登录进度 / AsyncStream yielding login progress
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称，不能改成 App / SDK 名称。
     func login(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress>
@@ -35,8 +35,7 @@ protocol SynologyUserLoginProviding {
     /// 使用 Keychain 中保存的凭据强制执行全量登录
     /// Force a full password re-login using credentials saved in Keychain
     ///
-    /// 用于已知缓存 SID 失效的恢复路径（如 SessionOrchestrator 检测到 session fault 之后），
-    /// 跳过 slice 校验直接执行 `SYNO.API.Auth.login`，避免一次注定失败的 round-trip。
+    /// 发现连接并刷新 API 路由后，直接执行 `SYNO.API.Auth.login`。
     /// - Returns: AsyncStream 依次推送登录进度 / AsyncStream yielding login progress
     /// - Parameter sessionName: 与首次登录相同的 DSM 应用会话名称，不能改成 App / SDK 名称。
     func relogin(sessionName: SynologySessionName) -> AsyncStream<SynologyUserLoginProgress>

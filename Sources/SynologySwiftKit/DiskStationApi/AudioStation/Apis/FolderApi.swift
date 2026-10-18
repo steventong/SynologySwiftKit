@@ -18,13 +18,19 @@ public final class FolderApi {
         self.apiClient = apiClient
     }
 
-    /// 查询文件夹内容列表
-    /// Query folder content list
+    /// 分页浏览目录，或递归读取目录歌曲。
+    ///
+    /// GET SYNO.AudioStation.Folder/list，声明版本 3；空根目录递归改用 Song/list v3 POST。
+    ///
+    /// 固定 library=all，展开 song_tag,song_audio,song_rating。普通浏览可混合目录与歌曲，不能将每个 item 都当成歌曲。
+    ///
     /// - Parameters:
-    ///   - id: 文件夹 ID，为 nil 时查询根目录 / Folder ID, nil for root directory
-    ///   - recursive: 由服务端展开指定文件夹的子目录歌曲（v3）；根目录通过 Song.list 查询，保留相同分页参数。
-    ///   - limit: 每页数量 / Page size
-    ///   - offset: 起始偏移量 / Start offset
+    ///   - id: 文件夹 ID；nil 或空字符串表示根目录。
+    ///   - limit: 每页数量，默认 200。
+    ///   - offset: 起始偏移，默认 0。
+    ///   - recursive: 默认 false；指定目录时发送 true/false 字符串；空根目录递归查询 library=all 的歌曲。
+    /// - Returns: SynologyPage<Folder>，普通请求映射 data.total/items；根目录递归由 Song 转为 Folder。
+    /// - Throws: 连接、请求和响应解码失败时抛出底层错误；服务端拒绝时抛出 SynologyError。
     public func list(
         id: String?,
         limit: Int = 200,

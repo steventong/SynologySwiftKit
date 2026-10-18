@@ -24,8 +24,8 @@ final class FoundationAndUtilityTests: XCTestCase {
         let provider = TestApiInfoProvider(nodes: [api.name: ApiInfoNode(path: "AudioStation/folder.cgi", minVersion: 1, maxVersion: 3, requestFormat: nil)])
         let resolver = ApiEndpointResolver(apiInfoProvider: { provider })
         let factory = ApiRequestFactory(connectionProvider: { (.lan, "https://nas.invalid") }, sessionProvider: { nil })
-        for requestedVersion in [2, 3, 4] {
-            let expected = String(min(requestedVersion, 3))
+        for requestedVersion in [1, 2, 3] {
+            let expected = String(requestedVersion)
             for endpoint in [ApiEndpoint.get(api: api, method: "list", version: requestedVersion), ApiEndpoint.post(api: api, method: "list", version: requestedVersion)] {
                 let resolved = try await resolver.resolve(endpoint)
                 let request = try await factory.makeRequest(endpoint: endpoint, resolved: resolved)
@@ -33,6 +33,24 @@ final class FoundationAndUtilityTests: XCTestCase {
                 XCTAssertTrue(encoded.split(separator: "&").contains(Substring("version=\(expected)")))
                 let publicURL = try await factory.makeURL(endpoint: endpoint, resolved: resolved)
                 XCTAssertEqual(URLComponents(url: publicURL, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "version" }?.value, expected)
+            }
+        }
+    }
+
+    func testUnsupportedDeclaredVersionsAreRejected() async throws {
+        let api = SynologyApi.AudioStation.FOLDER
+        let provider = TestApiInfoProvider(nodes: [api.name: ApiInfoNode(path: "AudioStation/folder.cgi", minVersion: 2, maxVersion: 3, requestFormat: nil)])
+        let resolver = ApiEndpointResolver(apiInfoProvider: { provider })
+        for version in [1, 4] {
+            for endpoint in [ApiEndpoint.get(api: api, method: "list", version: version), ApiEndpoint.post(api: api, method: "list", version: version)] {
+                do {
+                    _ = try await resolver.resolve(endpoint)
+                    XCTFail("Unsupported version must fail resolution")
+                } catch let SynologyError.api(code, message) {
+                    XCTAssertEqual(code, 104)
+                    XCTAssertTrue(message.contains("version \(version)"))
+                    XCTAssertTrue(message.contains("2...3"))
+                }
             }
         }
     }

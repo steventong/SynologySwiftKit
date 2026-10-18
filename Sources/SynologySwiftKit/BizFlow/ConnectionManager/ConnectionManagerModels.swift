@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Connection Recovery Models
 
-/// 内部地址优化保留会话失效证据，不能把服务器明确失效与网络不可用都折叠为 nil。
+/// QuickConnect 地址刷新结果，区分地址更新、会话失效和连接不可用。
 enum QuickConnectEndpointRefreshOutcome: Sendable {
     case updated(SynologyConnection)
     case requiresRelogin

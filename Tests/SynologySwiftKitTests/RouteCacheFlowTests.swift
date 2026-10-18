@@ -129,6 +129,29 @@ final class RouteCacheFlowTests: XCTestCase {
         }
     }
 
+    func testUnsupportedVersionRefreshesRoutesWithoutSendingTheAPIRequest() async throws {
+        let transport = HTTPClientFactorySpy()
+        var calls: [String] = []
+        transport.handler = { request, _ in
+            calls.append(self.apiName(request))
+            return (
+                try makeJSONData(["success": true, "data": [
+                    "SYNO.DSM.Info": ["path": "entry.cgi", "minVersion": 1, "maxVersion": 1]
+                ]]),
+                makeHTTPURLResponse(url: try XCTUnwrap(request.url))
+            )
+        }
+        let client = makeClient(transport, MockKeyValueStorage(), makeKeyChainStorage(service: UUID().uuidString))
+        client.configureConnection(type: .custom_domain, url: "https://nas.local", sid: "test-sid")
+        do {
+            _ = try await client.system.dsmInfo.query()
+            XCTFail("Unsupported declared version must fail")
+        } catch let SynologyError.api(code, _) {
+            XCTAssertEqual(code, 104)
+        }
+        XCTAssertEqual(calls, ["SYNO.API.Info", "SYNO.API.Info"])
+    }
+
     private func login(_ client: SynologyClient, sessionName: SynologySessionName = .audioStation, otp: String? = nil, server: String = "https://nas.local") async -> Bool {
         for await event in client.flows.userLogin.login(sessionName: sessionName, server: server, username: "tester", password: "secret", otpCode: otp) {
             if case .completed = event { return true }

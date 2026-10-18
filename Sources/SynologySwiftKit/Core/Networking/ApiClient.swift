@@ -98,6 +98,7 @@ final class ApiClient: ApiClientProviding {
     func request<T: Decodable>(_ endpoint: ApiEndpoint) async throws -> T {
         let stamp = try await sessionOperations.requestStamp()
         var refreshedRoutes = false
+        // 路由错误时刷新后最多重试一次；成功直接返回，其他错误或重试失败则抛出，结束循环。
         while true {
             do {
                 let (response, request): (SynologyResponse<T>, URLRequest) = try await sendApiRequestWithRequest(

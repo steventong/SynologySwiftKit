@@ -90,7 +90,7 @@ final class StorageServiceTests: XCTestCase {
         XCTAssertEqual(storage.getDeviceInfo()?.1, "phone")
     }
 
-    func testSensitiveStoragePreservesExistingAccountsAndUsesNewHistoryAccount() {
+    func testSensitiveStorageWritesEachValueToItsKeychainAccount() {
         keychain.saveCredentials(server: "demo.local", username: "user", password: "pwd", usesHTTPS: true)
         keychain.saveSessionInfo(sid: "sid-123", did: "did-456")
         keychain.saveConnectionInfo(url: "https://demo.local:5001", typeString: "lan")

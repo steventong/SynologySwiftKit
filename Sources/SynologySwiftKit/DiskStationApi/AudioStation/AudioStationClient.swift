@@ -14,7 +14,8 @@ import Foundation
 ///
 /// 使用示例 / Usage:
 /// ```swift
-/// let audioStation = AudioStationClient(apiClient: client.apiClient)
+/// let client = SynologyClientFactory.make()
+/// let audioStation = client.audioStation
 /// let page = try await audioStation.pins.list()
 /// let items = page.items
 /// let recentAlbums = try await audioStation.albums.list(
@@ -82,12 +83,16 @@ public final class AudioStationClient {
     /// NAS 远程播放器
     public let remotePlayers: RemotePlayerApi
 
-    /// Query the music library count; returns -1 when the query fails.
+    /// 查询 shared 媒体库的歌曲总数；使用 Song/list v3，失败返回 -1。
     public func queryTotalSongsCount() async -> Int {
         await songQuery.queryTotalSongsCount()
     }
 
-    /// Stream all song batches using the Audio Station module.
+    /// 分批查询 shared 媒体库，按任务完成顺序返回进度。
+    /// - Parameters:
+    ///   - batchSize: 每批数量，默认 500；必须大于 0。
+    ///   - concurrency: 同时执行的批次数，默认 3；必须大于 0。
+    /// - Returns: 查询进度流；completed 只累计成功批次，调用者仍须检查 batchFailed。
     public func queryAllSongs(batchSize: Int = 500, concurrency: Int = 3) -> AsyncStream<QueryAllSongsProgress> {
         songQuery.queryAllSongs(batchSize: batchSize, concurrency: concurrency)
     }

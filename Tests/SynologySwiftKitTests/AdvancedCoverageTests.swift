@@ -146,7 +146,7 @@ final class AdvancedCoverageTests: XCTestCase {
 
         do {
             let _: SearchResult = try await client.request(
-                ApiEndpoint(api: SynologyApi.AudioStation.SEARCH, method: "list", version: 99, httpMethod: .get, parameters: ["keyword": ApiParameterValue.string("五月天")], sidOnQuery: false, sidOnCookie: false)
+                ApiEndpoint(api: SynologyApi.AudioStation.SEARCH, method: "list", version: 2, httpMethod: .get, parameters: ["keyword": ApiParameterValue.string("五月天")], sidOnQuery: false, sidOnCookie: false)
             )
             XCTFail("Expected mapped business error")
         } catch let SynologyError.api(code, message) {
