@@ -138,8 +138,10 @@ public final class SynologyClient {
     }
 
     /// Create an ordered streaming or durable background media transport with the same certificate policy as login.
+    /// 每次都新建独立的传输会话，调用方可以把它整个交给别的线程或 actor 持有。
+    /// Each call creates an independent session that the caller may hand off to another isolation domain.
     public func makeMediaTransferSession(configuration: SynologyMediaTransferConfiguration, delegateQueue: OperationQueue,
-                                         delegate: any SynologyMediaTransferSessionDelegate) -> SynologyMediaTransferSession {
+                                         delegate: any SynologyMediaTransferSessionDelegate) -> sending SynologyMediaTransferSession {
         apiClient.makeMediaTransferSession(configuration: configuration, delegateQueue: delegateQueue, delegate: delegate)
     }
 

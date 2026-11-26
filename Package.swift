@@ -32,10 +32,18 @@ let package = Package(
             ],
             resources: [
                 .process("Resources")
+            ],
+            swiftSettings: [
+                // 异步方法默认在调用方所在线程执行，App 在主线程调用时不用跨线程传递非并发安全的客户端对象。
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault")
             ]
         ),
         .testTarget(
             name: "SynologySwiftKitTests",
-            dependencies: ["SynologySwiftKit"]),
+            dependencies: ["SynologySwiftKit"],
+            swiftSettings: [
+                // 与主 target 保持一致，测试替身才能匹配协议里的异步闭包签名。
+                .enableUpcomingFeature("NonisolatedNonsendingByDefault")
+            ]),
     ]
 )

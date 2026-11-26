@@ -20,7 +20,9 @@ struct ApiResponseDecoder {
     ///   - `SynologyError.network("Invalid response")` 如果 response 不是 HTTPURLResponse / if response is not HTTPURLResponse
     ///   - `SynologyError.network("Invalid HTTP status: \(code)")` 如果 HTTP 状态码非 2xx / if status code is not 2xx
     ///   - `SynologyError.network("Decoding failed: ...")` 如果 JSON 解码失败 / if JSON decoding fails
-    func decode<Value: Decodable>(_ type: Value.Type, from data: Data, response: URLResponse) throws -> Value {
+    /// 大列表解码耗时明显，固定放到后台执行，避免调用方在主线程时卡界面。
+    @concurrent
+    func decode<Value: Decodable>(_ type: Value.Type, from data: Data, response: URLResponse) async throws -> Value {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw SynologyError.network(message: "Invalid response")
         }

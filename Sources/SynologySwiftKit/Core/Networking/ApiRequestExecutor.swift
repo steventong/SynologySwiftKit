@@ -78,7 +78,7 @@ final class ApiRequestExecutor {
             serverTrustPolicy: serverTrustPolicy,
             validateState: validateState
         )
-        return try responseDecoder.decode(Value.self, from: data, response: response)
+        return try await responseDecoder.decode(Value.self, from: data, response: response)
     }
 
     /// 执行 HTTP 请求并返回经过拦截器处理的原始响应。

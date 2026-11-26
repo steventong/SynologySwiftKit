@@ -149,7 +149,7 @@ final class ApiClient: ApiClientProviding {
 
     func makeMediaTransferSession(configuration: SynologyMediaTransferConfiguration, delegateQueue: OperationQueue,
                                   delegate: any SynologyMediaTransferSessionDelegate,
-                                  factory: MediaTransferFactory = defaultMediaTransferFactory) -> SynologyMediaTransferSession {
+                                  factory: MediaTransferFactory = defaultMediaTransferFactory) -> sending SynologyMediaTransferSession {
         SynologyMediaTransferSession(configuration: configuration, delegateQueue: delegateQueue, policy: { [certificateTrustStore] host in
             .userApprovedCertificate(host: host, sha256Fingerprint: certificateTrustStore.approvedFingerprint(forHost: host))
         }, delegate: delegate, factory: factory)
